@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import ShopCard from "@/components/shops/shop-card";
 import Link from "next/link";
+import ShopCard from "@/components/shops/shop-card";
 
 type Shop = {
   id: string;
@@ -27,12 +27,12 @@ export default function FeaturedShops() {
   useEffect(() => {
     const fetchShops = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/shops`);
+        const res = await fetch(`${API_URL}/api/shops?sort=topRated`);
         const data = await res.json();
-
-        setShops(Array.isArray(data) ? data : []);
+        const normalized = Array.isArray(data) ? data : [];
+        setShops(normalized.slice(0, 5));
       } catch (err) {
-        console.error(err);
+        console.error("Failed to fetch featured shops:", err);
       } finally {
         setLoading(false);
       }
@@ -43,12 +43,28 @@ export default function FeaturedShops() {
 
   return (
     <section className="mt-10">
-      <h2 className="text-2xl font-bold text-[#163625] mb-4">
-        Recommended repair partners near you
+      <h2 className="mb-4 text-2xl font-bold text-[#163625]">
+        Featured shops
       </h2>
 
       {loading ? (
-        <p className="text-[#4c6354]">Loading shops...</p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div
+              key={index}
+              className="h-44 animate-pulse rounded-2xl border border-[#d9e5d5] bg-white p-4 shadow-sm"
+            >
+              <div className="h-5 w-2/3 rounded bg-[#e7efe2]" />
+              <div className="mt-3 h-4 w-full rounded bg-[#eef4ea]" />
+              <div className="mt-2 h-4 w-5/6 rounded bg-[#eef4ea]" />
+              <div className="mt-4 h-4 w-1/3 rounded bg-[#e7efe2]" />
+              <div className="mt-5 flex gap-2">
+                <div className="h-6 w-20 rounded-full bg-[#e3efdc]" />
+                <div className="h-6 w-24 rounded-full bg-[#e3efdc]" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {shops.map((shop) => (
@@ -57,9 +73,9 @@ export default function FeaturedShops() {
               href={`/shops?q=${encodeURIComponent(shop.name)}`}
               className="block"
             >
-            <ShopCard shop={shop} />
+              <ShopCard shop={shop} />
             </Link>
-))}
+          ))}
         </div>
       )}
     </section>

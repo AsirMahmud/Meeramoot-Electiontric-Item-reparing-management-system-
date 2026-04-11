@@ -33,22 +33,30 @@ export type AuthPayload = {
   token: string;
   user: {
     id: string;
+    name?: string | null;
     username: string | null;
     email: string | null;
-    role: string;
+    phone?: string | null;
   };
 };
 
-export function getShops() {
-  return request<Shop[]>("/shops", { cache: "no-store" });
-}
-
-export function signup(data: { username: string; email: string; password: string }) {
+export function signup(data: {
+  name: string;
+  username: string;
+  email: string;
+  phone: string;
+  password: string;
+}) {
   return request<AuthPayload>("/auth/signup", {
     method: "POST",
     body: JSON.stringify(data),
   });
 }
+
+export function getShops() {
+  return request<Shop[]>("/shops", { cache: "no-store" });
+}
+
 
 export function login(data: { identifier: string; password: string }) {
   return request<AuthPayload>("/auth/login", {

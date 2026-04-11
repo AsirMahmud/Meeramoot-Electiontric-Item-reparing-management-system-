@@ -21,6 +21,7 @@ export default function Navbar({
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const router = useRouter();
 
@@ -28,12 +29,13 @@ export default function Navbar({
     return firstName?.trim() || "User";
   }, [firstName]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+  const confirmLogout = () => {
+    localStorage.removeItem("meramot.token");
+    localStorage.removeItem("meramot.user");
+    window.dispatchEvent(new Event("meramot-auth-changed"));
     setIsUserMenuOpen(false);
+    setShowLogoutConfirm(false);
     router.push("/");
-    router.refresh();
   };
 
   const handleSearchSubmit = (e: FormEvent) => {
@@ -46,148 +48,173 @@ export default function Navbar({
   };
 
   return (
-    <header className="w-full border-b border-[#c7ddc8] bg-[#d5ead8]">
-      <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 md:px-6">
+    <>
+      <header className="w-full border-b border-[#c7ddc8] bg-[#d5ead8]">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 md:px-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <Link href="/" className="inline-flex items-center">
+              <Image
+                src="/images/meramot.svg"
+                alt="Meramot"
+                width={280}
+                height={100}
+                className="h-16 w-auto object-contain md:h-20"
+                priority
+              />
+            </Link>
 
-        {/* 🔹 ROW 1 */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-wrap items-center gap-3 md:justify-end">
+              {!isLoggedIn ? (
+                <Link
+                  href="/login"
+                  className="rounded-full bg-[#214c34] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+                >
+                  Sign in
+                </Link>
+              ) : (
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setIsUserMenuOpen((prev) => !prev);
+                      setIsLangMenuOpen(false);
+                    }}
+                    className="rounded-full bg-[#214c34] px-6 py-2.5 text-sm font-semibold text-white shadow-sm"
+                  >
+                    {displayName} ▼
+                  </button>
 
-          {/* Logo */}
-          <Link href="/" className="inline-flex items-center">
-            <Image
-              src="/images/meramot.png"
-              alt="Meramot"
-              width={280}
-              height={100}
-              className="h-16 w-auto object-contain md:h-20"
-              priority
-            />
-          </Link>
+                  {isUserMenuOpen && (
+                    <div className="absolute right-0 z-30 mt-2 w-56 rounded-3xl border border-[#d9e5d5] bg-white p-3 shadow-lg">
+                      <Link
+                        href="/account"
+                        className="block rounded-2xl px-4 py-3 text-sm text-[#234733] transition hover:bg-[#eef5ea]"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        Account details
+                      </Link>
 
-          {/* Right side */}
-          <div className="flex flex-wrap items-center gap-3 md:justify-end">
+                      <Link
+                        href="/requests/new"
+                        className="block rounded-2xl px-4 py-3 text-sm text-[#234733] transition hover:bg-[#eef5ea]"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        Make request
+                      </Link>
 
-            {/* Sign in OR user dropdown */}
-            {!isLoggedIn ? (
-              <Link
-                href="/login"
-                className="rounded-full bg-[#214c34] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
-              >
-                Sign in
-              </Link>
-            ) : (
+                      <button
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setShowLogoutConfirm(true);
+                        }}
+                        className="block w-full rounded-2xl px-4 py-3 text-left text-sm text-[#234733] transition hover:bg-[#eef5ea]"
+                      >
+                        Log out
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="relative">
                 <button
                   onClick={() => {
-                    setIsUserMenuOpen((prev) => !prev);
-                    setIsLangMenuOpen(false);
+                    setIsLangMenuOpen((prev) => !prev);
+                    setIsUserMenuOpen(false);
                   }}
-                  className="rounded-full bg-[#214c34] px-6 py-2.5 text-sm font-semibold text-white shadow-sm"
+                  className="rounded-full bg-[#c8ddb4] px-5 py-2.5 text-sm font-medium text-[#1d3528]"
                 >
-                  {displayName} ▼
+                  {language === "bn" ? "বাংলা" : "English"} ▼
                 </button>
 
-                {isUserMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-52 rounded-2xl border border-[#d9e5d5] bg-white p-2 shadow-lg z-30">
-
-                    <Link
-                      href="/account"
-                      className="block rounded-xl px-4 py-2 text-sm text-[#234733] hover:bg-[#eef5ea]"
-                      onClick={() => setIsUserMenuOpen(false)}
+                {isLangMenuOpen && (
+                  <div className="absolute right-0 z-30 mt-2 w-40 rounded-2xl border border-[#d9e5d5] bg-white p-2 shadow-lg">
+                    <button
+                      onClick={() => {
+                        onLanguageChange?.("en");
+                        setIsLangMenuOpen(false);
+                      }}
+                      className="block w-full rounded-xl px-4 py-2 text-left text-sm hover:bg-[#eef5ea]"
                     >
-                      Account details
-                    </Link>
-
-                    <Link
-                      href="/requests/new"
-                      className="block rounded-xl px-4 py-2 text-sm text-[#234733] hover:bg-[#eef5ea]"
-                      onClick={() => setIsUserMenuOpen(false)}
-                    >
-                      Make request
-                    </Link>
+                      English
+                    </button>
 
                     <button
-                      onClick={handleLogout}
-                      className="block w-full rounded-xl px-4 py-2 text-left text-sm text-[#234733] hover:bg-[#eef5ea]"
+                      onClick={() => {
+                        onLanguageChange?.("bn");
+                        setIsLangMenuOpen(false);
+                      }}
+                      className="block w-full rounded-xl px-4 py-2 text-left text-sm hover:bg-[#eef5ea]"
                     >
-                      Log out
+                      বাংলা
                     </button>
                   </div>
                 )}
               </div>
-            )}
+            </div>
+          </div>
 
-            {/* Language dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => {
-                  setIsLangMenuOpen((prev) => !prev);
-                  setIsUserMenuOpen(false);
-                }}
-                className="rounded-full bg-[#c8ddb4] px-5 py-2.5 text-sm font-medium text-[#1d3528]"
-              >
-                {language === "bn" ? "বাংলা" : "English"} ▼
-              </button>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-wrap items-center gap-4 text-[#1d3528] font-semibold">
+              <Link href="/shops?category=COURIER_PICKUP" className="hover:underline">
+                Courier Pickup
+              </Link>
 
-              {isLangMenuOpen && (
-                <div className="absolute right-0 mt-2 w-40 rounded-2xl border border-[#d9e5d5] bg-white p-2 shadow-lg z-30">
-                  <button
-                    onClick={() => {
-                      onLanguageChange?.("en");
-                      setIsLangMenuOpen(false);
-                    }}
-                    className="block w-full rounded-xl px-4 py-2 text-left text-sm hover:bg-[#eef5ea]"
-                  >
-                    English
-                  </button>
+              <Link href="/shops?category=IN_SHOP_REPAIR" className="hover:underline">
+                In-shop Repair
+              </Link>
 
-                  <button
-                    onClick={() => {
-                      onLanguageChange?.("bn");
-                      setIsLangMenuOpen(false);
-                    }}
-                    className="block w-full rounded-xl px-4 py-2 text-left text-sm hover:bg-[#eef5ea]"
-                  >
-                    বাংলা
-                  </button>
-                </div>
-              )}
+              <Link href="/shops?category=SPARE_PARTS" className="hover:underline">
+                Spare Parts
+              </Link>
             </div>
 
+            <form onSubmit={handleSearchSubmit} className="w-full md:w-[520px]">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search shops, parts, devices, or repair types"
+                className="w-full rounded-xl border-2 border-[#2f4030] bg-[#a9bb83] px-5 py-3 text-sm text-[#183325] shadow-sm outline-none placeholder:text-[#2f4030]"
+              />
+            </form>
           </div>
         </div>
+      </header>
 
-        {/* 🔹 ROW 2 */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+            onClick={() => setShowLogoutConfirm(false)}
+          />
 
-          {/* Categories */}
-          <div className="flex flex-wrap items-center gap-4 text-[#1d3528] font-semibold">
-            <Link href="/shops?category=COURIER_PICKUP" className="hover:underline">
-              Courier Pickup
-            </Link>
+          <div className="relative z-[101] w-[90%] max-w-md rounded-[2rem] border border-[#cfe0c6] bg-[#dff0dc] p-8 shadow-2xl">
+            <h2 className="text-center text-2xl font-bold text-[#214c34]">
+              Are you sure?
+            </h2>
 
-            <Link href="/shops?category=IN_SHOP_REPAIR" className="hover:underline">
-              In-shop Repair
-            </Link>
+            <p className="mt-3 text-center text-sm text-[#355541]">
+              You will be logged out of your account.
+            </p>
 
-            <Link href="/shops?category=SPARE_PARTS" className="hover:underline">
-              Spare Parts
-            </Link>
+            <div className="mt-6 flex items-center justify-center gap-4">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="rounded-full border border-[#214c34] bg-white px-6 py-2.5 text-sm font-semibold text-[#214c34] transition hover:bg-[#f7fbf5]"
+              >
+                No
+              </button>
+
+              <button
+                onClick={confirmLogout}
+                className="rounded-full bg-[#214c34] px-6 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+              >
+                Yes
+              </button>
+            </div>
           </div>
-
-          {/* Search */}
-          <form onSubmit={handleSearchSubmit} className="w-full md:w-[520px]">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search shops, parts, devices, or repair types"
-              className="w-full rounded-xl border-2 border-[#2f4030] bg-[#a9bb83] px-5 py-3 text-sm text-[#183325] shadow-sm outline-none placeholder:text-[#2f4030]"
-            />
-          </form>
-
         </div>
-      </div>
-    </header>
+      )}
+    </>
   );
 }
