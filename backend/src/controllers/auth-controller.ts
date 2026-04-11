@@ -18,22 +18,23 @@ function signToken(user: { id: string; username: string; email: string }) {
 
 export async function signup(req: Request, res: Response) {
   try {
-    const { username, email, password, name } = req.body as {
+    const { name, username, email, phone, password } = req.body as {
+      name?: string;
       username?: string;
       email?: string;
+      phone?: string;
       password?: string;
-      name?: string;
     };
 
-    if (!username || !email || !password) {
+    if (!name || !username || !email || !phone || !password) {
       return res.status(400).json({
-        message: "username, email, and password are required",
+        message: "name, username, email, phone, and password are required",
       });
     }
 
     const existing = await prisma.user.findFirst({
       where: {
-        OR: [{ username }, { email }],
+        OR: [{ username: username.trim() }, { email: email.trim() }],
       },
       select: { id: true },
     });
@@ -48,17 +49,18 @@ export async function signup(req: Request, res: Response) {
 
     const user = await prisma.user.create({
       data: {
-        username,
-        email,
+        name: name.trim(),
+        username: username.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
         passwordHash,
-        name: name ?? username,
       },
       select: {
         id: true,
+        name: true,
         username: true,
         email: true,
-        name: true,
-        createdAt: true,
+        phone: true,
       },
     });
 
@@ -90,7 +92,7 @@ export async function login(req: Request, res: Response) {
 
     const user = await prisma.user.findFirst({
       where: {
-        OR: [{ email: identifier }, { username: identifier }],
+        OR: [{ email: identifier.trim() }, { username: identifier.trim() }],
       },
     });
 
@@ -111,17 +113,14 @@ export async function login(req: Request, res: Response) {
       token,
       user: {
         id: user.id,
+        name: user.name,
         username: user.username,
         email: user.email,
-        name: user.name,
+        phone: user.phone,
       },
     });
   } catch (error) {
     console.error("login error:", error);
     return res.status(500).json({ message: "Server error" });
   }
-}
-
-export async function me(req: Request, res: Response) {
-  return res.status(501).json({ message: "Not implemented yet" });
 }
