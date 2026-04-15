@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import prisma from "../models/prisma.js";
-import { env } from "../config/env.js";
+import prisma from "../models/prisma";
+import { env } from "../config/env";
 
 function signToken(user: { id: string; username: string; email: string }) {
   return jwt.sign(
@@ -12,7 +12,7 @@ function signToken(user: { id: string; username: string; email: string }) {
       email: user.email,
     },
     env.jwtSecret,
-    { expiresIn: "7d" },
+    { expiresIn: "7d" }
   );
 }
 
@@ -32,12 +32,9 @@ export async function signup(req: Request, res: Response) {
       });
     }
 
-    const cleanUsername = username.trim();
-    const cleanEmail = email.trim().toLowerCase();
-
     const existing = await prisma.user.findFirst({
       where: {
-        OR: [{ username: cleanUsername }, { email: cleanEmail }],
+        OR: [{ username: username.trim() }, { email: email.trim() }],
       },
       select: { id: true },
     });
@@ -53,8 +50,8 @@ export async function signup(req: Request, res: Response) {
     const user = await prisma.user.create({
       data: {
         name: name.trim(),
-        username: cleanUsername,
-        email: cleanEmail,
+        username: username.trim(),
+        email: email.trim(),
         phone: phone.trim(),
         passwordHash,
       },
@@ -93,11 +90,9 @@ export async function login(req: Request, res: Response) {
       });
     }
 
-    const cleanIdentifier = identifier.trim();
-
     const user = await prisma.user.findFirst({
       where: {
-        OR: [{ email: cleanIdentifier.toLowerCase() }, { username: cleanIdentifier }],
+        OR: [{ email: identifier.trim() }, { username: identifier.trim() }],
       },
     });
 
@@ -122,7 +117,6 @@ export async function login(req: Request, res: Response) {
         username: user.username,
         email: user.email,
         phone: user.phone,
-        role: user.role,
       },
     });
   } catch (error) {
@@ -147,6 +141,66 @@ export async function checkUsername(req: Request, res: Response) {
     return res.json({ available: !existing });
   } catch (error) {
     console.error("checkUsername error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+export async function googleExchange(req: Request, res: Response) {
+  try {
+    const { email, name } = req.body as {
+      email?: string;
+      name?: string;
+      image?: string;
+    };
+
+    if (!email) {
+      return res.status(400).json({ message: "email is required" });
+    }
+
+    let user = await prisma.user.findFirst({
+      where: { email: email.trim() },
+    });
+
+    if (!user) {
+      const baseUsername = email.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "") || "user";
+      let username = baseUsername;
+      let counter = 1;
+
+      while (
+        await prisma.user.findFirst({
+          where: { username },
+          select: { id: true },
+        })
+      ) {
+        username = `${baseUsername}${counter++}`;
+      }
+
+      user = await prisma.user.create({
+        data: {
+          name: name?.trim() || baseUsername,
+          username,
+          email: email.trim(),
+          phone: `temp-${Date.now()}`,
+          passwordHash: await bcrypt.hash(Math.random().toString(36), 10),
+        },
+      });
+    }
+
+    const token = signToken(user);
+
+    return res.json({
+      message: "Google exchange successful",
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        phone: user.phone,
+      },
+    });
+  } catch (error) {
+    console.error("googleExchange error:", error);
     return res.status(500).json({ message: "Server error" });
   }
 }

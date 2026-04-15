@@ -8,29 +8,39 @@ import PopularCategories from "@/components/home/PopularCategories";
 import RecentlyViewed from "@/components/home/RecentlyViewed";
 import SidebarFilters from "@/components/home/SidebarFilters";
 import OfferCarousel from "@/components/home/OfferCarousel";
-import { getShops, type ShopSummary } from "@/lib/api";
-import { fallbackShops } from "@/lib/mock-data";
+import { getShops } from "@/lib/api";
 
 export default function HomePage() {
-  const [shops, setShops] = useState<ShopSummary[]>(fallbackShops);
+  const [shops, setShops] = useState([]);
+  const [shopsError, setShopsError] = useState<string | null>(null);
+  const [shopsLoading, setShopsLoading] = useState(true);
   const [language, setLanguage] = useState<"en" | "bn">("en");
   const { data: session } = useSession();
 
   useEffect(() => {
     async function loadShops() {
       try {
-        const data = await getShops({ take: 12 });
+        setShopsLoading(true);
+        const data = await getShops();
         setShops(data);
-      } catch {
-        setShops(fallbackShops);
+        setShopsError(null);
+      } catch (err) {
+        setShops([]);
+        setShopsError("Could not load shops. Check that the backend is running and the API is configured correctly.");
+      } finally {
+        setShopsLoading(false);
       }
     }
-
-    void loadShops();
+  
+    loadShops();
   }, []);
 
   const firstName = useMemo(() => {
-    return session?.user?.name?.trim()?.split(" ")[0] || (session?.user as { username?: string } | undefined)?.username?.trim()?.split(" ")[0] || "User";
+    return (
+      session?.user?.name?.trim()?.split(" ")[0] ||
+      (session?.user as any)?.username?.trim()?.split(" ")[0] ||
+      "User"
+    );
   }, [session]);
 
   return (
@@ -43,7 +53,7 @@ export default function HomePage() {
       />
 
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 md:px-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <SidebarFilters />
+        <SidebarFilters targetPath="/shops" />
 
         <div className="space-y-8">
           <OfferCarousel />

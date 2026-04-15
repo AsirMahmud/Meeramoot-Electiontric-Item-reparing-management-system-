@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "@uploadthing/react/styles.css";
 
 :root {
   --background: #E4FCD5;

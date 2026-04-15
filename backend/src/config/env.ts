@@ -12,9 +12,11 @@ export const env = {
   databaseUrl: required("DATABASE_URL"),
   frontendOrigin: process.env.FRONTEND_ORIGIN ?? "http://localhost:3000",
   jwtSecret: process.env.JWT_SECRET ?? "dev-secret",
-  /** Separate signing key for delivery personnel tokens (must not match jwtSecret in production). */
+  enableEmailNotifications: process.env.ENABLE_EMAIL_NOTIFICATIONS === "true",
+  resendApiKey: process.env.RESEND_API_KEY ?? "",
+  emailFrom: process.env.EMAIL_FROM ?? "",
+
   jwtSecretDelivery: process.env.JWT_SECRET_DELIVERY ?? "dev-delivery-secret",
-  /** Separate signing key for delivery operations admin (must not match other secrets in production). */
   jwtSecretDeliveryAdmin:
     process.env.JWT_SECRET_DELIVERY_ADMIN ?? "dev-delivery-admin-secret",
   smtpHost: process.env.SMTP_HOST,

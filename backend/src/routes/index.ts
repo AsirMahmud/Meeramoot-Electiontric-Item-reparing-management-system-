@@ -1,11 +1,12 @@
 import { Router } from "express";
-import authRoutes from "./auth-routes.js";
-import deliveryAdminAuthRoutes from "./delivery-admin-auth-routes.js";
-import deliveryAdminRoutes from "./delivery-admin-routes.js";
-import deliveryAuthRoutes from "./delivery-auth-routes.js";
-import deliveryRoutes from "./delivery-routes.js";
-import shopRoutes from "./shop-routes.js";
-import { APP_DISPLAY_NAME, APP_SLUG } from "../config/app.js";
+import authRoutes from "./auth-routes";
+import shopRoutes from "./shop-routes";
+import notificationRoutes from "./notification-routes";
+import { APP_DISPLAY_NAME, APP_SLUG } from "../config/app";
+import profileRoutes from "./profile-routes.js";
+
+import requestRoutes from "./request-routes.js";
+
 
 const router = Router();
 
@@ -18,10 +19,9 @@ router.get("/health", (_req, res) => {
 });
 
 router.use("/auth", authRoutes);
-router.use("/delivery/auth", deliveryAuthRoutes);
-router.use("/delivery", deliveryRoutes);
-router.use("/delivery-admin/auth", deliveryAdminAuthRoutes);
-router.use("/delivery-admin", deliveryAdminRoutes);
 router.use("/shops", shopRoutes);
+router.use("/profile", profileRoutes);
+router.use("/notifications", notificationRoutes);
+router.use("/requests", requestRoutes);
 
 export default router;
