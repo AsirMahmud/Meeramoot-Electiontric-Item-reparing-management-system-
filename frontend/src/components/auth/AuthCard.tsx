@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { signIn } from "next-auth/react";
-import { checkUsername, signup } from "@/lib/api";
+import { checkUsername, signup, login, getVendorApplicationStatus } from "@/lib/api";
 
 type Mode = "login" | "signup";
 type UsernameStatus = "idle" | "checking" | "available" | "taken";
@@ -109,72 +109,91 @@ export default function AuthCard({ mode }: { mode: Mode }) {
     return () => clearTimeout(timer);
   }, [form.username, isSignup]);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    setLoading(true);
+async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  event.preventDefault();
+  setError("");
+  setLoading(true);
 
-    try {
-      if (isSignup) {
-        if (!form.name.trim()) throw new Error("Full name is required.");
-        if (!form.username.trim()) throw new Error("Username is required.");
-        if (!form.email.trim()) throw new Error("Email is required.");
-        if (!form.phone.trim()) throw new Error("Phone number is required.");
-        if (!form.password) throw new Error("Password is required.");
-        if (usernameStatus === "taken") {
-          throw new Error("Please choose a different username.");
-        }
-        if (!passwordBar.acceptable) {
-          throw new Error("Please choose a stronger password.");
-        }
-        if (form.password !== form.confirm) {
-          throw new Error("Passwords do not match.");
+  try {
+    if (isSignup) {
+      if (!form.name.trim()) throw new Error("Full name is required.");
+      if (!form.username.trim()) throw new Error("Username is required.");
+      if (!form.email.trim()) throw new Error("Email is required.");
+      if (!form.phone.trim()) throw new Error("Phone number is required.");
+      if (!form.password) throw new Error("Password is required.");
+      if (usernameStatus === "taken") {
+        throw new Error("Please choose a different username.");
+      }
+      if (!passwordBar.acceptable) {
+        throw new Error("Please choose a stronger password.");
+      }
+      if (form.password !== form.confirm) {
+        throw new Error("Passwords do not match.");
+      }
+
+      await signup({
+        name: form.name.trim(),
+        username: form.username.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim(),
+        password: form.password,
+      });
+
+      const loginResult = await signIn("credentials", {
+        identifier: form.email.trim(),
+        password: form.password,
+        redirect: false,
+      });
+
+      if (loginResult?.error) {
+        throw new Error("Signup worked, but automatic login failed.");
+      }
+
+      router.push("/");
+      router.refresh();
+      return;
+    } else {
+      if (!form.email.trim()) {
+        throw new Error("Username or email is required.");
+      }
+      if (!form.password) {
+        throw new Error("Password is required.");
+      }
+
+      const result = await login({
+        identifier: form.email.trim(),
+        password: form.password,
+      });
+
+      localStorage.setItem("access_token", result.token);
+
+      if (result.user.role === "VENDOR") {
+        const vendorStatus = await getVendorApplicationStatus(result.token);
+
+        if (
+          vendorStatus.application.status === "PENDING" ||
+          vendorStatus.application.status === "REJECTED"
+        ) {
+          router.push("/vendor/status");
+          return;
         }
 
-        await signup({
-          name: form.name.trim(),
-          username: form.username.trim(),
-          email: form.email.trim(),
-          phone: form.phone.trim(),
-          password: form.password,
-        });
-
-        const loginResult = await signIn("credentials", {
-          identifier: form.email.trim(),
-          password: form.password,
-          redirect: false,
-        });
-
-        if (loginResult?.error) {
-          throw new Error("Signup worked, but automatic login failed.");
-        }
-      } else {
-        if (!form.email.trim()) {
-          throw new Error("Username or email is required.");
-        }
-        if (!form.password) {
-          throw new Error("Password is required.");
-        }
-
-        const loginResult = await signIn("credentials", {
-          identifier: form.email.trim(),
-          password: form.password,
-          redirect: false,
-        });
-
-        if (loginResult?.error) {
-          throw new Error("Invalid credentials.");
+        if (vendorStatus.application.status === "APPROVED") {
+          router.push("/vendor/onboarding");
+          return;
         }
       }
 
       router.push("/");
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not authenticate.");
-    } finally {
-      setLoading(false);
+      return;
     }
+  } catch (err) {
+    setError(err instanceof Error ? err.message : "Could not authenticate.");
+  } finally {
+    setLoading(false);
   }
+}
 
   async function handleGoogleSignIn() {
     await signIn("google", { callbackUrl: "/" });

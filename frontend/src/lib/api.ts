@@ -87,6 +87,123 @@ export type Shop = {
   phone?: string | null;
   email?: string | null;
 };
+export type VendorApplicationPayload = {
+  ownerName: string;
+  businessEmail: string;
+  phone: string;
+  password: string;
+  confirmPassword: string;
+  shopName: string;
+  tradeLicenseNo?: string;
+  address: string;
+  city?: string;
+  area?: string;
+  specialties?: string[] | string;
+  courierPickup?: boolean;
+  inShopRepair?: boolean;
+  spareParts?: boolean;
+  notes?: string;
+};
+
+export function createVendorApplication(data: VendorApplicationPayload) {
+  return request<{
+    message: string;
+    application: {
+      id: string;
+      userId: string;
+      ownerName: string;
+      businessEmail: string;
+      shopName: string;
+      status: string;
+      createdAt: string;
+    };
+  }>("/vendor/applications", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function vendorLogin(data: { identifier: string; password: string }) {
+  return request<{
+    message: string;
+    token: string;
+    user: {
+      id: string;
+      username: string;
+      email: string;
+      name?: string | null;
+      phone?: string | null;
+      role?: string | null;
+    };
+  }>("/vendor/login", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function getVendorApplicationStatus(token: string) {
+  return request<{
+    application: {
+      id: string;
+      status: "PENDING" | "APPROVED" | "REJECTED";
+      ownerName: string;
+      businessEmail: string;
+      phone?: string | null;
+      shopName: string;
+      tradeLicenseNo?: string | null;
+      address?: string | null;
+      city?: string | null;
+      area?: string | null;
+      specialties?: string[] | null;
+      courierPickup?: boolean | null;
+      inShopRepair?: boolean | null;
+      spareParts?: boolean | null;
+      notes?: string | null;
+      rejectionReason?: string | null;
+      rejectionVisibleUntil?: string | null;
+      createdAt: string;
+    };
+  }>("/vendor/application-status", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+}
+export function updateVendorApplication(
+  token: string,
+  data: {
+    ownerName: string;
+    phone: string;
+    shopName: string;
+    tradeLicenseNo?: string;
+    address: string;
+    city?: string;
+    area?: string;
+    specialties?: string[] | string;
+    courierPickup?: boolean;
+    inShopRepair?: boolean;
+    spareParts?: boolean;
+    notes?: string;
+  }
+) {
+  return request<{
+    message: string;
+    application: {
+      id: string;
+      status: string;
+      ownerName: string;
+      businessEmail: string;
+      shopName: string;
+      createdAt: string;
+    };
+  }>("/vendor/application-status", {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+}
 
 /* =========================================================
    AUTH
@@ -119,7 +236,18 @@ export function signup(data: {
 }
 
 export function login(data: { identifier: string; password: string }) {
-  return request<AuthPayload>("/auth/login", {
+  return request<{
+    message: string;
+    token: string;
+    user: {
+      id: string;
+      username: string;
+      email: string;
+      name?: string | null;
+      phone?: string | null;
+      role?: string | null;
+    };
+  }>("/auth/login", {
     method: "POST",
     body: JSON.stringify(data),
   });

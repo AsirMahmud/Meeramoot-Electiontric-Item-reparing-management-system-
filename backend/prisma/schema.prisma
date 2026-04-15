@@ -18,6 +18,13 @@ enum UserStatus {
   DELETED
 }
 
+enum UserRole {
+  CUSTOMER
+  VENDOR
+  ADMIN
+  DELIVERY
+}
+
 enum VendorApplicationStatus {
   PENDING
   APPROVED
@@ -141,38 +148,46 @@ model User {
   lng             Float?
   isEmailVerified Boolean    @default(false)
   status          UserStatus @default(ACTIVE)
+  role            UserRole   @default(CUSTOMER)
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
-  repairRequests RepairRequest[]
-  payments       Payment[]
-  ratings        Rating[]
-  recentlyViewed RecentlyViewed[]
-  supportTickets SupportTicket[]
+  repairRequests      RepairRequest[]
+  payments            Payment[]
+  ratings             Rating[]
+  recentlyViewed      RecentlyViewed[]
+  supportTickets      SupportTicket[]
+  vendorApplications  VendorApplication[]
+  carts Cart[]
 }
 
 model VendorApplication {
-  id             String                  @id @default(cuid())
-  ownerName      String
-  businessEmail  String                  @unique
-  phone          String
-  shopName       String
-  tradeLicenseNo String?
-  address        String
-  city           String?
-  area           String?
-  lat            Float?
-  lng            Float?
-  specialties    String[]
-  courierPickup  Boolean                 @default(false)
-  inShopRepair   Boolean                 @default(true)
-  spareParts     Boolean                 @default(false)
-  notes          String?
-  status         VendorApplicationStatus @default(PENDING)
-  createdAt      DateTime                @default(now())
-  updatedAt      DateTime                @updatedAt
-}
+  id                    String                  @id @default(cuid())
+  userId                String                  @unique
+  ownerName             String
+  businessEmail         String                  @unique
+  phone                 String
+  shopName              String
+  tradeLicenseNo        String?
+  address               String
+  city                  String?
+  area                  String?
+  lat                   Float?
+  lng                   Float?
+  specialties           String[]
+  courierPickup         Boolean                 @default(false)
+  inShopRepair          Boolean                 @default(true)
+  spareParts            Boolean                 @default(false)
+  notes                 String?
+  status                VendorApplicationStatus @default(PENDING)
+  rejectionReason       String?
+  rejectedAt            DateTime?
+  rejectionVisibleUntil DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
 
+  user                  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
 model Shop {
   id           String         @id @default(cuid())
   name         String
@@ -203,6 +218,7 @@ model Shop {
   bids       Bid[]
   ratings    Rating[]
   repairJobs RepairJob[]
+  carts Cart[]
 }
 
 model RepairRequest {
