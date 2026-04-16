@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../models/prisma.js";
 import { env } from "../config/env.js";
-
+import { isAdminEmail } from "../config/admin.js";
 function signToken(user: {
   id: string;
   username: string;
@@ -53,13 +53,17 @@ export async function signup(req: Request, res: Response) {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     const user = await prisma.user.create({
       data: {
         name: name.trim(),
         username: username.trim(),
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         phone: phone.trim(),
         passwordHash,
+        role: isAdminEmail(normalizedEmail) ? "ADMIN" : "CUSTOMER",
+        isEmailVerified: true,
       },
       select: {
         id: true,
@@ -154,7 +158,6 @@ export async function checkUsername(req: Request, res: Response) {
     return res.status(500).json({ message: "Server error" });
   }
 }
-
 export async function googleExchange(req: Request, res: Response) {
   try {
     const { email, name } = req.body as {
@@ -176,6 +179,7 @@ export async function googleExchange(req: Request, res: Response) {
     if (!user) {
       const baseUsername =
         normalizedEmail.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "") || "user";
+
       let username = baseUsername;
       let counter = 1;
 
@@ -193,8 +197,21 @@ export async function googleExchange(req: Request, res: Response) {
           name: name?.trim() || baseUsername,
           username,
           email: normalizedEmail,
-          phone: `temp-${Date.now()}`,
+          phone: null,
           passwordHash: await bcrypt.hash(Math.random().toString(36), 10),
+          role: isAdminEmail(normalizedEmail) ? "ADMIN" : "CUSTOMER",
+          isEmailVerified: true,
+        },
+      });
+    } else {
+      const shouldBeAdmin = isAdminEmail(normalizedEmail);
+
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          isEmailVerified: true,
+          name: user.name || name?.trim() || user.name,
+          role: shouldBeAdmin ? "ADMIN" : user.role,
         },
       });
     }

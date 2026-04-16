@@ -4,8 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState, FormEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { signOut } from "next-auth/react";
-
+import { signOut, useSession } from "next-auth/react";
 type NavbarProps = {
   isLoggedIn?: boolean;
   firstName?: string;
@@ -20,8 +19,8 @@ const categoryTabs = [
 ] as const;
 
 export default function Navbar({
-  isLoggedIn = false,
-  firstName = "User",
+  isLoggedIn,
+  firstName,
   language = "en",
   onLanguageChange,
 }: NavbarProps) {
@@ -30,15 +29,24 @@ export default function Navbar({
   const [searchQuery, setSearchQuery] = useState("");
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
+  const { data: session } = useSession();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const activeCategory = pathname === "/shops" ? searchParams.get("category") ?? "" : "";
+  const resolvedIsLoggedIn = isLoggedIn ?? !!session?.user;
 
-  const displayName = useMemo(() => {
-    return firstName?.trim() || "User";
-  }, [firstName]);
+  const resolvedFirstName = useMemo(() => {
+  if (firstName?.trim()) return firstName.trim();
+
+    const sessionName =
+      session?.user?.name?.trim()?.split(" ")[0] ||
+      (session?.user as { username?: string } | undefined)?.username?.trim()?.split(" ")[0];
+
+    return sessionName || "User";
+  }, [firstName, session]);
+  const displayName = resolvedFirstName;
 
   const confirmLogout = async () => {
     setIsUserMenuOpen(false);
@@ -72,7 +80,7 @@ export default function Navbar({
             </Link>
 
             <div className="flex flex-wrap items-center gap-3 md:justify-end">
-              {!isLoggedIn ? (
+              {!resolvedIsLoggedIn ? (
                 <Link
                   href="/login"
                   className="rounded-full bg-[#214c34] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
