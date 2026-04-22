@@ -13,7 +13,6 @@ import {
   type Shop,
 } from "@/lib/api";
 
-<<<<<<< HEAD
 function formatPrice(basePrice?: number | null, priceMax?: number | null, pricingType?: string | null) {
   if (pricingType === "INSPECTION_REQUIRED") return "Inspection required";
   if (basePrice == null) return "Contact shop";
@@ -21,10 +20,9 @@ function formatPrice(basePrice?: number | null, priceMax?: number | null, pricin
   if (pricingType === "STARTING_FROM") return `From ৳${basePrice.toLocaleString()}`;
   return `৳${basePrice.toLocaleString()}`;
 }
-=======
+
 function getServiceSummary(service: string) {
   const lower = service.toLowerCase();
->>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
 
   if (lower.includes("screen") || lower.includes("display")) {
     return { estimate: 1800, summary: "Panel check, part replacement, fitting, and post-repair testing." };
