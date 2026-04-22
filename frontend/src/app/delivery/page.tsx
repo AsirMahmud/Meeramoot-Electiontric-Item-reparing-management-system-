@@ -65,7 +65,7 @@ export default function DeliveryDashboard() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-6">
+    <div className="space-y-5">
       {registrationStatus === "PENDING" ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-medium text-amber-900">
           Your delivery partner registration is pending approval. You can sign in, but jobs stay locked until an
@@ -88,8 +88,8 @@ export default function DeliveryDashboard() {
 
       {registrationStatus !== "APPROVED" ? null : (
         <>
-          <div className="grid gap-4 lg:grid-cols-3">
-            <div className="rounded-3xl border border-[#d9e5d5] bg-white p-6 shadow-sm lg:col-span-2">
+          <div className="grid gap-4 xl:grid-cols-3">
+            <div className="rounded-3xl border border-[#d9e5d5] bg-white p-5 shadow-sm xl:col-span-2">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#163625] text-xl font-bold text-[#E4FCD5]">
@@ -107,9 +107,9 @@ export default function DeliveryDashboard() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-[#d9e5d5] bg-white p-6 shadow-sm">
+            <div className="rounded-3xl border border-[#d9e5d5] bg-white p-5 shadow-sm">
               <p className="text-xs font-bold uppercase tracking-wider text-[#163625]/60">Overview</p>
-              <div className="mt-4 space-y-3">
+              <div className="mt-3 space-y-2.5">
                 <div className="flex items-center justify-between rounded-xl bg-[#f6faf3] p-3">
                   <span className="text-sm font-semibold text-[#163625]/80">My active</span>
                   <span className="text-sm font-extrabold text-[#163625]">{myActiveDeliveries.length}</span>
@@ -126,7 +126,7 @@ export default function DeliveryDashboard() {
             <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</div>
           ) : null}
 
-          <section className="rounded-3xl border border-[#d9e5d5] bg-white p-6 shadow-sm">
+          <section className="rounded-3xl border border-[#d9e5d5] bg-white p-5 shadow-sm">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-lg font-extrabold text-[#163625]">My Active Orders</h3>
               <span className="rounded-lg border border-[#d9e5d5] bg-[#f6faf3] px-3 py-1 text-xs font-bold text-[#163625]">
@@ -136,12 +136,12 @@ export default function DeliveryDashboard() {
 
             {loading ? <p className="text-sm text-[#163625]/70">Loading deliveries...</p> : null}
             {!loading && myActiveDeliveries.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[#d9e5d5] bg-[#fafdf8] p-6 text-sm text-[#163625]/70">
+              <div className="rounded-2xl border border-dashed border-[#d9e5d5] bg-[#fafdf8] p-4 text-sm text-[#163625]/70">
                 No accepted active orders yet.
               </div>
             ) : null}
 
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {myActiveDeliveries.map((d) => (
                 <Link
                   key={d.id}
@@ -172,7 +172,7 @@ export default function DeliveryDashboard() {
             </div>
           </section>
 
-          <section className="rounded-3xl border border-[#d9e5d5] bg-white p-6 shadow-sm">
+          <section className="rounded-3xl border border-[#d9e5d5] bg-white p-5 shadow-sm">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-lg font-extrabold text-[#163625]">Available Customer Orders</h3>
               <span className="rounded-lg border border-[#d9e5d5] bg-[#f6faf3] px-3 py-1 text-xs font-bold text-[#163625]">
@@ -187,12 +187,12 @@ export default function DeliveryDashboard() {
             ) : null}
 
             {!loading && availableDeliveries.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[#d9e5d5] bg-[#fafdf8] p-6 text-sm text-[#163625]/70">
+              <div className="rounded-2xl border border-dashed border-[#d9e5d5] bg-[#fafdf8] p-4 text-sm text-[#163625]/70">
                 No unassigned customer orders right now.
               </div>
             ) : null}
 
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {(hasMyActiveDelivery ? [] : availableDeliveries).map((d) => (
                 <div key={d.id} className="rounded-2xl border border-[#d9e5d5] bg-white p-5">
                   <div className="mb-3 flex items-start justify-between gap-3">
