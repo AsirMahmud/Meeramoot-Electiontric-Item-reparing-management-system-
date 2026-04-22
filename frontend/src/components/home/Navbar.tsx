@@ -115,8 +115,16 @@ export default function Navbar({
                         onClick={() => setIsUserMenuOpen(false)}
                       >
                         Make request
-                      </Link>
+                      </Link>    
 
+                      <Link
+                        href="/cart"
+                        className="block rounded-2xl px-4 py-3 text-sm text-[#234733] transition hover:bg-[#eef5ea]"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        View cart
+                      </Link>
+                      
                       <button
                         onClick={() => {
                           setIsUserMenuOpen(false);

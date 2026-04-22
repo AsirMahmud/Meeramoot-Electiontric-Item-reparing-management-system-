@@ -16,6 +16,9 @@ export const env = {
   resendApiKey: process.env.RESEND_API_KEY ?? "",
   emailFrom: process.env.EMAIL_FROM ?? "",
 
+  enableAiChat: process.env.ENABLE_AI_CHAT === "true",
+  geminiApiKey: process.env.GEMINI_API_KEY ?? "",
+
   jwtSecretDelivery: process.env.JWT_SECRET_DELIVERY ?? "dev-delivery-secret",
   jwtSecretDeliveryAdmin:
     process.env.JWT_SECRET_DELIVERY_ADMIN ?? "dev-delivery-admin-secret",
