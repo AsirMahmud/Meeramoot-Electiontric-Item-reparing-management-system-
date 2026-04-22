@@ -1,7 +1,7 @@
 import { DeliveryType, RepairJobStatus, RequestMode, RequestStatus } from "@prisma/client";
 import type { Response } from "express";
 import prisma from "../models/prisma.js";
-import type { AuthedRequest } from "../middleware/auth.js";
+import type { AuthenticatedRequest as AuthedRequest } from "../middleware/require-auth.js";
 import { sendOrderStatusEmail } from "../services/email-service.js";
 
 function normalizeRequestStatus(status?: string): RequestStatus | undefined {

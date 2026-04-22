@@ -9,7 +9,7 @@ type AuthTokenPayload = {
   email?: string;
 };
 
-type AuthenticatedRequest = Request & {
+export type AuthenticatedRequest = Request & {
   user?: {
     id: string;
     role: string;
