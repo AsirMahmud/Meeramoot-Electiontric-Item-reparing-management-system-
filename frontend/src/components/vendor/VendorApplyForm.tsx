@@ -9,6 +9,24 @@ import {
   updateVendorApplication,
 } from "@/lib/api";
 
+type ExistingVendorApplication = {
+  status?: "PENDING" | "APPROVED" | "REJECTED";
+  setupComplete?: boolean;
+  ownerName?: string;
+  businessEmail?: string;
+  phone?: string;
+  shopName?: string;
+  tradeLicenseNo?: string | null;
+  address?: string;
+  city?: string | null;
+  area?: string | null;
+  specialties?: string[];
+  courierPickup?: boolean;
+  inShopRepair?: boolean;
+  spareParts?: boolean;
+  notes?: string | null;
+};
+
 export default function VendorApplyForm() {
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -33,54 +51,73 @@ export default function VendorApplyForm() {
   });
 
   const [loading, setLoading] = useState(false);
+  const [loadingExisting, setLoadingExisting] = useState(true);
   const [error, setError] = useState("");
   const [isEditMode, setIsEditMode] = useState(false);
 
   const passwordsMismatch =
     form.confirmPassword.length > 0 && form.password !== form.confirmPassword;
 
- useEffect(() => {
-  if (status === "loading") return;
+  useEffect(() => {
+    if (status === "loading") return;
 
-  async function loadExisting() {
-    try {
-      if (!token) return;
+    async function loadExisting() {
+      try {
+        if (!token) {
+          setLoadingExisting(false);
+          return;
+        }
 
-      const result = await getVendorApplicationStatus(token);
-      const app = result.application;
+        const result = await getVendorApplicationStatus(token);
+        const app = result.application as ExistingVendorApplication | undefined;
 
-      if (!app) return;
+        if (!app) {
+          setLoadingExisting(false);
+          return;
+        }
 
-      setForm((prev) => ({
-        ...prev,
-        ownerName: app.ownerName || "",
-        businessEmail: app.businessEmail || "",
-        phone: app.phone || "",
-        shopName: app.shopName || "",
-        tradeLicenseNo: app.tradeLicenseNo || "",
-        address: app.address || "",
-        city: app.city || "",
-        area: app.area || "",
-        specialties: Array.isArray(app.specialties)
-          ? app.specialties.join(", ")
-          : "",
-        courierPickup: Boolean(app.courierPickup),
-        inShopRepair:
-          typeof app.inShopRepair === "boolean" ? app.inShopRepair : true,
-        spareParts: Boolean(app.spareParts),
-        notes: app.notes || "",
-      }));
+        if (app.status === "APPROVED") {
+          if (app.setupComplete) {
+            router.replace("/");
+          } else {
+            router.replace("/vendor/setup-shop");
+          }
+          return;
+        }
 
-      if (app.status === "REJECTED" || app.status === "PENDING") {
-        setIsEditMode(true);
+        setForm((prev) => ({
+          ...prev,
+          ownerName: app.ownerName || "",
+          businessEmail: app.businessEmail || "",
+          phone: app.phone || "",
+          shopName: app.shopName || "",
+          tradeLicenseNo: app.tradeLicenseNo || "",
+          address: app.address || "",
+          city: app.city || "",
+          area: app.area || "",
+          specialties: Array.isArray(app.specialties)
+            ? app.specialties.join(", ")
+            : "",
+          courierPickup: Boolean(app.courierPickup),
+          inShopRepair:
+            typeof app.inShopRepair === "boolean" ? app.inShopRepair : true,
+          spareParts: Boolean(app.spareParts),
+          notes: app.notes || "",
+        }));
+
+        if (app.status === "REJECTED" || app.status === "PENDING") {
+          setIsEditMode(true);
+        }
+      } catch {
+        // No existing application yet or not authenticated:
+        // keep the form blank and allow fresh submission.
+      } finally {
+        setLoadingExisting(false);
       }
-    } catch {
-      // no existing application yet
     }
-  }
 
-  loadExisting();
-}, [status, token]);
+    loadExisting();
+  }, [status, token, router]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -108,31 +145,31 @@ export default function VendorApplyForm() {
         throw new Error("Business address is required.");
       }
 
-     if (isEditMode) {
-  if (!token) {
-    throw new Error("Please log in first.");
-  }
+      if (isEditMode) {
+        if (!token) {
+          throw new Error("Please log in first.");
+        }
 
-  await updateVendorApplication(token, {
-    ownerName: form.ownerName,
-    businessEmail: form.businessEmail,
-    phone: form.phone,
-    shopName: form.shopName,
-    tradeLicenseNo: form.tradeLicenseNo || undefined,
-    address: form.address,
-    city: form.city || undefined,
-    area: form.area || undefined,
-    specialties: form.specialties,
-    courierPickup: form.courierPickup,
-    inShopRepair: form.inShopRepair,
-    spareParts: form.spareParts,
-    notes: form.notes || undefined,
-  });
+        await updateVendorApplication(token, {
+          ownerName: form.ownerName.trim(),
+          businessEmail: form.businessEmail.trim(),
+          phone: form.phone.trim(),
+          shopName: form.shopName.trim(),
+          tradeLicenseNo: form.tradeLicenseNo.trim() || undefined,
+          address: form.address.trim(),
+          city: form.city.trim() || undefined,
+          area: form.area.trim() || undefined,
+          specialties: form.specialties,
+          courierPickup: form.courierPickup,
+          inShopRepair: form.inShopRepair,
+          spareParts: form.spareParts,
+          notes: form.notes.trim() || undefined,
+        });
 
-  router.push("/vendor/status");
-  router.refresh();
-  return;
-}
+        router.push("/vendor/status");
+        router.refresh();
+        return;
+      }
 
       if (!form.password) {
         throw new Error("Password is required.");
@@ -147,21 +184,21 @@ export default function VendorApplyForm() {
       }
 
       const result = await createVendorApplication({
-        ownerName: form.ownerName,
-        businessEmail: form.businessEmail,
-        phone: form.phone,
+        ownerName: form.ownerName.trim(),
+        businessEmail: form.businessEmail.trim(),
+        phone: form.phone.trim(),
         password: form.password,
         confirmPassword: form.confirmPassword,
-        shopName: form.shopName,
-        tradeLicenseNo: form.tradeLicenseNo || undefined,
-        address: form.address,
-        city: form.city || undefined,
-        area: form.area || undefined,
+        shopName: form.shopName.trim(),
+        tradeLicenseNo: form.tradeLicenseNo.trim() || undefined,
+        address: form.address.trim(),
+        city: form.city.trim() || undefined,
+        area: form.area.trim() || undefined,
         specialties: form.specialties,
         courierPickup: form.courierPickup,
         inShopRepair: form.inShopRepair,
         spareParts: form.spareParts,
-        notes: form.notes || undefined,
+        notes: form.notes.trim() || undefined,
       });
 
       router.push(
@@ -172,6 +209,14 @@ export default function VendorApplyForm() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (status === "loading" || loadingExisting) {
+    return (
+      <div className="w-full max-w-4xl rounded-[2rem] border border-white/60 bg-white/90 p-8 shadow-2xl backdrop-blur">
+        <p className="text-sm text-muted-foreground">Loading vendor application...</p>
+      </div>
+    );
   }
 
   return (
@@ -186,11 +231,12 @@ export default function VendorApplyForm() {
             : "Apply as a repair shop partner. Your application will be reviewed by the admin team."}
         </p>
       </div>
+
       {isEditMode && (
-      <div className="mb-4 rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
-        Update your previous vendor application and submit again. It will go back to pending review.
-      </div>
-    )}
+        <div className="mb-4 rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+          Update your previous vendor application and submit again. It will go back to pending review.
+        </div>
+      )}
 
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="grid gap-4 md:grid-cols-2">

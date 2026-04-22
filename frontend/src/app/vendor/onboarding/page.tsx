@@ -21,12 +21,15 @@ type VendorStatusPayload = {
   };
   message?: string;
 };
+
 export default function VendorOnboardingPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  const role = (session?.user as { role?: string; accessToken?: string } | undefined)?.role;
-  const token = (session?.user as { accessToken?: string } | undefined)?.accessToken;
+  const role =
+    (session?.user as { role?: string; accessToken?: string } | undefined)?.role;
+  const token =
+    (session?.user as { accessToken?: string } | undefined)?.accessToken;
 
   const [data, setData] = useState<VendorStatusPayload | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(true);
@@ -52,6 +55,13 @@ export default function VendorOnboardingPage() {
         }
 
         const result = await getVendorApplicationStatus(token);
+        const app = result?.application;
+
+        if (app?.status === "APPROVED" && app?.setupComplete) {
+          router.replace("/");
+          return;
+        }
+
         setData(result);
       } catch {
         setData(null);
@@ -77,33 +87,66 @@ export default function VendorOnboardingPage() {
 
   const app = data?.application;
 
+  const heading =
+    app?.status === "APPROVED"
+      ? "Vendor Onboarding"
+      : app?.status === "PENDING"
+        ? "Vendor Application Pending"
+        : app?.status === "REJECTED"
+          ? "Vendor Application Rejected"
+          : "Vendor Application";
+
+  const description =
+    app?.status === "APPROVED"
+      ? "Your application has been approved. Complete your shop setup before you start operating as a vendor."
+      : app?.status === "PENDING"
+        ? "Your vendor application is still under admin review. You can go back to home for now."
+        : app?.status === "REJECTED"
+          ? "Your vendor application was rejected. Review the status page for details and update it if needed."
+          : "Your vendor application status is being checked.";
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-mint-300 via-mint-200 to-mint-50 px-4 py-10">
       <div className="mx-auto max-w-4xl rounded-[2rem] border border-white/60 bg-white/90 p-8 shadow-2xl backdrop-blur">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#58725f]">
           Vendor
         </p>
-        <h1 className="mt-2 text-3xl font-bold text-accent-dark">
-          Vendor Onboarding
-        </h1>
-        <p className="mt-3 text-sm text-slate-600">
-          Your application was approved. This page is now active, so approved vendors
-          will no longer hit a 404. You can expand this into your real vendor setup flow.
-        </p>
+
+        <h1 className="mt-2 text-3xl font-bold text-accent-dark">{heading}</h1>
+
+        <p className="mt-3 text-sm text-slate-600">{description}</p>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">
           <div className="rounded-3xl bg-[#f6faf4] p-5">
-            <h2 className="text-lg font-semibold text-accent-dark">Next steps</h2>
-            <ul className="mt-3 space-y-2 text-sm text-slate-700">
-              <li>Complete shop profile</li>
-              <li>Add specialties / skill tags</li>
-              <li>Configure pickup / repair / spare parts services</li>
-              <li>Review vendor dashboard access</li>
-            </ul>
+            <h2 className="text-lg font-semibold text-accent-dark">Status</h2>
+
+            <div className="mt-4 space-y-3 text-sm text-slate-700">
+              <p>
+                <span className="font-semibold text-slate-900">Application status:</span>{" "}
+                {app?.status || "—"}
+              </p>
+
+              <p>
+                <span className="font-semibold text-slate-900">Shop setup:</span>{" "}
+                {app?.setupComplete ? "Completed" : "Not completed"}
+              </p>
+
+              <p>
+                <span className="font-semibold text-slate-900">Shop visibility:</span>{" "}
+                {app?.isPublic ? "Public" : "Hidden"}
+              </p>
+            </div>
+
+            {app?.status === "REJECTED" && app?.rejectionReason ? (
+              <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {app.rejectionReason}
+              </div>
+            ) : null}
           </div>
 
           <div className="rounded-3xl bg-[#f6faf4] p-5">
             <h2 className="text-lg font-semibold text-accent-dark">Navigation</h2>
+
             <div className="mt-4 flex flex-col gap-3">
               <Link
                 href="/vendor/status"
@@ -112,7 +155,7 @@ export default function VendorOnboardingPage() {
                 View application status
               </Link>
 
-              {app?.status === "APPROVED" ? (
+              {app?.status === "APPROVED" && !app?.setupComplete ? (
                 <Link
                   href="/vendor/setup-shop"
                   className="rounded-2xl bg-accent-dark px-5 py-3 text-center text-sm font-semibold text-white"

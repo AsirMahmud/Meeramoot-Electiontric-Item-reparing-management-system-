@@ -134,7 +134,7 @@ export async function createVendorApplication(req: Request, res: Response) {
           passwordHash,
           name: ownerName.trim(),
           phone: phone.trim(),
-          role: "CUSTOMER",
+          role: "VENDOR",
         },
         select: {
           id: true,
