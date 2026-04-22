@@ -43,8 +43,11 @@ enum UserStatus {
   DELETED
 }
 
+<<<<<<< HEAD
 =======
 >>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
+=======
+>>>>>>> feature/moderation-ui
 enum VendorApplicationStatus {
   PENDING
   APPROVED
@@ -256,19 +259,25 @@ model User {
   lng             Float?
   isEmailVerified Boolean    @default(false)
   status          UserStatus @default(ACTIVE)
-  role            UserRole   @default(CUSTOMER)
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
 <<<<<<< HEAD
+<<<<<<< HEAD
   // customer activity
 =======
 >>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
+=======
+  // customer activity
+>>>>>>> feature/moderation-ui
   repairRequests      RepairRequest[]
   payments            Payment[]
   ratings             Rating[]
   recentlyViewed      RecentlyViewed[]
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> feature/moderation-ui
   supportTickets      SupportTicket[]       @relation("TicketOwner")
   supportMessages     SupportMessage[]      @relation("SupportMessageAuthor")
   disputesOpened      DisputeCase[]         @relation("DisputeOpenedBy")
@@ -279,7 +288,11 @@ model User {
   deliveryReportsMade DeliveryReport[]      @relation("DeliveryReportReporter")
   deliveryReportsOn   DeliveryReport[]      @relation("DeliveryReportAgainst")
   ordersPlaced        EscrowLedger[]        @relation("EscrowCustomer")
+<<<<<<< HEAD
   vendorLedgerEntries EscrowLedger[]        @relation("EscrowVendor")
+=======
+  vendorEarnings      EscrowLedger[]        @relation("EscrowVendor")
+>>>>>>> feature/moderation-ui
   vendorApplications  VendorApplication[]   @relation("VendorApplicant")
   ownedShops          Shop[]                @relation("ShopOwner")
 
@@ -325,6 +338,7 @@ model VendorApplication {
   @@index([applicantUserId])
   @@index([reviewedById])
   @@index([status])
+<<<<<<< HEAD
 =======
   supportTickets      SupportTicket[]
   vendorApplications  VendorApplication[]
@@ -359,6 +373,10 @@ model VendorApplication {
   user                  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
 >>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
 }
+=======
+}
+
+>>>>>>> feature/moderation-ui
 model Shop {
 <<<<<<< HEAD
   id            String         @id @default(cuid())
@@ -404,6 +422,7 @@ model Shop {
 
   @@index([ownerId])
   @@index([isActive])
+<<<<<<< HEAD
 }
 
 model ShopService {
@@ -433,6 +452,8 @@ model ShopService {
   @@unique([shopId, slug])
   @@index([shopId])
   @@index([isActive, sortOrder])
+=======
+>>>>>>> feature/moderation-ui
 }
 
 model RepairRequest {
@@ -823,6 +844,7 @@ model Refund {
 }
 
 model EscrowLedger {
+<<<<<<< HEAD
   id              String       @id @default(cuid())
   paymentId        String?
   repairRequestId  String?
@@ -836,19 +858,43 @@ model EscrowLedger {
   action           String
   note             String?
   createdAt        DateTime     @default(now())
+=======
+  id                       String       @id @default(cuid())
+  paymentId                String?
+  repairRequestId          String?
+  disputeCaseId            String?
+  customerUserId           String?
+  vendorUserId             String?
+  amount                   Decimal      @db.Decimal(10, 2)
+  grossAmount              Decimal?     @db.Decimal(10, 2)
+  platformCommissionAmount Decimal?     @db.Decimal(10, 2)
+  vendorNetAmount          Decimal?     @db.Decimal(10, 2)
+  action                   String
+  note                     String?
+  createdAt                DateTime     @default(now())
+>>>>>>> feature/moderation-ui
 
-  payment          Payment?      @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  payment          Payment?       @relation(fields: [paymentId], references: [id], onDelete: SetNull)
   repairRequest    RepairRequest? @relation(fields: [repairRequestId], references: [id], onDelete: SetNull)
+<<<<<<< HEAD
   disputeCase      DisputeCase?  @relation(fields: [disputeCaseId], references: [id], onDelete: SetNull)
   customer         User?         @relation("EscrowCustomer", fields: [customerUserId], references: [id], onDelete: SetNull)
   vendor           User?         @relation("EscrowVendor", fields: [vendorUserId], references: [id], onDelete: SetNull)
+=======
+  disputeCase      DisputeCase?   @relation(fields: [disputeCaseId], references: [id], onDelete: SetNull)
+  customer         User?          @relation("EscrowCustomer", fields: [customerUserId], references: [id], onDelete: SetNull)
+  vendor           User?          @relation("EscrowVendor", fields: [vendorUserId], references: [id], onDelete: SetNull)
+>>>>>>> feature/moderation-ui
 
   @@index([paymentId])
   @@index([repairRequestId])
   @@index([disputeCaseId])
   @@index([customerUserId])
   @@index([vendorUserId])
+<<<<<<< HEAD
   @@index([action])
+=======
+>>>>>>> feature/moderation-ui
 }
 
 model DeliveryReport {
@@ -909,6 +955,7 @@ model OfferBanner {
 
   @@index([isActive, position])
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 }
 
@@ -949,4 +996,6 @@ enum CartStatus {
   CHECKED_OUT
   ABANDONED
 >>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
+=======
+>>>>>>> feature/moderation-ui
 }

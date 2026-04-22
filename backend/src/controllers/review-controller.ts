@@ -1,10 +1,10 @@
 import type { Response } from "express";
 import prisma from "../models/prisma.js";
-import type { AuthedRequest } from "../middleware/auth.js";
+import type { AuthenticatedRequest as AuthedRequest } from "../middleware/require-auth.js";
 
 export async function getShopReviews(req: AuthedRequest, res: Response) {
   try {
-    const { shopSlug } = req.params;
+    const shopSlug = req.params.shopSlug as string;
     const shop = await prisma.shop.findUnique({ where: { slug: shopSlug }, select: { id: true } });
     if (!shop) return res.status(404).json({ message: "Shop not found" });
 
@@ -32,7 +32,7 @@ export async function canReviewShop(req: AuthedRequest, res: Response) {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    const { shopSlug } = req.params;
+    const shopSlug = req.params.shopSlug as string;
     const shop = await prisma.shop.findUnique({ where: { slug: shopSlug }, select: { id: true } });
     if (!shop) return res.status(404).json({ message: "Shop not found" });
 
@@ -62,7 +62,7 @@ export async function createReview(req: AuthedRequest, res: Response) {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    const { shopSlug } = req.params;
+    const shopSlug = req.params.shopSlug as string;
     const { score, review } = req.body as { score?: number; review?: string };
 
     if (!score || score < 1 || score > 5) {

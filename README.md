@@ -1,8 +1,11 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Meeramoot Electric Item Repairing Management System
 
-## Getting Started
+This repository runs as **two separate apps**: an **Express + Prisma** API and a **Next.js** frontend. Each can be deployed on its own server. For local development they usually run on `http://localhost:4000` (API) and `http://localhost:3000` (web).
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> feature/moderation-ui
 The API stores data in **PostgreSQL**. Prisma is configured with `provider = "postgresql"` and connects using **`DATABASE_URL`** (standard `postgresql://` URI). You can install PostgreSQL locally, use a cloud Postgres service, and manage databases with tools such as **pgAdmin** or Prisma Studio.
 
 ## Prerequisites
@@ -58,40 +61,71 @@ Path: `backend/`
    The first migration creates tables from `prisma/schema.prisma`. If you only want to sync the schema without migration history in early prototyping, you may use `npx prisma db push` instead of `prisma:migrate` (use migrations for anything you intend to deploy).
 
 ### Run the API (development)
+<<<<<<< HEAD
 =======
 First, run the development server:
 >>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
+=======
+>>>>>>> feature/moderation-ui
 
 ```bash
+cd backend
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The server listens on the port in `.env` (default **4000**). Check **`GET /api/health`** (for example `http://localhost:4000/api/health`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### SSLCommerz payment APIs
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Set these backend `.env` values before using payment endpoints:
 
-## Learn More
+```env
+FRONTEND_PAYMENT_RESULT_PATH=/payment/result
+BACKEND_BASE_URL=http://localhost:4000
+SSLCOMMERZ_STORE_ID=your_store_id
+SSLCOMMERZ_STORE_PASSWORD=your_store_password
+SSLCOMMERZ_LIVE=false
+```
 
-To learn more about Next.js, take a look at the following resources:
+Implemented payment endpoints:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `POST /api/payments/sslcommerz/init` (auth required): Create a payment session and get `gatewayUrl`.
+- `ALL /api/payments/sslcommerz/success`: SSLCommerz success callback.
+- `ALL /api/payments/sslcommerz/fail`: SSLCommerz failure callback.
+- `ALL /api/payments/sslcommerz/cancel`: SSLCommerz cancel callback.
+- `ALL /api/payments/sslcommerz/ipn`: SSLCommerz IPN callback.
+- `GET /api/payments/admin/list` (admin): List latest payments with optional `status`, `method`, `userId`, and `take` filters.
+- `GET /api/payments/:paymentId` (auth required): Get one payment and related refund/dispute info.
+- `GET /api/payments/sslcommerz/transaction/:tranId` (admin): Query transaction status from SSLCommerz.
+- `POST /api/payments/sslcommerz/refund/initiate` (admin): Initiate a refund with SSLCommerz.
+- `GET /api/payments/sslcommerz/refund/:refundRefId` (admin): Query refund status from SSLCommerz.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Browser callbacks (`success`, `fail`, `cancel`) now redirect to the frontend result route (`/payment/result` by default), while IPN remains JSON-only for server-to-server processing.
 
-## Deploy on Vercel
+### Run the API (production build)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+cd backend
+npm run build
+npm start
+```
+
+Ensure `.env` (or your host’s environment) provides `DATABASE_URL` and other variables on the server.
+
+---
+
+## 2. Frontend (Next.js)
+
+Path: `frontend/`
+
+### First-time setup
+
+1. Copy the environment example:
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> feature/moderation-ui
    ```bash
    cd frontend
    copy .env.example .env.local
@@ -158,6 +192,9 @@ If you use the bundled Postgres container, stop it with `docker compose down` wh
 | `backend` | `npm run prisma:studio` | Open Prisma Studio (DB UI) |
 | `backend` | `npm run prisma:migrate` | Create/apply migrations   |
 | `frontend`| `npm run lint`       | Run ESLint                 |
+<<<<<<< HEAD
 =======
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 >>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
+=======
+>>>>>>> feature/moderation-ui

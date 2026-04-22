@@ -1,9 +1,12 @@
 const API = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000").replace(/\/$/, "");
 
-export function getAuthHeaders(token: string) {
+export function getAuthHeaders(token?: string) {
+  const localToken =
+    token || (typeof window !== "undefined" ? localStorage.getItem("meramot.token") || "" : "");
+
   return {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
+    ...(localToken ? { Authorization: `Bearer ${localToken}` } : {}),
   };
 }
 /* =========================================================
@@ -383,6 +386,55 @@ export type AuthPayload = {
   };
 };
 
+export type SslCommerzInitPayload = {
+  amount: number;
+  currency?: string;
+  repairRequestId?: string;
+  productName?: string;
+};
+
+export type SslCommerzInitResponse = {
+  success: boolean;
+  message: string;
+  data: {
+    payment: {
+      id: string;
+      transactionRef: string;
+      status: string;
+      amount: number;
+      currency: string;
+    };
+    gatewayUrl: string;
+    sessionkey?: string;
+    gatewayStatus?: string;
+  };
+};
+
+export type AdminPaymentRecord = {
+  id: string;
+  userId: string;
+  repairRequestId: string | null;
+  amount: number | string;
+  currency: string;
+  method: string | null;
+  status: string;
+  escrowStatus: string;
+  transactionRef: string | null;
+  paidAt: string | null;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    username: string;
+  };
+};
+
+export type AdminPaymentsResponse = {
+  success: boolean;
+  data: AdminPaymentRecord[];
+};
+
 export function signup(data: {
   name: string;
   username: string;
@@ -396,6 +448,50 @@ export function signup(data: {
   });
 }
 
+<<<<<<< HEAD
+=======
+export function login(data: { identifier: string; password: string }) {
+  return request<AuthPayload>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function initSslCommerzPayment(payload: SslCommerzInitPayload) {
+  return request<SslCommerzInitResponse>("/payments/sslcommerz/init", {
+    method: "POST",
+    headers: {
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getAdminPayments(params?: {
+  status?: string;
+  method?: string;
+  userId?: string;
+  take?: number;
+}) {
+  const query = new URLSearchParams();
+
+  if (params?.status) query.set("status", params.status);
+  if (params?.method) query.set("method", params.method);
+  if (params?.userId) query.set("userId", params.userId);
+  if (params?.take) query.set("take", String(params.take));
+
+  const suffix = query.toString() ? `?${query.toString()}` : "";
+
+  return request<AdminPaymentsResponse>(`/payments/admin/list${suffix}`, {
+    method: "GET",
+    headers: {
+      ...getAuthHeaders(),
+    },
+    cache: "no-store",
+  });
+}
+
+>>>>>>> feature/moderation-ui
 export function checkUsername(username: string) {
   return request<{ available: boolean }>(
     `/auth/check-username?username=${encodeURIComponent(username)}`
@@ -559,32 +655,127 @@ export function updateProfile(token: string, payload: any) {
 
 export const DELIVERY_TOKEN_STORAGE_KEY = "meeramoot_delivery_token";
 
+export type DeliveryStatusValue =
+  | "PENDING"
+  | "SCHEDULED"
+  | "DISPATCHED"
+  | "PICKED_UP"
+  | "IN_TRANSIT"
+  | "DELIVERED"
+  | "FAILED"
+  | "CANCELLED";
+
+export type DeliveryAuthPayload = {
+  token: string;
+  user: {
+    id: string;
+    name?: string | null;
+    username: string;
+    email: string;
+    phone?: string | null;
+    role: string;
+  };
+  riderProfile: {
+    id: string;
+    vehicleType?: string | null;
+    status: string;
+    isActive?: boolean;
+    registrationStatus?: string;
+  };
+};
+
+export type DeliveryMeResponse = {
+  riderProfile: {
+    id: string;
+    userId: string;
+    vehicleType?: string | null;
+    status: string;
+    isActive?: boolean;
+    registrationStatus?: string;
+    currentLat?: number | null;
+    currentLng?: number | null;
+    coverageZones?: string[];
+    user: {
+      id: string;
+      name?: string | null;
+      username: string;
+      email: string;
+      phone?: string | null;
+      role: string;
+      status?: string;
+      avatarUrl?: string | null;
+    };
+  };
+};
+
+export type DeliveryWithJob = {
+  id: string;
+  direction: string;
+  status: DeliveryStatusValue;
+  fee?: number | null;
+  pickupAddress: string;
+  dropAddress: string;
+  deliveryAgentId?: string | null;
+  repairJob: {
+    shop: {
+      name: string;
+    };
+    repairRequest: {
+      title: string;
+      deviceType: string;
+      contactPhone?: string | null;
+    };
+  };
+};
+
 export function deliveryLogin(data: { identifier: string; password: string }) {
-  return request("/delivery/auth/login", {
+  return request<DeliveryAuthPayload>("/delivery/auth/login", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deliveryRegister(data: {
+  name: string;
+  email: string;
+  phone: string;
+  vehicleType?: string;
+  nidDocumentUrl: string;
+  educationDocumentUrl: string;
+  cvDocumentUrl: string;
+}) {
+  return request<DeliveryAuthPayload>("/delivery/auth/register", {
     method: "POST",
     body: JSON.stringify(data),
   });
 }
 
 export function fetchDeliveryMe(token: string) {
-  return authedRequest("/delivery/me", token);
+  return authedRequest<DeliveryMeResponse>("/delivery/me", token);
 }
 
 export function fetchDeliveryDeliveries(token: string, status?: string) {
   const q = status ? `?status=${status}` : "";
-  return authedRequest(`/delivery/deliveries${q}`, token);
+  return authedRequest<{ deliveries: DeliveryWithJob[] }>(`/delivery/deliveries${q}`, token);
 }
 
-export function updateDeliveryStatus(token: string, id: string, status: string) {
-  return authedRequest(`/delivery/deliveries/${id}/status`, token, {
+export function updateDeliveryStatus(token: string, id: string, status: DeliveryStatusValue) {
+  return authedRequest<{ delivery: DeliveryWithJob }>(`/delivery/deliveries/${id}/status`, token, {
     method: "PATCH",
     body: JSON.stringify({ status }),
   });
 }
 
 export function acceptDelivery(token: string, id: string) {
-  return authedRequest(`/delivery/deliveries/${id}/accept`, token, {
+  return authedRequest<{ delivery: DeliveryWithJob }>(`/delivery/deliveries/${id}/accept`, token, {
     method: "PATCH",
+  });
+}
+
+export function patchDeliveryLocation(token: string, lat: number, lng: number) {
+  return authedRequest("/delivery/location", token, {
+    method: "PATCH",
+    body: JSON.stringify({ lat, lng }),
   });
 }
 

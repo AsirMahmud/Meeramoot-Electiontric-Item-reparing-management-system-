@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+import Link from "next/link";
+>>>>>>> feature/moderation-ui
 import { getAuthHeaders } from "@/lib/api";
 
 type VendorApplication = {
@@ -86,6 +90,7 @@ export default function AdminVendorsPage() {
       console.error(error);
     }
   };
+<<<<<<< HEAD
 =======
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -146,11 +151,16 @@ export default function AdminVendorReviewPage() {
     return null;
   }
 >>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
+=======
+>>>>>>> feature/moderation-ui
 
   return (
     <section>
       <div className="mb-8">
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> feature/moderation-ui
         <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#5E7366]">Vendors</p>
         <h2 className="mt-3 text-4xl font-bold text-[#1F4D2E]">Vendor verification</h2>
         <p className="mt-3 text-lg text-[#6B7C72]">
@@ -203,6 +213,12 @@ export default function AdminVendorReviewPage() {
                   >
                     Reject
                   </button>
+                  <Link
+                    href={`/admin/vendors/${vendor.id}`}
+                    className="rounded-full bg-[#E6F0E2] px-5 py-3 text-sm font-semibold text-[#1F4D2E] transition hover:bg-[#D7E2D2]"
+                  >
+                    View Details
+                  </Link>
                 </div>
               </div>
             </div>
@@ -218,6 +234,7 @@ export default function AdminVendorReviewPage() {
     </section>
   );
 }
+<<<<<<< HEAD
 =======
         <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#5E7366]">
           Admin
@@ -343,3 +360,5 @@ export default function AdminVendorReviewPage() {
   );
 }
 >>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
+=======
+>>>>>>> feature/moderation-ui

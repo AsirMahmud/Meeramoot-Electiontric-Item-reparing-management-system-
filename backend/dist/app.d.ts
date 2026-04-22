@@ -1,3 +1,4 @@
-export declare const APP_SLUG = "meeramoot-electiontric-item-reparing-management-system";
-export declare const APP_DISPLAY_NAME = "Meeramoot Electric Item Repairing Management System";
+export declare function createApp(): import("express-serve-static-core").Express;
+declare const app: import("express-serve-static-core").Express;
+export default app;
 //# sourceMappingURL=app.d.ts.map

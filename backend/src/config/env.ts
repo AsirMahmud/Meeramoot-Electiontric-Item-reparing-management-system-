@@ -13,6 +13,7 @@ export const env = {
   port: Number(process.env.PORT ?? 4000),
   databaseUrl: required("DATABASE_URL"),
   frontendOrigin: process.env.FRONTEND_ORIGIN ?? "http://localhost:3000",
+  frontendPaymentResultPath: process.env.FRONTEND_PAYMENT_RESULT_PATH ?? "/payment/result",
   jwtSecret: process.env.JWT_SECRET ?? "dev-secret",
 <<<<<<< HEAD
   demoAdminIdentifier:
@@ -35,5 +36,15 @@ export const env = {
   smtpUser: process.env.SMTP_USER,
   smtpPass: process.env.SMTP_PASS,
   smtpFrom: process.env.SMTP_FROM,
+<<<<<<< HEAD
 };
 >>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
+=======
+
+  backendBaseUrl:
+    process.env.BACKEND_BASE_URL ?? `http://localhost:${process.env.PORT ?? 4000}`,
+  sslCommerzStoreId: process.env.SSLCOMMERZ_STORE_ID ?? "",
+  sslCommerzStorePassword: process.env.SSLCOMMERZ_STORE_PASSWORD ?? "",
+  sslCommerzLive: process.env.SSLCOMMERZ_LIVE === "true",
+};
+>>>>>>> feature/moderation-ui

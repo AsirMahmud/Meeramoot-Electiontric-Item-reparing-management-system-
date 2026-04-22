@@ -1,9 +1,14 @@
 import { Router } from "express";
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> feature/moderation-ui
 import prisma from "../models/prisma.js";
 import authRoutes from "./auth-routes.js";
 import shopRoutes from "./shop-routes.js";
+import paymentRoutes from "./payment-routes.js";
 import { APP_DISPLAY_NAME, APP_SLUG } from "../config/app.js";
+<<<<<<< HEAD
 =======
 import authRoutes from "./auth-routes";
 import shopRoutes from "./shop-routes";
@@ -14,6 +19,8 @@ import profileRoutes from "./profile-routes.js";
 import requestRoutes from "./request-routes.js";
 
 >>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
+=======
+>>>>>>> feature/moderation-ui
 
 const router = Router();
 
@@ -41,8 +48,6 @@ router.get("/health", async (_req, res) => {
 
 router.use("/auth", authRoutes);
 router.use("/shops", shopRoutes);
-router.use("/profile", profileRoutes);
-router.use("/notifications", notificationRoutes);
-router.use("/requests", requestRoutes);
+router.use("/payments", paymentRoutes);
 
 export default router;
