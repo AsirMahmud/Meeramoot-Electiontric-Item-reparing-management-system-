@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import cors from "cors";
 import express from "express";
 import { env } from "./config/env.js";
@@ -9,10 +10,12 @@ import disputeRoutes from "./routes/dispute-routes.js";
 import refundRoutes from "./routes/refund-routes.js";
 import financialLedgerRoutes from "./routes/financial-ledger-routes.js";
 import { apiRateLimiter } from "./middleware/rate-limit.js";
+=======
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
 
-export function createApp() {
-  const app = express();
+export const APP_SLUG = "meramot-electiontric-item-reparing-management-system";
 
+<<<<<<< HEAD
   app.use(
     cors({
       origin: env.frontendOrigin,
@@ -44,3 +47,6 @@ const app = createApp();
 export default app;
 
 
+=======
+export const APP_DISPLAY_NAME = "Meramot Electric Item Repairing Management System";
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba

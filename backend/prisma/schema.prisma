@@ -1,6 +1,10 @@
 // ============================================================
+<<<<<<< HEAD
 // Meramot marketplace schema
 // Admin-ready version
+=======
+// Meramot marketplace schema (customer-focused iteration)
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
 // PostgreSQL + Prisma
 // ============================================================
 
@@ -13,9 +17,17 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+<<<<<<< HEAD
 // ============================================================
 // ENUMS
 // ============================================================
+=======
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
 
 enum UserRole {
   CUSTOMER
@@ -24,12 +36,15 @@ enum UserRole {
   ADMIN
 }
 
+<<<<<<< HEAD
 enum UserStatus {
   ACTIVE
   SUSPENDED
   DELETED
 }
 
+=======
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
 enum VendorApplicationStatus {
   PENDING
   APPROVED
@@ -109,7 +124,10 @@ enum DeliveryStatus {
   DELIVERED
   FAILED
   CANCELLED
+<<<<<<< HEAD
   REPORTED
+=======
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
 }
 
 enum PaymentMethod {
@@ -122,7 +140,6 @@ enum PaymentMethod {
 
 enum PaymentStatus {
   PENDING
-  AUTHORIZED
   PAID
   HELD
   FAILED
@@ -130,6 +147,7 @@ enum PaymentStatus {
   PARTIALLY_REFUNDED
 }
 
+<<<<<<< HEAD
 enum EscrowStatus {
   NOT_APPLICABLE
   HELD
@@ -138,6 +156,8 @@ enum EscrowStatus {
   PARTIALLY_REFUNDED
 }
 
+=======
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
 enum SupportTicketStatus {
   OPEN
   IN_PROGRESS
@@ -226,7 +246,6 @@ model User {
   username        String     @unique
   email           String     @unique
   passwordHash    String
-  role            UserRole   @default(CUSTOMER)
   name            String?
   phone           String?
   avatarUrl       String?
@@ -237,14 +256,19 @@ model User {
   lng             Float?
   isEmailVerified Boolean    @default(false)
   status          UserStatus @default(ACTIVE)
+  role            UserRole   @default(CUSTOMER)
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
+<<<<<<< HEAD
   // customer activity
+=======
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
   repairRequests      RepairRequest[]
   payments            Payment[]
   ratings             Rating[]
   recentlyViewed      RecentlyViewed[]
+<<<<<<< HEAD
   supportTickets      SupportTicket[]       @relation("TicketOwner")
   supportMessages     SupportMessage[]      @relation("SupportMessageAuthor")
   disputesOpened      DisputeCase[]         @relation("DisputeOpenedBy")
@@ -301,9 +325,42 @@ model VendorApplication {
   @@index([applicantUserId])
   @@index([reviewedById])
   @@index([status])
+=======
+  supportTickets      SupportTicket[]
+  vendorApplications  VendorApplication[]
+  carts Cart[]
 }
 
+model VendorApplication {
+  id                    String                  @id @default(cuid())
+  userId                String                  @unique
+  ownerName             String
+  businessEmail         String                  @unique
+  phone                 String
+  shopName              String
+  tradeLicenseNo        String?
+  address               String
+  city                  String?
+  area                  String?
+  lat                   Float?
+  lng                   Float?
+  specialties           String[]
+  courierPickup         Boolean                 @default(false)
+  inShopRepair          Boolean                 @default(true)
+  spareParts            Boolean                 @default(false)
+  notes                 String?
+  status                VendorApplicationStatus @default(PENDING)
+  rejectionReason       String?
+  rejectedAt            DateTime?
+  rejectionVisibleUntil DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  user                  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
+}
 model Shop {
+<<<<<<< HEAD
   id            String         @id @default(cuid())
   ownerId       String
   name          String
@@ -382,6 +439,43 @@ model RepairRequest {
   id                String         @id @default(cuid())
   userId            String
   assignedShopId    String?
+=======
+  id           String         @id @default(cuid())
+  name         String
+  slug         String         @unique
+  description  String?
+  logoUrl      String?
+  bannerUrl    String?
+  address      String
+  city         String?
+  area         String?
+  lat          Float?
+  lng          Float?
+  phone        String?
+  email        String?
+  ratingAvg    Float          @default(0)
+  reviewCount  Int            @default(0)
+  priceLevel   Int            @default(2)
+  isFeatured   Boolean        @default(false)
+  isActive     Boolean        @default(true)
+  hasVoucher   Boolean        @default(false)
+  freeDelivery Boolean        @default(false)
+  hasDeals     Boolean        @default(false)
+  categories   ShopCategory[]
+  specialties  String[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  bids       Bid[]
+  ratings    Rating[]
+  repairJobs RepairJob[]
+  carts Cart[]
+}
+
+model RepairRequest {
+  id                String        @id @default(cuid())
+  userId            String
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
   title             String
   description       String?
   deviceType        String
@@ -391,6 +485,7 @@ model RepairRequest {
   problem           String
   imageUrls         String[]
   mode              RequestMode
+<<<<<<< HEAD
   status            RequestStatus  @default(PENDING)
   preferredPickup   Boolean        @default(false)
   deliveryType      DeliveryType?
@@ -409,6 +504,22 @@ model RepairRequest {
   supportTickets SupportTicket[]
   disputes      DisputeCase[]
   escrowEntries EscrowLedger[]
+=======
+  status            RequestStatus @default(PENDING)
+  preferredPickup   Boolean       @default(false)
+  deliveryType      DeliveryType?
+  checkupFee        Float?
+  quotedFinalAmount Float?
+  approvedAt        DateTime?
+  rejectedAt        DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bids      Bid[]
+  payments  Payment[]
+  repairJob RepairJob?
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
 
   @@index([userId])
   @@index([assignedShopId])
@@ -452,11 +563,19 @@ model RepairJob {
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
+<<<<<<< HEAD
   repairRequest     RepairRequest @relation(fields: [repairRequestId], references: [id], onDelete: Cascade)
   shop              Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
   acceptedBid       Bid?          @relation(fields: [acceptedBidId], references: [id], onDelete: SetNull)
   deliveries        Delivery[]
   warranty          Warranty?
+=======
+  repairRequest RepairRequest @relation(fields: [repairRequestId], references: [id], onDelete: Cascade)
+  shop          Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  acceptedBid   Bid?          @relation(fields: [acceptedBidId], references: [id])
+  deliveries    Delivery[]
+  warranty      Warranty?
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
 
   @@index([shopId])
   @@index([status])
@@ -465,7 +584,10 @@ model RepairJob {
 model Delivery {
   id            String            @id @default(cuid())
   repairJobId   String
+<<<<<<< HEAD
   riderUserId   String?
+=======
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
   direction     DeliveryDirection
   type          DeliveryType      @default(REGULAR)
   status        DeliveryStatus    @default(PENDING)
@@ -476,16 +598,24 @@ model Delivery {
   pickupAddress String
   dropAddress   String
   distanceKm    Float?
+<<<<<<< HEAD
   fee           Decimal?          @db.Decimal(10, 2)
+=======
+  fee           Float?
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
   scheduledAt   DateTime?
   pickedUpAt    DateTime?
   deliveredAt   DateTime?
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
+<<<<<<< HEAD
   repairJob     RepairJob         @relation(fields: [repairJobId], references: [id], onDelete: Cascade)
   rider         User?             @relation("DeliveryRider", fields: [riderUserId], references: [id], onDelete: SetNull)
   reports       DeliveryReport[]
+=======
+  repairJob RepairJob @relation(fields: [repairJobId], references: [id], onDelete: Cascade)
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
 
   @@index([repairJobId])
   @@index([riderUserId])
@@ -496,21 +626,33 @@ model Payment {
   id              String         @id @default(cuid())
   userId          String
   repairRequestId String?
+<<<<<<< HEAD
   amount          Decimal        @db.Decimal(10, 2)
   currency        String         @default("BDT")
   method          PaymentMethod?
   status          PaymentStatus  @default(PENDING)
   escrowStatus    EscrowStatus   @default(NOT_APPLICABLE)
+=======
+  amount          Float
+  currency        String         @default("BDT")
+  method          PaymentMethod?
+  status          PaymentStatus  @default(PENDING)
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
   transactionRef  String?        @unique
   paidAt          DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
+<<<<<<< HEAD
   user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   repairRequest   RepairRequest? @relation(fields: [repairRequestId], references: [id], onDelete: SetNull)
   refunds         Refund[]
   disputeCases    DisputeCase[]
   escrowEntries   EscrowLedger[]
+=======
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repairRequest RepairRequest? @relation(fields: [repairRequestId], references: [id], onDelete: SetNull)
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
 
   @@index([userId])
   @@index([repairRequestId])
@@ -553,14 +695,19 @@ model RecentlyViewed {
   shopId   String
   viewedAt DateTime @default(now())
 
+<<<<<<< HEAD
   user     User @relation(fields: [userId], references: [id], onDelete: Cascade)
   shop     Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+=======
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
 
   @@index([userId, viewedAt])
   @@index([shopId])
 }
 
 model SupportTicket {
+<<<<<<< HEAD
   id               String                @id @default(cuid())
   userId           String
   repairRequestId  String?
@@ -725,6 +872,25 @@ model DeliveryReport {
   @@index([status])
 }
 
+=======
+  id              String              @id @default(cuid())
+  userId          String
+  repairRequestId String?
+  subject         String
+  message         String
+  status          SupportTicketStatus @default(OPEN)
+  priority        String?
+  adminNotes      String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+}
+
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
 model OfferBanner {
   id              String          @id @default(cuid())
   title           String
@@ -742,4 +908,45 @@ model OfferBanner {
   updatedAt       DateTime        @updatedAt
 
   @@index([isActive, position])
+<<<<<<< HEAD
+=======
+}
+
+
+model Cart {
+  id          String      @id @default(cuid())
+  userId      String
+  shopId      String
+  status      CartStatus  @default(ACTIVE)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shop        Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  items       CartItem[]
+
+  @@index([userId, status])
+}
+
+model CartItem {
+  id          String   @id @default(cuid())
+  cartId      String
+  serviceName String
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  quantity    Int      @default(1)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  cart        Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  @@index([cartId])
+}
+
+enum CartStatus {
+  ACTIVE
+  CHECKED_OUT
+  ABANDONED
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
 }

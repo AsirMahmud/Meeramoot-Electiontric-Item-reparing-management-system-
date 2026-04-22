@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 "use client";
 
 import type { ReactNode } from "react";
@@ -13,6 +14,10 @@ type StoredUser = {
   phone?: string | null;
   role?: string | null;
 };
+=======
+import type { ReactNode } from "react";
+import Link from "next/link";
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
 
 const navItems = [
   { href: "/admin", label: "Dashboard" },
@@ -23,6 +28,7 @@ const navItems = [
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
+<<<<<<< HEAD
   const router = useRouter();
   const pathname = usePathname();
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -97,6 +103,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     );
   }
 
+=======
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
   return (
     <div className="min-h-screen bg-[#EEF5EA] text-[#244233]">
       <div className="mx-auto grid min-h-screen max-w-7xl grid-cols-1 gap-6 px-4 py-6 md:grid-cols-[260px_1fr]">
@@ -109,9 +117,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <p className="mt-2 text-sm text-[#6B7C72]">
               Verify vendors, support users, and mediate disputes.
             </p>
+<<<<<<< HEAD
             <p className="mt-4 rounded-2xl bg-[#EAF3E6] px-3 py-2 text-xs font-medium text-[#355845]">
               Signed in as {adminDisplayName}
             </p>
+=======
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
           </div>
 
           <nav className="space-y-2">
@@ -125,6 +136,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               </Link>
             ))}
           </nav>
+<<<<<<< HEAD
 
           <button
             type="button"
@@ -133,6 +145,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           >
             Log out
           </button>
+=======
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
         </aside>
 
         <main className="rounded-[32px] border border-[#D7E2D2] bg-[#FAFAF7] p-6 shadow-sm md:p-8">

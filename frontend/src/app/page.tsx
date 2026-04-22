@@ -7,6 +7,7 @@ import PopularCategories from "@/components/home/PopularCategories";
 import RecentlyViewed from "@/components/home/RecentlyViewed";
 import SidebarFilters from "@/components/home/SidebarFilters";
 import OfferCarousel from "@/components/home/OfferCarousel";
+<<<<<<< HEAD
 
 type StoredUser = {
   id: string;
@@ -18,6 +19,14 @@ type StoredUser = {
 
 export default function HomePage() {
   const [user, setUser] = useState<StoredUser | null>(null);
+=======
+import { getShops } from "@/lib/api";
+
+export default function HomePage() {
+  const [shops, setShops] = useState([]);
+  const [shopsError, setShopsError] = useState<string | null>(null);
+  const [shopsLoading, setShopsLoading] = useState(true);
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
   const [language, setLanguage] = useState<"en" | "bn">("en");
 
   useEffect(() => {
@@ -30,6 +39,7 @@ export default function HomePage() {
       }
   
       try {
+<<<<<<< HEAD
         setUser(JSON.parse(rawUser));
       } catch {
         localStorage.removeItem("meramot.user");
@@ -44,15 +54,38 @@ export default function HomePage() {
     return () => {
       window.removeEventListener("meramot-auth-changed", syncUserFromStorage);
     };
+=======
+        setShopsLoading(true);
+        const data = await getShops();
+        setShops(data);
+        setShopsError(null);
+      } catch (err) {
+        setShops([]);
+        setShopsError("Could not load shops. Check that the backend is running and the API is configured correctly.");
+      } finally {
+        setShopsLoading(false);
+      }
+    }
+  
+    loadShops();
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
   }, []);
 
   const firstName = useMemo(() => {
     return (
+<<<<<<< HEAD
       user?.name?.trim()?.split(" ")[0] ||
       user?.username?.trim()?.split(" ")[0] ||
       "User"
     );
   }, [user]);
+=======
+      session?.user?.name?.trim()?.split(" ")[0] ||
+      (session?.user as any)?.username?.trim()?.split(" ")[0] ||
+      "User"
+    );
+  }, [session]);
+>>>>>>> 4bc9e005b7817c1c5b3c773557f6c38b0bcb14ba
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -64,7 +97,7 @@ export default function HomePage() {
       />
 
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 md:px-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <SidebarFilters />
+        <SidebarFilters targetPath="/shops" />
 
         <div className="space-y-8">
           <OfferCarousel />
