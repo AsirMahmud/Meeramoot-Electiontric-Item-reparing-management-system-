@@ -65,6 +65,29 @@ npm run dev
 
 The server listens on the port in `.env` (default **4000**). Check **`GET /api/health`** (for example `http://localhost:4000/api/health`).
 
+### SSLCommerz payment APIs
+
+Set these backend `.env` values before using payment endpoints:
+
+```env
+BACKEND_BASE_URL=http://localhost:4000
+SSLCOMMERZ_STORE_ID=your_store_id
+SSLCOMMERZ_STORE_PASSWORD=your_store_password
+SSLCOMMERZ_LIVE=false
+```
+
+Implemented payment endpoints:
+
+- `POST /api/payments/sslcommerz/init` (auth required): Create a payment session and get `gatewayUrl`.
+- `ALL /api/payments/sslcommerz/success`: SSLCommerz success callback.
+- `ALL /api/payments/sslcommerz/fail`: SSLCommerz failure callback.
+- `ALL /api/payments/sslcommerz/cancel`: SSLCommerz cancel callback.
+- `ALL /api/payments/sslcommerz/ipn`: SSLCommerz IPN callback.
+- `GET /api/payments/:paymentId` (auth required): Get one payment and related refund/dispute info.
+- `GET /api/payments/sslcommerz/transaction/:tranId` (admin): Query transaction status from SSLCommerz.
+- `POST /api/payments/sslcommerz/refund/initiate` (admin): Initiate a refund with SSLCommerz.
+- `GET /api/payments/sslcommerz/refund/:refundRefId` (admin): Query refund status from SSLCommerz.
+
 ### Run the API (production build)
 
 ```bash

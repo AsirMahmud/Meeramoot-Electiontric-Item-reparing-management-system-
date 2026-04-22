@@ -14,4 +14,9 @@ export const env = {
   databaseUrl: required("DATABASE_URL"),
   frontendOrigin: process.env.FRONTEND_ORIGIN ?? "http://localhost:3000",
   jwtSecret: process.env.JWT_SECRET ?? "dev-secret",
+  backendBaseUrl:
+    process.env.BACKEND_BASE_URL ?? `http://localhost:${process.env.PORT ?? 4000}`,
+  sslCommerzStoreId: process.env.SSLCOMMERZ_STORE_ID ?? "",
+  sslCommerzStorePassword: process.env.SSLCOMMERZ_STORE_PASSWORD ?? "",
+  sslCommerzLive: process.env.SSLCOMMERZ_LIVE === "true",
 };

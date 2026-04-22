@@ -20,6 +20,7 @@ export function createApp() {
   );
 
   app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
 
   app.use("/api", apiRateLimiter);
 
