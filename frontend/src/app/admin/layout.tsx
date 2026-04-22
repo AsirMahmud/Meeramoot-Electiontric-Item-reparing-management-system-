@@ -3,9 +3,12 @@ import Link from "next/link";
 
 const navItems = [
   { href: "/admin", label: "Dashboard" },
+  { href: "/admin/users", label: "Users" },
   { href: "/admin/vendors", label: "Vendor Review" },
+  { href: "/admin/reviews", label: "Reviews" },
   { href: "/admin/tickets", label: "Support Tickets" },
   { href: "/admin/disputes", label: "Disputes" },
+  { href: "/admin/payments", label: "Payments" },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

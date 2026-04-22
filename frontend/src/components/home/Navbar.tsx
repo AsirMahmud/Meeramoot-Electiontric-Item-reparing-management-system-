@@ -117,6 +117,14 @@ export default function Navbar({
                         Make request
                       </Link>
 
+                      <Link
+                        href="/checkout"
+                        className="block rounded-2xl px-4 py-3 text-sm text-[#234733] transition hover:bg-[#eef5ea]"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        Pay with SSLCommerz
+                      </Link>
+
                       <button
                         onClick={() => {
                           setIsUserMenuOpen(false);

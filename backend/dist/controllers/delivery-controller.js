@@ -127,6 +127,21 @@ export async function acceptMyDelivery(req, res) {
         if (["DELIVERED", "FAILED", "CANCELLED"].includes(existing.status)) {
             return res.status(400).json({ message: "Finalized delivery cannot be accepted" });
         }
+        const activeDelivery = await prisma.delivery.findFirst({
+            where: {
+                deliveryAgentId: riderProfileId,
+                status: {
+                    notIn: ["DELIVERED", "FAILED", "CANCELLED"],
+                },
+                id: {
+                    not: deliveryId,
+                },
+            },
+            select: { id: true },
+        });
+        if (activeDelivery) {
+            return res.status(409).json({ message: "Finish your active delivery before accepting a new order" });
+        }
         const now = new Date();
         const updated = await prisma.delivery.update({
             where: { id: deliveryId },

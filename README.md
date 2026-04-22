@@ -70,6 +70,7 @@ The server listens on the port in `.env` (default **4000**). Check **`GET /api/h
 Set these backend `.env` values before using payment endpoints:
 
 ```env
+FRONTEND_PAYMENT_RESULT_PATH=/payment/result
 BACKEND_BASE_URL=http://localhost:4000
 SSLCOMMERZ_STORE_ID=your_store_id
 SSLCOMMERZ_STORE_PASSWORD=your_store_password
@@ -83,10 +84,13 @@ Implemented payment endpoints:
 - `ALL /api/payments/sslcommerz/fail`: SSLCommerz failure callback.
 - `ALL /api/payments/sslcommerz/cancel`: SSLCommerz cancel callback.
 - `ALL /api/payments/sslcommerz/ipn`: SSLCommerz IPN callback.
+- `GET /api/payments/admin/list` (admin): List latest payments with optional `status`, `method`, `userId`, and `take` filters.
 - `GET /api/payments/:paymentId` (auth required): Get one payment and related refund/dispute info.
 - `GET /api/payments/sslcommerz/transaction/:tranId` (admin): Query transaction status from SSLCommerz.
 - `POST /api/payments/sslcommerz/refund/initiate` (admin): Initiate a refund with SSLCommerz.
 - `GET /api/payments/sslcommerz/refund/:refundRefId` (admin): Query refund status from SSLCommerz.
+
+Browser callbacks (`success`, `fail`, `cancel`) now redirect to the frontend result route (`/payment/result` by default), while IPN remains JSON-only for server-to-server processing.
 
 ### Run the API (production build)
 

@@ -7,6 +7,7 @@ import {
   handleSslCommerzSuccess,
   initiateSslCommerzPayment,
   initiateSslCommerzRefund,
+  listPaymentsForAdmin,
   querySslCommerzRefund,
   querySslCommerzTransaction,
 } from "../controllers/payment-controller.js";
@@ -22,8 +23,12 @@ router.all("/sslcommerz/fail", handleSslCommerzFail);
 router.all("/sslcommerz/cancel", handleSslCommerzCancel);
 router.all("/sslcommerz/ipn", handleSslCommerzIpn);
 
-router.get("/:paymentId", requireAuth, getMyPaymentById);
-
+router.get(
+  "/admin/list",
+  requireAuth,
+  requireAdmin,
+  listPaymentsForAdmin,
+);
 router.get(
   "/sslcommerz/transaction/:tranId",
   requireAuth,
@@ -42,5 +47,7 @@ router.get(
   requireAdmin,
   querySslCommerzRefund,
 );
+
+router.get("/:paymentId", requireAuth, getMyPaymentById);
 
 export default router;
