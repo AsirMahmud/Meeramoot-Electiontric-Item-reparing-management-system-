@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import prisma from "../models/prisma.js";
 import { env } from "../config/env.js";
 import { sslCommerzService } from "../services/sslcommerz.js";
+import { sendInvoiceLinkEmail } from "../services/email-service.js";
 
 type AuthenticatedRequest = Request & {
   user?: {
@@ -373,6 +374,28 @@ async function markPaymentSuccessful(
       },
     });
   });
+
+  // Fetch the full payment with user details to send the email
+  const fullPayment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    include: { user: true },
+  });
+
+  if (fullPayment && fullPayment.user) {
+    const invoiceUrl = new URL(`/payment/invoice/${fullPayment.id}`, env.frontendOrigin).toString();
+    
+    sendInvoiceLinkEmail({
+      to: fullPayment.user.email,
+      customerName: fullPayment.user.name || fullPayment.user.username,
+      transactionRef: fullPayment.transactionRef,
+      amount: fullPayment.amount,
+      currency: fullPayment.currency,
+      invoiceUrl,
+    }).catch(err => {
+      console.error("Failed to send invoice email after payment success:", err);
+    });
+  }
+
 
   return {
     success: true,
