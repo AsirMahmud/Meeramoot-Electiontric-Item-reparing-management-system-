@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { ReactNode } from "react";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
@@ -6,10 +6,12 @@ import { authOptions } from "@/auth";
 
 const navItems = [
   { href: "/admin", label: "Dashboard" },
-  { href: "/admin/finance", label: "Finance Ledger" },
+  { href: "/admin/finance", label: "Financial Ledger" },
   { href: "/admin/vendors", label: "Vendor Review" },
+  { href: "/admin/reviews", label: "Reviews" },
   { href: "/admin/tickets", label: "Support Tickets" },
   { href: "/admin/disputes", label: "Disputes" },
+  { href: "/admin/payments", label: "Payments" },
 ];
 
 export default async function AdminLayout({

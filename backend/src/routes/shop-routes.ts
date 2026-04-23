@@ -3,6 +3,7 @@ import {
   getFeaturedShops,
   getShopBySlug,
   getShops,
+<<<<<<< HEAD
 } from "../controllers/shop-controllers";
 import {
   canReviewShop,
@@ -10,6 +11,9 @@ import {
   getShopReviews,
 } from "../controllers/review-controller";
 import { requireAuth } from "../middleware/auth.js";
+=======
+} from "../controllers/shop-controllers.js";
+>>>>>>> origin/main
 
 const router = Router();
 
