@@ -332,14 +332,14 @@ export default function AuthCard({ mode }: { mode: Mode }) {
 
   return (
     <div className="flex w-full max-w-[440px] flex-col gap-6">
-      <div className="flex justify-center">
-        <Link href="/" className="inline-flex items-center">
+      <div className="flex w-full items-center justify-center">
+        <Link href="/" className="inline-block transition-transform hover:scale-105">
           <Image
             src="/images/meramot.svg"
             alt="Meramot"
-            width={200}
-            height={64}
-            className="h-14 w-auto object-contain"
+            width={280}
+            height={96}
+            className="h-20 w-auto object-contain md:h-24"
             priority
           />
         </Link>

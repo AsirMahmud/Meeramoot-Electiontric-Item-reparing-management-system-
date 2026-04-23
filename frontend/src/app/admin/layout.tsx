@@ -8,14 +8,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-[#EEF5EA] text-[#244233]">
       <div className="mx-auto grid min-h-screen max-w-7xl grid-cols-1 gap-6 px-4 py-6 md:grid-cols-[260px_1fr]">
         <div className="flex flex-col gap-6">
-          <div className="flex justify-center">
-            <Link href="/" className="inline-flex items-center">
+          <div className="flex w-full items-center justify-center">
+            <Link href="/" className="inline-block transition-transform hover:scale-105">
               <Image
                 src="/images/meramot.svg"
                 alt="Meramot"
-                width={200}
-                height={64}
-                className="h-14 w-auto object-contain"
+                width={280}
+                height={96}
+                className="h-20 w-auto object-contain md:h-24"
                 priority
               />
             </Link>
