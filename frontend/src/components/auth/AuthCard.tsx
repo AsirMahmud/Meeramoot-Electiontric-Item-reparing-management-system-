@@ -331,20 +331,21 @@ export default function AuthCard({ mode }: { mode: Mode }) {
     isSignup && (passwordFocused || form.password.length > 0);
 
   return (
-    <div className="w-full max-w-[440px]">
+    <div className="flex w-full max-w-[440px] flex-col gap-6">
+      <div className="flex justify-center">
+        <Link href="/" className="inline-flex items-center">
+          <Image
+            src="/images/meramot.svg"
+            alt="Meramot"
+            width={200}
+            height={64}
+            className="h-14 w-auto object-contain"
+            priority
+          />
+        </Link>
+      </div>
       <div className="rounded-[2rem] border border-white/60 bg-white/90 px-8 py-6 shadow-2xl backdrop-blur">
         <div className="mb-4 text-center">
-          <div className="mb-3 flex justify-center">
-            <Image
-              src="/images/meramot.svg"
-              alt="Meramot"
-              width={160}
-              height={48}
-              className="h-10 w-auto object-contain"
-              priority
-            />
-          </div>
-
           <h1 className="text-3xl font-bold leading-tight text-accent-dark">
             {isSignup ? "Create your account" : "Welcome back"}
           </h1>
