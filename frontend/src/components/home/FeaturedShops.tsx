@@ -1,8 +1,8 @@
-import type { ApiShop } from "@/lib/api";
+import type { Shop } from "@/lib/api";
 import ShopCard from "@/components/shops/shop-card";
 
 type FeaturedShopsProps = {
-  shops: ApiShop[];
+  shops: Shop[];
 };
 
 export default function FeaturedShops({ shops }: FeaturedShopsProps) {
@@ -10,7 +10,10 @@ export default function FeaturedShops({ shops }: FeaturedShopsProps) {
 
   return (
     <section className="mt-10">
-      <h2 className="mb-4 text-2xl font-bold text-[#163625]">Featured shops</h2>
+      <h2 className="mb-4 text-2xl font-bold text-[var(--foreground)]">
+        Featured shops
+      </h2>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {featured.map((shop) => (
           <div key={shop.id}>

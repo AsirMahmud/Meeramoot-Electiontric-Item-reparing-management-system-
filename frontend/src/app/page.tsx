@@ -44,7 +44,7 @@ export default function HomePage() {
   }, [session]);
 
   return (
-    <main className="min-h-screen bg-[#E4FCD5] text-foreground">
+    <main className="min-h-screen bg-[var(--background)] text-foreground">
       <Navbar
         isLoggedIn={!!session?.user}
         firstName={firstName}
