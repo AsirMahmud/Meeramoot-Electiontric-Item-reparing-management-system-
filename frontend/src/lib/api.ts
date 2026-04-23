@@ -594,6 +594,8 @@ export type DeliveryMeResponse = {
     registrationStatus?: string;
     currentLat?: number | null;
     currentLng?: number | null;
+    lat?: number | null;
+    lng?: number | null;
     coverageZones?: string[];
     user: {
       id: string;
@@ -618,14 +620,61 @@ export type DeliveryWithJob = {
   deliveryAgentId?: string | null;
   repairJob: {
     shop: {
+      id?: string;
       name: string;
+      address?: string;
+      lat?: number | null;
+      lng?: number | null;
     };
     repairRequest: {
       title: string;
       deviceType: string;
       contactPhone?: string | null;
+      user?: {
+        name?: string | null;
+        lat?: number | null;
+        lng?: number | null;
+      };
     };
   };
+};
+
+export type DeliveryChatMessage = {
+  id: string;
+  deliveryId: string;
+  senderUserId: string;
+  senderRole: "DELIVERY" | "DELIVERY_ADMIN" | "ADMIN" | string;
+  recipientUserId: string;
+  message: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PusherConfig = {
+  enabled: boolean;
+  key: string;
+  cluster: string;
+};
+
+export type DeliveryPayoutItem = {
+  id: string;
+  amount: number;
+  status: "PENDING" | "PROCESSING" | "PAID" | "FAILED" | "CANCELLED";
+  notes?: string | null;
+  paidAt?: string | null;
+  createdAt: string;
+};
+
+export type DeliveryPayoutSummaryResponse = {
+  summary: {
+    deliveredTrips: number;
+    earned: number;
+    requestedOrPaid: number;
+    available: number;
+    minRequestAmount: number;
+    canRequest: boolean;
+  };
+  payouts: DeliveryPayoutItem[];
 };
 
 export function deliveryLogin(data: { identifier: string; password: string }) {
@@ -679,6 +728,41 @@ export function patchDeliveryLocation(token: string, lat: number, lng: number) {
   });
 }
 
+export function fetchDeliveryPayoutSummary(token: string) {
+  return authedRequest<DeliveryPayoutSummaryResponse>("/delivery/payouts", token);
+}
+
+export function requestDeliveryPayout(
+  token: string,
+  payload?: {
+    amount?: number;
+    notes?: string;
+  },
+) {
+  return authedRequest<{ message: string; payout: DeliveryPayoutItem }>("/delivery/payouts/request", token, {
+    method: "POST",
+    body: JSON.stringify(payload || {}),
+  });
+}
+
+export function fetchDeliveryChatMessages(token: string, deliveryId: string) {
+  return authedRequest<{ messages: DeliveryChatMessage[]; pusher?: PusherConfig }>(
+    `/delivery/deliveries/${encodeURIComponent(deliveryId)}/chat`,
+    token,
+  );
+}
+
+export function sendDeliveryChatMessage(token: string, deliveryId: string, message: string) {
+  return authedRequest<{ message: DeliveryChatMessage }>(
+    `/delivery/deliveries/${encodeURIComponent(deliveryId)}/chat`,
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    },
+  );
+}
+
 /* =========================================================
    DELIVERY ADMIN
 ========================================================= */
@@ -698,6 +782,97 @@ export type DeliveryAdminMeResponse = {
   };
 };
 
+export type DeliveryAdminStats = {
+  pendingRegistrations: number;
+  activeApprovedPartners: number;
+  rejectedPartners: number;
+  totalPartners: number;
+  completedDeliveriesTotal: number;
+  partnersWithCompletedDeliveries: number;
+};
+
+export type DeliveryAdminPartnerRow = {
+  id: string;
+  vehicleType?: string | null;
+  nidDocumentUrl?: string | null;
+  educationDocumentUrl?: string | null;
+  cvDocumentUrl?: string | null;
+  agentStatus: string;
+  isActive: boolean;
+  registrationStatus: "APPROVED" | "PENDING" | "REJECTED" | string;
+  currentLat?: number | null;
+  currentLng?: number | null;
+  createdAt: string;
+  updatedAt: string;
+  completedDeliveries: number;
+  activeDelivery?: {
+    id: string;
+    status: DeliveryStatusValue;
+    direction: string;
+    pickupAddress: string;
+    dropAddress: string;
+    updatedAt: string;
+  } | null;
+  user: {
+    id: string;
+    name?: string | null;
+    username: string;
+    email: string;
+    phone?: string | null;
+    role?: string;
+    status?: string;
+    createdAt: string;
+  };
+};
+
+export type DeliveryAdminOrder = {
+  id: string;
+  direction: string;
+  status: DeliveryStatusValue;
+  pickupAddress: string;
+  dropAddress: string;
+  fee?: number | null;
+  scheduledAt?: string | null;
+  pickedUpAt?: string | null;
+  deliveredAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deliveryAgent?: {
+    id: string;
+    user: {
+      id: string;
+      name?: string | null;
+      username: string;
+      email: string;
+      phone?: string | null;
+      lat?: number | null;
+      lng?: number | null;
+      status?: string;
+    };
+  } | null;
+  repairJob: {
+    repairRequest: {
+      id: string;
+      title: string;
+      deviceType: string;
+      status: string;
+      contactPhone?: string | null;
+      user: {
+        id: string;
+        name?: string | null;
+        username: string;
+        phone?: string | null;
+      };
+    };
+    shop: {
+      id: string;
+      name: string;
+      phone?: string | null;
+      address: string;
+    };
+  };
+};
+
 export function deliveryAdminLogin(data: { identifier: string; password: string }) {
   return request<{
     message: string;
@@ -714,12 +889,12 @@ export function fetchDeliveryAdminMe(token: string) {
 }
 
 export function fetchDeliveryAdminStats(token: string) {
-  return authedRequest("/delivery-admin/stats", token);
+  return authedRequest<{ stats: DeliveryAdminStats }>("/delivery-admin/stats", token);
 }
 
 export function fetchDeliveryAdminPartners(token: string, status?: string) {
   const q = status ? `?registrationStatus=${status}` : "";
-  return authedRequest(`/delivery-admin/partners${q}`, token);
+  return authedRequest<{ partners: DeliveryAdminPartnerRow[] }>(`/delivery-admin/partners${q}`, token);
 }
 
 export function approveDeliveryPartnerAdmin(token: string, id: string) {
@@ -733,9 +908,82 @@ export function rejectDeliveryPartnerAdmin(token: string, id: string) {
     method: "PATCH",
   });
 }
-<<<<<<< HEAD
 
+export type DeliveryAdminPayoutRequest = {
+  id: string;
+  amount: number;
+  status: "PENDING" | "PROCESSING" | "PAID" | "FAILED" | "CANCELLED";
+  notes?: string | null;
+  createdAt: string;
+  paidAt?: string | null;
+  riderProfile?: {
+    id: string;
+    user?: {
+      id: string;
+      name?: string | null;
+      username?: string | null;
+      email?: string | null;
+      phone?: string | null;
+    } | null;
+  } | null;
+};
 
+export function fetchDeliveryAdminPayoutRequests(token: string, status?: string) {
+  const q = status ? `?status=${encodeURIComponent(status)}` : "";
+  return authedRequest<{ payouts: DeliveryAdminPayoutRequest[] }>(`/delivery-admin/payout-requests${q}`, token);
+}
+
+export function fetchDeliveryAdminOrders(token: string, status?: string) {
+  const q = status ? `?status=${encodeURIComponent(status)}` : "";
+  return authedRequest<{ deliveries: DeliveryAdminOrder[] }>(`/delivery-admin/deliveries${q}`, token);
+}
+
+export function assignDeliveryAdminOrder(token: string, deliveryId: string, deliveryUserId: string) {
+  return authedRequest<{ message: string; delivery: DeliveryAdminOrder }>(
+    `/delivery-admin/deliveries/${encodeURIComponent(deliveryId)}/assign`,
+    token,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ deliveryUserId }),
+    },
+  );
+}
+
+export function fetchDeliveryAdminOrderTimeline(token: string, deliveryId: string) {
+  return authedRequest<{
+    delivery: DeliveryAdminOrder;
+    timeline: { code: string; title: string; at: string | null }[];
+    pusher?: PusherConfig;
+  }>(`/delivery-admin/deliveries/${encodeURIComponent(deliveryId)}/timeline`, token);
+}
+
+export function fetchDeliveryAdminChatMessages(token: string, deliveryId: string) {
+  return authedRequest<{ messages: DeliveryChatMessage[]; pusher?: PusherConfig }>(
+    `/delivery-admin/deliveries/${encodeURIComponent(deliveryId)}/chat`,
+    token,
+  );
+}
+
+export function sendDeliveryAdminChatMessage(token: string, deliveryId: string, message: string) {
+  return authedRequest<{ message: DeliveryChatMessage }>(
+    `/delivery-admin/deliveries/${encodeURIComponent(deliveryId)}/chat`,
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    },
+  );
+}
+
+export function approveDeliveryAdminPayoutRequest(token: string, id: string) {
+  return authedRequest<{ message: string; payout: DeliveryAdminPayoutRequest }>(
+    `/delivery-admin/payout-requests/${encodeURIComponent(id)}/approve`,
+    token,
+    {
+      method: "PATCH",
+    },
+  );
+}
 /* =========================================================
    Cart Management
 ========================================================= */
@@ -850,5 +1098,3 @@ export async function chatWithAi(payload: {
     body: JSON.stringify(payload),
   });
 }
-=======
->>>>>>> origin/main

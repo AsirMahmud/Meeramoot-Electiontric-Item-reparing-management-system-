@@ -2,12 +2,13 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../models/prisma.js";
 import { env } from "../config/env.js";
+import { isAdminEmail } from "../config/admin.js";
 function signToken(user) {
     return jwt.sign({
         sub: user.id,
-        role: user.role,
         username: user.username,
         email: user.email,
+        role: user.role ?? undefined,
     }, env.jwtSecret, { expiresIn: "7d" });
 }
 export async function signup(req, res) {
@@ -18,9 +19,10 @@ export async function signup(req, res) {
                 message: "name, username, email, phone, and password are required",
             });
         }
+        const normalizedEmail = email.trim().toLowerCase();
         const existing = await prisma.user.findFirst({
             where: {
-                OR: [{ username: username.trim() }, { email: email.trim() }],
+                OR: [{ username: username.trim() }, { email: normalizedEmail }],
             },
             select: { id: true },
         });
@@ -34,9 +36,11 @@ export async function signup(req, res) {
             data: {
                 name: name.trim(),
                 username: username.trim(),
-                email: email.trim(),
+                email: normalizedEmail,
                 phone: phone.trim(),
                 passwordHash,
+                role: isAdminEmail(normalizedEmail) ? "ADMIN" : "CUSTOMER",
+                isEmailVerified: true,
             },
             select: {
                 id: true,
@@ -67,9 +71,10 @@ export async function login(req, res) {
                 message: "identifier and password are required",
             });
         }
+        const normalizedIdentifier = identifier.trim().toLowerCase();
         const user = await prisma.user.findFirst({
             where: {
-                OR: [{ email: identifier.trim() }, { username: identifier.trim() }],
+                OR: [{ email: normalizedIdentifier }, { username: identifier.trim() }],
             },
         });
         if (!user) {
@@ -89,6 +94,7 @@ export async function login(req, res) {
                 username: user.username,
                 email: user.email,
                 phone: user.phone,
+                role: user.role,
             },
         });
     }
@@ -164,11 +170,12 @@ export async function googleExchange(req, res) {
         if (!email) {
             return res.status(400).json({ message: "email is required" });
         }
+        const normalizedEmail = email.trim().toLowerCase();
         let user = await prisma.user.findFirst({
-            where: { email: email.trim() },
+            where: { email: normalizedEmail },
         });
         if (!user) {
-            const baseUsername = email.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "") || "user";
+            const baseUsername = normalizedEmail.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "") || "user";
             let username = baseUsername;
             let counter = 1;
             while (await prisma.user.findFirst({
@@ -181,9 +188,22 @@ export async function googleExchange(req, res) {
                 data: {
                     name: name?.trim() || baseUsername,
                     username,
-                    email: email.trim(),
-                    phone: `temp-${Date.now()}`,
+                    email: normalizedEmail,
+                    phone: null,
                     passwordHash: await bcrypt.hash(Math.random().toString(36), 10),
+                    role: isAdminEmail(normalizedEmail) ? "ADMIN" : "CUSTOMER",
+                    isEmailVerified: true,
+                },
+            });
+        }
+        else {
+            const shouldBeAdmin = isAdminEmail(normalizedEmail);
+            user = await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    isEmailVerified: true,
+                    name: user.name || name?.trim() || user.name,
+                    role: shouldBeAdmin ? "ADMIN" : user.role,
                 },
             });
         }
@@ -197,6 +217,7 @@ export async function googleExchange(req, res) {
                 username: user.username,
                 email: user.email,
                 phone: user.phone,
+                role: user.role,
             },
         });
     }

@@ -23,13 +23,8 @@ export const env = {
   enableEmailNotifications: process.env.ENABLE_EMAIL_NOTIFICATIONS === "true",
   resendApiKey: process.env.RESEND_API_KEY ?? "",
   emailFrom: process.env.EMAIL_FROM ?? "",
-<<<<<<< HEAD
-
   enableAiChat: process.env.ENABLE_AI_CHAT === "true",
   groqApiKey: process.env.GROQ_API_KEY ?? "",
-
-=======
->>>>>>> origin/main
   jwtSecretDelivery: process.env.JWT_SECRET_DELIVERY ?? "dev-delivery-secret",
   jwtSecretDeliveryAdmin:
     process.env.JWT_SECRET_DELIVERY_ADMIN ?? "dev-delivery-admin-secret",
@@ -44,4 +39,8 @@ export const env = {
   sslCommerzStoreId: process.env.SSLCOMMERZ_STORE_ID ?? "",
   sslCommerzStorePassword: process.env.SSLCOMMERZ_STORE_PASSWORD ?? "",
   sslCommerzLive: process.env.SSLCOMMERZ_LIVE === "true",
+  pusherAppId: process.env.PUSHER_APP_ID ?? "",
+  pusherKey: process.env.PUSHER_KEY ?? "",
+  pusherSecret: process.env.PUSHER_SECRET ?? "",
+  pusherCluster: process.env.PUSHER_CLUSTER ?? "",
 };
