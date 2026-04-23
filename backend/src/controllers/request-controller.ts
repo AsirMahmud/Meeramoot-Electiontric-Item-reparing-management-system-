@@ -53,23 +53,23 @@ export async function createRepairRequest(req: AuthedRequest, res: Response) {
       select: { email: true, name: true },
     });
 
-    let matchedShop = null as null | { id: string; name: string; slug: string };
+    const trimmedShopSlug = typeof shopSlug === "string" ? shopSlug.trim() : "";
+    const isDirectFlow = Boolean(trimmedShopSlug);
 
-    if (typeof shopSlug === "string" && shopSlug.trim()) {
-      matchedShop = await prisma.shop.findUnique({
-        where: { slug: shopSlug.trim() },
+    let matchedShop: null | { id: string; name: string; slug: string } = null;
+
+    if (isDirectFlow) {
+      matchedShop = await prisma.shop.findFirst({
+        where: {
+          slug: trimmedShopSlug,
+          isActive: true,
+        },
         select: { id: true, name: true, slug: true },
       });
 
       if (!matchedShop) {
         return res.status(404).json({ message: "Selected shop was not found" });
       }
-    } else {
-      matchedShop = await prisma.shop.findFirst({
-        where: { isActive: true },
-        orderBy: [{ ratingAvg: "desc" }, { reviewCount: "desc" }],
-        select: { id: true, name: true, slug: true },
-      });
     }
 
     const created = await prisma.$transaction(async (tx) => {
@@ -87,13 +87,13 @@ export async function createRepairRequest(req: AuthedRequest, res: Response) {
           mode: normalizeRequestMode(typeof mode === "string" ? mode : undefined),
           preferredPickup: Boolean(preferredPickup),
           deliveryType: normalizeDeliveryType(typeof deliveryType === "string" ? deliveryType : undefined),
-          status: matchedShop ? RequestStatus.ASSIGNED : RequestStatus.PENDING,
+          status: isDirectFlow ? RequestStatus.ASSIGNED : RequestStatus.BIDDING,
         },
       });
 
       let repairJob = null;
 
-      if (matchedShop) {
+      if (isDirectFlow && matchedShop) {
         repairJob = await tx.repairJob.create({
           data: {
             repairRequestId: request.id,
@@ -115,14 +115,16 @@ export async function createRepairRequest(req: AuthedRequest, res: Response) {
       await sendOrderStatusEmail({
         to: user.email,
         customerName: user.name,
-        orderTitle: created.request.title,
+        orderRef: created.request.title,
         status: created.request.status,
         shopName: matchedShop?.name,
       }).catch((error) => console.error("request created email failed", error));
     }
 
     return res.status(201).json({
-      message: "Repair request created",
+      message: isDirectFlow
+        ? "Direct repair request created"
+        : "Marketplace repair request created and opened for bidding",
       request: created.request,
       matchedShop,
       repairJob: created.repairJob,

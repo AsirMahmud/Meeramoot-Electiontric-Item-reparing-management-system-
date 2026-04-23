@@ -33,8 +33,9 @@ export default function NewRequestPage() {
         <div className="rounded-[2rem] bg-white p-8 shadow-sm">
           <p className="text-sm uppercase tracking-[0.2em] text-[#58725f]">Create request</p>
           <h1 className="mt-2 text-3xl font-bold text-[#173726]">{flowTitle}</h1>
-          <p className="mt-2 text-[#5b7262]">Use market flow to get matched automatically, or direct order to place a request with one selected shop.</p>
-
+        <p className="mt-2 text-[#5b7262]">
+  Use market flow to open your request for vendor bidding, or direct order to place a request with one selected shop.
+</p>
           <form className="mt-8 grid gap-4 md:grid-cols-2" onSubmit={async (e) => {
             e.preventDefault();
             if (!session?.user) {
