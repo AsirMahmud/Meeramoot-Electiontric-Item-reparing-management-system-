@@ -32,11 +32,6 @@ export async function canReviewShop(req: AuthedRequest, res: Response) {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-<<<<<<< HEAD
-    const { shopSlug } = req.params;
-    const shop = await prisma.shop.findUnique({
-      where: { slug: shopSlug },
-=======
     const shopSlug = req.params.shopSlug as string;
     const shop = await prisma.shop.findUnique({ where: { slug: shopSlug }, select: { id: true } });
     if (!shop) return res.status(404).json({ message: "Shop not found" });
@@ -47,10 +42,8 @@ export async function canReviewShop(req: AuthedRequest, res: Response) {
         status: "COMPLETED",
         repairRequest: { userId },
       },
->>>>>>> origin/main
       select: { id: true },
     });
-    if (!shop) return res.status(404).json({ message: "Shop not found" });
 
     const existingReview = await prisma.rating.findUnique({
       where: { userId_shopId: { userId, shopId: shop.id } },
@@ -59,7 +52,7 @@ export async function canReviewShop(req: AuthedRequest, res: Response) {
 
     return res.json({
       eligible: !existingReview,
-      hasCompletedJob: true, // fake true for testing so frontend stays happy
+      hasCompletedJob: Boolean(completedJob),
       hasExistingReview: Boolean(existingReview),
     });
   } catch (error) {

@@ -1,5 +1,6 @@
-import { DeliveryStatus } from "@prisma/client";
+import { DeliveryStatus, PayoutStatus } from "@prisma/client";
 import prisma from "../models/prisma.js";
+import { getPusherPublicConfig, publishDeliveryChatMessage } from "../services/pusher-service.js";
 function parseDeliveryStatusQuery(raw) {
     if (typeof raw !== "string" || !raw.trim())
         return undefined;
@@ -49,7 +50,7 @@ export async function listMyDeliveries(req, res) {
         }
         const deliveries = await prisma.delivery.findMany({
             where: {
-                riderUserId,
+                deliveryAgent: { is: { userId: riderUserId } },
                 ...(statusFilter ? { status: statusFilter } : {}),
             },
             include: {
@@ -105,14 +106,21 @@ export async function acceptMyDelivery(req, res) {
         if (!rider) {
             return res.status(404).json({ message: "Rider profile not found" });
         }
+        const riderProfile = await prisma.riderProfile.findUnique({
+            where: { userId: riderUserId },
+            select: { id: true },
+        });
+        if (!riderProfile) {
+            return res.status(404).json({ message: "Rider profile not found" });
+        }
         const existing = await prisma.delivery.findUnique({
             where: { id: deliveryId },
-            select: { id: true, riderUserId: true, status: true },
+            select: { id: true, deliveryAgentId: true, status: true },
         });
         if (!existing) {
             return res.status(404).json({ message: "Delivery not found" });
         }
-        if (existing.riderUserId && existing.riderUserId !== riderUserId) {
+        if (existing.deliveryAgentId && existing.deliveryAgentId !== riderProfile.id) {
             return res.status(409).json({ message: "This order is already accepted by another rider" });
         }
         if (["DELIVERED", "FAILED", "CANCELLED"].includes(existing.status)) {
@@ -120,7 +128,7 @@ export async function acceptMyDelivery(req, res) {
         }
         const activeDelivery = await prisma.delivery.findFirst({
             where: {
-                riderUserId,
+                deliveryAgentId: riderProfile.id,
                 status: {
                     notIn: ["DELIVERED", "FAILED", "CANCELLED", "PENDING"],
                 },
@@ -137,7 +145,7 @@ export async function acceptMyDelivery(req, res) {
         const updated = await prisma.delivery.update({
             where: { id: deliveryId },
             data: {
-                riderUserId,
+                deliveryAgentId: riderProfile.id,
                 riderName: rider.name ?? null,
                 riderPhone: rider.phone ?? null,
                 ...(existing.status === "PENDING" ? { status: "SCHEDULED", scheduledAt: now } : {}),
@@ -222,7 +230,7 @@ export async function updateMyDeliveryStatus(req, res) {
             return res.status(400).json({ message: "Valid delivery status is required" });
         }
         const existing = await prisma.delivery.findFirst({
-            where: { id: deliveryId, riderUserId },
+            where: { id: deliveryId, deliveryAgent: { is: { userId: riderUserId } } },
             select: { id: true },
         });
         if (!existing) {
@@ -265,6 +273,252 @@ export async function updateMyDeliveryStatus(req, res) {
     }
     catch (error) {
         console.error("updateMyDeliveryStatus error:", error);
+        return res.status(500).json({ message: "Server error" });
+    }
+}
+async function ensureRiderProfileId(userId) {
+    const existing = await prisma.riderProfile.findUnique({
+        where: { userId },
+        select: { id: true },
+    });
+    if (existing?.id)
+        return existing.id;
+    const created = await prisma.riderProfile.create({
+        data: {
+            userId,
+            registrationStatus: "APPROVED",
+            isActive: true,
+            status: "AVAILABLE",
+        },
+        select: { id: true },
+    });
+    return created.id;
+}
+async function getDeliveryWalletSummary(userId) {
+    const riderProfileId = await ensureRiderProfileId(userId);
+    const [deliveredAgg, payoutAgg] = await Promise.all([
+        prisma.delivery.aggregate({
+            where: {
+                status: "DELIVERED",
+                deliveryAgentId: riderProfileId,
+            },
+            _sum: {
+                fee: true,
+            },
+            _count: {
+                id: true,
+            },
+        }),
+        prisma.vendorPayout.aggregate({
+            where: {
+                riderProfileId,
+                status: {
+                    in: [PayoutStatus.PENDING, PayoutStatus.PROCESSING, PayoutStatus.PAID],
+                },
+            },
+            _sum: {
+                amount: true,
+            },
+        }),
+    ]);
+    const earned = Number(deliveredAgg._sum.fee ?? 0);
+    const requestedOrPaid = Number(payoutAgg._sum.amount ?? 0);
+    const available = Math.max(0, earned - requestedOrPaid);
+    return {
+        riderProfileId,
+        deliveredTrips: deliveredAgg._count.id,
+        earned,
+        requestedOrPaid,
+        available,
+    };
+}
+export async function getDeliveryPayoutSummary(req, res) {
+    try {
+        const riderUserId = req.deliveryAuth?.userId;
+        if (!riderUserId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+        const summary = await getDeliveryWalletSummary(riderUserId);
+        const payouts = await prisma.vendorPayout.findMany({
+            where: { riderProfileId: summary.riderProfileId },
+            orderBy: { createdAt: "desc" },
+            take: 20,
+            select: {
+                id: true,
+                amount: true,
+                status: true,
+                notes: true,
+                paidAt: true,
+                createdAt: true,
+            },
+        });
+        return res.json({
+            summary: {
+                deliveredTrips: summary.deliveredTrips,
+                earned: summary.earned,
+                requestedOrPaid: summary.requestedOrPaid,
+                available: summary.available,
+                minRequestAmount: 500,
+                canRequest: summary.available >= 500,
+            },
+            payouts,
+        });
+    }
+    catch (error) {
+        console.error("getDeliveryPayoutSummary error:", error);
+        return res.status(500).json({ message: "Server error" });
+    }
+}
+export async function requestDeliveryPayout(req, res) {
+    try {
+        const riderUserId = req.deliveryAuth?.userId;
+        if (!riderUserId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+        const { amount, notes } = req.body;
+        const summary = await getDeliveryWalletSummary(riderUserId);
+        if (summary.available < 500) {
+            return res
+                .status(400)
+                .json({ message: "You can request payout only after earning at least BDT 500" });
+        }
+        const requestedAmountRaw = typeof amount === "number" ? amount : summary.available;
+        const requestedAmount = Math.round((requestedAmountRaw + Number.EPSILON) * 100) / 100;
+        if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+            return res.status(400).json({ message: "Valid payout amount is required" });
+        }
+        if (requestedAmount > summary.available) {
+            return res.status(400).json({ message: "Requested amount is higher than available balance" });
+        }
+        if (requestedAmount < 500) {
+            return res.status(400).json({ message: "Minimum payout request amount is BDT 500" });
+        }
+        const created = await prisma.vendorPayout.create({
+            data: {
+                riderProfileId: summary.riderProfileId,
+                amount: requestedAmount,
+                status: PayoutStatus.PENDING,
+                notes: typeof notes === "string" && notes.trim() ? notes.trim() : null,
+            },
+            select: {
+                id: true,
+                amount: true,
+                status: true,
+                notes: true,
+                createdAt: true,
+            },
+        });
+        return res.status(201).json({
+            message: "Payout request sent to admin",
+            payout: created,
+        });
+    }
+    catch (error) {
+        console.error("requestDeliveryPayout error:", error);
+        return res.status(500).json({ message: "Server error" });
+    }
+}
+export async function getDeliveryChatMessages(req, res) {
+    try {
+        const riderUserId = req.deliveryAuth?.userId;
+        if (!riderUserId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+        const rawDeliveryId = req.params.id;
+        if (typeof rawDeliveryId !== "string" || !rawDeliveryId.trim()) {
+            return res.status(400).json({ message: "Delivery id is required" });
+        }
+        const deliveryId = rawDeliveryId.trim();
+        const delivery = await prisma.delivery.findFirst({
+            where: {
+                id: deliveryId,
+                deliveryAgent: { is: { userId: riderUserId } },
+            },
+            select: { id: true },
+        });
+        if (!delivery) {
+            return res.status(404).json({ message: "Delivery not found for this rider" });
+        }
+        const messages = await prisma.deliveryChatMessage.findMany({
+            where: { deliveryId },
+            orderBy: { createdAt: "asc" },
+            take: 200,
+        });
+        return res.json({
+            messages,
+            pusher: getPusherPublicConfig(),
+        });
+    }
+    catch (error) {
+        console.error("getDeliveryChatMessages error:", error);
+        return res.status(500).json({ message: "Server error" });
+    }
+}
+export async function sendDeliveryChatMessage(req, res) {
+    try {
+        const riderUserId = req.deliveryAuth?.userId;
+        if (!riderUserId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+        const rawDeliveryId = req.params.id;
+        const { message } = req.body;
+        if (typeof rawDeliveryId !== "string" || !rawDeliveryId.trim()) {
+            return res.status(400).json({ message: "Delivery id is required" });
+        }
+        if (typeof message !== "string" || !message.trim()) {
+            return res.status(400).json({ message: "Message is required" });
+        }
+        const deliveryId = rawDeliveryId.trim();
+        const adminUser = await prisma.delivery.findFirst({
+            where: {
+                id: deliveryId,
+                deliveryAgent: { is: { userId: riderUserId } },
+            },
+            select: {
+                id: true,
+                repairJob: {
+                    select: {
+                        shop: {
+                            select: {
+                                staff: {
+                                    where: { user: { role: "DELIVERY_ADMIN", status: "ACTIVE" } },
+                                    select: { userId: true },
+                                    take: 1,
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        });
+        if (!adminUser) {
+            return res.status(404).json({ message: "Delivery not found for this rider" });
+        }
+        const explicitAdmin = await prisma.user.findFirst({
+            where: {
+                role: { in: ["DELIVERY_ADMIN", "ADMIN"] },
+                status: "ACTIVE",
+            },
+            select: { id: true },
+            orderBy: { createdAt: "asc" },
+        });
+        if (!explicitAdmin) {
+            return res.status(404).json({ message: "No active delivery admin found" });
+        }
+        const created = await prisma.deliveryChatMessage.create({
+            data: {
+                deliveryId,
+                senderUserId: riderUserId,
+                senderRole: "DELIVERY",
+                recipientUserId: explicitAdmin.id,
+                message: message.trim(),
+            },
+        });
+        await publishDeliveryChatMessage(deliveryId, created);
+        return res.status(201).json({ message: created });
+    }
+    catch (error) {
+        console.error("sendDeliveryChatMessage error:", error);
         return res.status(500).json({ message: "Server error" });
     }
 }

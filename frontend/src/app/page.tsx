@@ -55,11 +55,7 @@ export default function HomePage() {
   }, [user]);
 
   return (
-<<<<<<< HEAD
     <main className="min-h-screen bg-[var(--background)] text-foreground">
-=======
-    <main className="min-h-screen bg-background text-foreground">
->>>>>>> origin/main
       <Navbar
         isLoggedIn={!!user}
         firstName={firstName}

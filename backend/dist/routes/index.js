@@ -2,8 +2,13 @@ import { Router } from "express";
 import prisma from "../models/prisma.js";
 import authRoutes from "./auth-routes.js";
 import shopRoutes from "./shop-routes.js";
+import notificationRoutes from "./notification-routes.js";
 import paymentRoutes from "./payment-routes.js";
 import { APP_DISPLAY_NAME, APP_SLUG } from "../config/app.js";
+import profileRoutes from "./profile-routes.js";
+import cartRoutes from "./cart-routes.js";
+import requestRoutes from "./request-routes.js";
+import aiRoutes from "./ai-routes.js";
 const router = Router();
 router.get("/health", async (_req, res) => {
     try {
@@ -28,6 +33,11 @@ router.get("/health", async (_req, res) => {
 });
 router.use("/auth", authRoutes);
 router.use("/shops", shopRoutes);
+router.use("/profile", profileRoutes);
+router.use("/notifications", notificationRoutes);
+router.use("/cart", cartRoutes);
+router.use("/requests", requestRoutes);
+router.use("/ai", aiRoutes);
 router.use("/payments", paymentRoutes);
 export default router;
 //# sourceMappingURL=index.js.map

@@ -27,7 +27,7 @@ export async function requireDeliveryAdminAuth(req: Request, res: Response, next
       select: { id: true, role: true, status: true },
     });
 
-    if (!user || user.role !== "ADMIN") {
+    if (!user || (user.role !== "ADMIN" && user.role !== "DELIVERY_ADMIN")) {
       return res.status(403).json({ message: "Delivery admin access denied" });
     }
 

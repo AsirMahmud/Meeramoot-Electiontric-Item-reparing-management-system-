@@ -12,6 +12,8 @@ export declare const env: {
     enableEmailNotifications: boolean;
     resendApiKey: string;
     emailFrom: string;
+    enableAiChat: boolean;
+    groqApiKey: string;
     jwtSecretDelivery: string;
     jwtSecretDeliveryAdmin: string;
     smtpHost: string | undefined;
@@ -24,5 +26,9 @@ export declare const env: {
     sslCommerzStoreId: string;
     sslCommerzStorePassword: string;
     sslCommerzLive: boolean;
+    pusherAppId: string;
+    pusherKey: string;
+    pusherSecret: string;
+    pusherCluster: string;
 };
 //# sourceMappingURL=env.d.ts.map
