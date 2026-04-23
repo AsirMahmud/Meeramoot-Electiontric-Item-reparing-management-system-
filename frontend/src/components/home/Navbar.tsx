@@ -91,7 +91,19 @@ export default function Navbar({
   const confirmLogout = async () => {
     setIsUserMenuOpen(false);
     setShowLogoutConfirm(false);
-    await signOut({ callbackUrl: "/" });
+    setVendorStatus(null);
+
+    try {
+      const result = await signOut({
+        redirect: false,
+        callbackUrl: "/",
+      });
+      router.replace(result?.url || "/");
+    } catch {
+      router.replace("/");
+    } finally {
+      router.refresh();
+    }
   };
 
   const vendorApplication = vendorStatus?.application;

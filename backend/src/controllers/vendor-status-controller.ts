@@ -7,22 +7,12 @@ type AuthPayload = {
   sub: string;
   role?: string;
 };
-type SetupShopBody = {
-  shopName?: string;
-  description?: string;
-  phone?: string;
-  address?: string;
-  city?: string;
-  area?: string;
-  courierPickup?: boolean;
-  inShopRepair?: boolean;
-  spareParts?: boolean;
-  inspectionFee?: number | string;
-  baseLaborFee?: number | string;
-  pickupFee?: number | string;
-  expressFee?: number | string;
-  skillTags?: string[] | string;
+
+type AuthenticatedVendorUser = {
+  id: string;
+  role: string;
 };
+
 function extractBearerToken(header?: string) {
   if (!header) return null;
   const [scheme, token] = header.split(" ");
@@ -30,90 +20,47 @@ function extractBearerToken(header?: string) {
   return token;
 }
 
-export async function getVendorApplicationStatus(req: Request, res: Response) {
-  try {
-    const token = extractBearerToken(req.headers.authorization);
+async function requireVendorUser(
+  req: Request,
+  res: Response
+): Promise<AuthenticatedVendorUser | null> {
+  const token = extractBearerToken(req.headers.authorization);
 
-    if (!token) {
-      return res.status(401).json({ message: "Missing authorization token" });
-    }
-
-    const payload = jwt.verify(token, env.jwtSecret) as AuthPayload;
-
-    if (!payload?.sub) {
-      return res.status(401).json({ message: "Invalid or expired token" });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: payload.sub },
-      select: { id: true, role: true },
-    });
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    if (user.role !== "VENDOR") {
-      return res.status(403).json({ message: "Only vendors can access this resource" });
-    }
-
-   const application = await prisma.vendorApplication.findUnique({
-  where: { userId: user.id },
-  select: {
-    id: true,
-    status: true,
-    ownerName: true,
-    businessEmail: true,
-    phone: true,
-    shopName: true,
-    tradeLicenseNo: true,
-    address: true,
-    city: true,
-    area: true,
-    specialties: true,
-    courierPickup: true,
-    inShopRepair: true,
-    spareParts: true,
-    notes: true,
-    rejectionReason: true,
-    rejectionVisibleUntil: true,
-    createdAt: true,
-  },
-});
-
-if (!application) {
-  return res.status(404).json({ message: "Vendor application not found" });
-}
-
-const shop = await prisma.shop.findFirst({
-  where: { email: application.businessEmail },
-  select: {
-    id: true,
-    setupComplete: true,
-    isPublic: true,
-    inspectionFee: true,
-    baseLaborFee: true,
-    pickupFee: true,
-    expressFee: true,
-  },
-});
-
-return res.json({
-  application: {
-    ...application,
-    setupComplete: shop?.setupComplete ?? false,
-    isPublic: shop?.isPublic ?? false,
-    inspectionFee: shop?.inspectionFee ?? null,
-    baseLaborFee: shop?.baseLaborFee ?? null,
-    pickupFee: shop?.pickupFee ?? null,
-    expressFee: shop?.expressFee ?? null,
-  },
-});
-
-  } catch (error) {
-    console.error("getVendorApplicationStatus error:", error);
-    return res.status(500).json({ message: "Server error" });
+  if (!token) {
+    res.status(401).json({ message: "Missing authorization token" });
+    return null;
   }
+
+  let payload: AuthPayload;
+
+  try {
+    payload = jwt.verify(token, env.jwtSecret) as AuthPayload;
+  } catch {
+    res.status(401).json({ message: "Invalid or expired token" });
+    return null;
+  }
+
+  if (!payload?.sub) {
+    res.status(401).json({ message: "Invalid or expired token" });
+    return null;
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: payload.sub },
+    select: { id: true, role: true },
+  });
+
+  if (!user) {
+    res.status(404).json({ message: "User not found" });
+    return null;
+  }
+
+  if (user.role !== "VENDOR") {
+    res.status(403).json({ message: "Only vendors can access this resource" });
+    return null;
+  }
+
+  return user;
 }
 
 function parseCsvList(input?: string) {
@@ -123,44 +70,104 @@ function parseCsvList(input?: string) {
     .map((item) => item.trim())
     .filter(Boolean);
 }
-export async function updateVendorApplicationStatus(req: Request, res: Response) {
+
+export async function getVendorApplicationStatus(req: Request, res: Response) {
   try {
-    const token = extractBearerToken(req.headers.authorization);
-
-    if (!token) {
-      return res.status(401).json({ message: "Missing authorization token" });
-    }
-
-    const payload = jwt.verify(token, env.jwtSecret) as AuthPayload;
-
-    if (!payload?.sub) {
-      return res.status(401).json({ message: "Invalid or expired token" });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: payload.sub },
-      select: { id: true, role: true },
-    });
+    const user = await requireVendorUser(req, res);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return;
     }
 
-    if (user.role !== "VENDOR") {
-      return res.status(403).json({ message: "Only vendors can access this resource" });
+    const application = await prisma.vendorApplication.findUnique({
+      where: { userId: user.id },
+      select: {
+        id: true,
+        status: true,
+        ownerName: true,
+        businessEmail: true,
+        phone: true,
+        shopName: true,
+        tradeLicenseNo: true,
+        address: true,
+        city: true,
+        area: true,
+        specialties: true,
+        courierPickup: true,
+        inShopRepair: true,
+        spareParts: true,
+        notes: true,
+        rejectionReason: true,
+        rejectionVisibleUntil: true,
+        createdAt: true,
+      },
+    });
+
+    if (!application) {
+      return res.status(404).json({ message: "Vendor application not found" });
+    }
+
+    const shop = await prisma.shop.findFirst({
+      where: { email: application.businessEmail },
+      select: {
+        id: true,
+        setupComplete: true,
+        isPublic: true,
+        inspectionFee: true,
+        baseLaborFee: true,
+        pickupFee: true,
+        expressFee: true,
+      },
+    });
+
+    return res.json({
+      application: {
+        ...application,
+        setupComplete: shop?.setupComplete ?? false,
+        isPublic: shop?.isPublic ?? false,
+        inspectionFee: shop?.inspectionFee ?? null,
+        baseLaborFee: shop?.baseLaborFee ?? null,
+        pickupFee: shop?.pickupFee ?? null,
+        expressFee: shop?.expressFee ?? null,
+      },
+    });
+  } catch (error) {
+    console.error("getVendorApplicationStatus error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+export async function updateVendorApplicationStatus(req: Request, res: Response) {
+  try {
+    const user = await requireVendorUser(req, res);
+
+    if (!user) {
+      return;
     }
 
     const existing = await prisma.vendorApplication.findUnique({
       where: { userId: user.id },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        businessEmail: true,
+      },
     });
 
     if (!existing) {
       return res.status(404).json({ message: "Vendor application not found" });
     }
 
+    if (existing.status === "APPROVED") {
+      return res.status(400).json({
+        message:
+          "Approved vendors must update their public shop details from shop setup or dashboard tools.",
+      });
+    }
+
     const {
       ownerName,
+      businessEmail,
       phone,
       shopName,
       tradeLicenseNo,
@@ -174,6 +181,7 @@ export async function updateVendorApplicationStatus(req: Request, res: Response)
       notes,
     } = req.body as {
       ownerName?: string;
+      businessEmail?: string;
       phone?: string;
       shopName?: string;
       tradeLicenseNo?: string;
@@ -187,44 +195,115 @@ export async function updateVendorApplicationStatus(req: Request, res: Response)
       notes?: string;
     };
 
-    if (!ownerName || !phone || !shopName || !address) {
+    const normalizedOwnerName = ownerName?.trim() || "";
+    const normalizedBusinessEmail = businessEmail?.trim().toLowerCase() || "";
+    const normalizedPhone = phone?.trim() || "";
+    const normalizedShopName = shopName?.trim() || "";
+    const normalizedAddress = address?.trim() || "";
+    const normalizedTradeLicenseNo = tradeLicenseNo?.trim() || null;
+    const normalizedCity = city?.trim() || null;
+    const normalizedArea = area?.trim() || null;
+    const normalizedNotes = notes?.trim() || null;
+
+    if (
+      !normalizedOwnerName ||
+      !normalizedBusinessEmail ||
+      !normalizedPhone ||
+      !normalizedShopName ||
+      !normalizedAddress
+    ) {
       return res.status(400).json({
-        message: "ownerName, phone, shopName, and address are required",
+        message:
+          "ownerName, businessEmail, phone, shopName, and address are required",
       });
     }
 
     const normalizedSpecialties = Array.isArray(specialties)
-      ? specialties.map((s) => s.trim()).filter(Boolean)
+      ? specialties.map((item) => item.trim()).filter(Boolean)
       : parseCsvList(specialties);
 
-    const updated = await prisma.vendorApplication.update({
-      where: { userId: user.id },
-      data: {
-        ownerName: ownerName.trim(),
-        phone: phone.trim(),
-        shopName: shopName.trim(),
-        tradeLicenseNo: tradeLicenseNo?.trim() || null,
-        address: address.trim(),
-        city: city?.trim() || null,
-        area: area?.trim() || null,
-        specialties: normalizedSpecialties,
-        courierPickup: Boolean(courierPickup),
-        inShopRepair: typeof inShopRepair === "boolean" ? inShopRepair : true,
-        spareParts: Boolean(spareParts),
-        notes: notes?.trim() || null,
-      },
-      select: {
-        id: true,
-        status: true,
-        ownerName: true,
-        businessEmail: true,
-        shopName: true,
-        createdAt: true,
-      },
+    const [existingUserWithEmail, existingApplicationWithEmail] = await Promise.all([
+      prisma.user.findFirst({
+        where: {
+          email: normalizedBusinessEmail,
+          NOT: { id: user.id },
+        },
+        select: { id: true },
+      }),
+      prisma.vendorApplication.findFirst({
+        where: {
+          businessEmail: normalizedBusinessEmail,
+          NOT: { userId: user.id },
+        },
+        select: { id: true },
+      }),
+    ]);
+
+    if (existingUserWithEmail || existingApplicationWithEmail) {
+      return res.status(409).json({
+        message: "That business email is already in use by another account.",
+      });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          name: normalizedOwnerName,
+          email: normalizedBusinessEmail,
+          phone: normalizedPhone,
+        },
+      });
+
+      return tx.vendorApplication.update({
+        where: { userId: user.id },
+        data: {
+          ownerName: normalizedOwnerName,
+          businessEmail: normalizedBusinessEmail,
+          phone: normalizedPhone,
+          shopName: normalizedShopName,
+          tradeLicenseNo: normalizedTradeLicenseNo,
+          address: normalizedAddress,
+          city: normalizedCity,
+          area: normalizedArea,
+          specialties: normalizedSpecialties,
+          courierPickup: Boolean(courierPickup),
+          inShopRepair: typeof inShopRepair === "boolean" ? inShopRepair : true,
+          spareParts: Boolean(spareParts),
+          notes: normalizedNotes,
+          status: "PENDING",
+          rejectionReason: null,
+          rejectedAt: null,
+          rejectionVisibleUntil: null,
+        },
+        select: {
+          id: true,
+          status: true,
+          ownerName: true,
+          businessEmail: true,
+          phone: true,
+          shopName: true,
+          tradeLicenseNo: true,
+          address: true,
+          city: true,
+          area: true,
+          specialties: true,
+          courierPickup: true,
+          inShopRepair: true,
+          spareParts: true,
+          notes: true,
+          rejectionReason: true,
+          rejectionVisibleUntil: true,
+          createdAt: true,
+        },
+      });
     });
 
     return res.json({
-      message: "Vendor application updated successfully",
+      message:
+        existing.status === "REJECTED"
+          ? "Vendor application updated and resubmitted for review"
+          : "Vendor application updated successfully",
       application: updated,
     });
   } catch (error) {
@@ -233,32 +312,12 @@ export async function updateVendorApplicationStatus(req: Request, res: Response)
   }
 }
 
-
 export async function completeVendorShopSetup(req: Request, res: Response) {
   try {
-    const token = extractBearerToken(req.headers.authorization);
-
-    if (!token) {
-      return res.status(401).json({ message: "Missing authorization token" });
-    }
-
-    const payload = jwt.verify(token, env.jwtSecret) as AuthPayload;
-
-    if (!payload?.sub) {
-      return res.status(401).json({ message: "Invalid or expired token" });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: payload.sub },
-      select: { id: true, role: true },
-    });
+    const user = await requireVendorUser(req, res);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    if (user.role !== "VENDOR") {
-      return res.status(403).json({ message: "Only vendors can access this resource" });
+      return;
     }
 
     const application = await prisma.vendorApplication.findUnique({
@@ -336,9 +395,9 @@ export async function completeVendorShopSetup(req: Request, res: Response) {
       : parseCsvList(skillTags);
 
     const serviceCategories = [
-      ...(courierPickup ? ["COURIER_PICKUP" as const] : []),
-      ...(inShopRepair ? ["IN_SHOP_REPAIR" as const] : []),
-      ...(spareParts ? ["SPARE_PARTS" as const] : []),
+      ...(courierPickup ? (["COURIER_PICKUP"] as const) : []),
+      ...(inShopRepair ? (["IN_SHOP_REPAIR"] as const) : []),
+      ...(spareParts ? (["SPARE_PARTS"] as const) : []),
     ];
 
     if (!normalizedShopName || !normalizedPhone || !normalizedAddress) {

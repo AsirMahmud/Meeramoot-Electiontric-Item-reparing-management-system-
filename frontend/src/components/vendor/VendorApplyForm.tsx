@@ -27,29 +27,40 @@ type ExistingVendorApplication = {
   notes?: string | null;
 };
 
+const emptyVendorApplicationForm = {
+  ownerName: "",
+  businessEmail: "",
+  phone: "",
+  password: "",
+  confirmPassword: "",
+  shopName: "",
+  tradeLicenseNo: "",
+  address: "",
+  city: "",
+  area: "",
+  specialties: "",
+  courierPickup: false,
+  inShopRepair: true,
+  spareParts: false,
+  notes: "",
+};
+
+type VendorApplicationFormState = typeof emptyVendorApplicationForm;
+type SessionUser = {
+  role?: string | null;
+  accessToken?: string | null;
+};
+
 export default function VendorApplyForm() {
   const router = useRouter();
   const { data: session, status } = useSession();
-  const token = (session?.user as { accessToken?: string } | undefined)?.accessToken;
+  const sessionUser = session?.user as SessionUser | undefined;
+  const role = sessionUser?.role ?? null;
+  const token = sessionUser?.accessToken;
 
-  const [form, setForm] = useState({
-    ownerName: "",
-    businessEmail: "",
-    phone: "",
-    password: "",
-    confirmPassword: "",
-    shopName: "",
-    tradeLicenseNo: "",
-    address: "",
-    city: "",
-    area: "",
-    specialties: "",
-    courierPickup: false,
-    inShopRepair: true,
-    spareParts: false,
-    notes: "",
+  const [form, setForm] = useState<VendorApplicationFormState>({
+    ...emptyVendorApplicationForm,
   });
-
   const [loading, setLoading] = useState(false);
   const [loadingExisting, setLoadingExisting] = useState(true);
   const [error, setError] = useState("");
@@ -59,34 +70,43 @@ export default function VendorApplyForm() {
     form.confirmPassword.length > 0 && form.password !== form.confirmPassword;
 
   useEffect(() => {
-    if (status === "loading") return;
+    if (status === "loading") {
+      return;
+    }
 
     async function loadExisting() {
-      try {
-        if (!token) {
-          setLoadingExisting(false);
-          return;
-        }
+      setError("");
 
+      if (!token || role !== "VENDOR") {
+        setForm({ ...emptyVendorApplicationForm });
+        setIsEditMode(false);
+        setLoadingExisting(false);
+        return;
+      }
+
+      setLoadingExisting(true);
+
+      try {
         const result = await getVendorApplicationStatus(token);
         const app = result.application as ExistingVendorApplication | undefined;
 
         if (!app) {
-          setLoadingExisting(false);
+          setForm({ ...emptyVendorApplicationForm });
+          setIsEditMode(false);
           return;
         }
 
         if (app.status === "APPROVED") {
           if (app.setupComplete) {
-            router.replace("/");
+            router.replace("/vendor/dashboard");
           } else {
             router.replace("/vendor/setup-shop");
           }
           return;
         }
 
-        setForm((prev) => ({
-          ...prev,
+        setForm({
+          ...emptyVendorApplicationForm,
           ownerName: app.ownerName || "",
           businessEmail: app.businessEmail || "",
           phone: app.phone || "",
@@ -103,21 +123,18 @@ export default function VendorApplyForm() {
             typeof app.inShopRepair === "boolean" ? app.inShopRepair : true,
           spareParts: Boolean(app.spareParts),
           notes: app.notes || "",
-        }));
-
-        if (app.status === "REJECTED" || app.status === "PENDING") {
-          setIsEditMode(true);
-        }
+        });
+        setIsEditMode(app.status === "REJECTED" || app.status === "PENDING");
       } catch {
-        // No existing application yet or not authenticated:
-        // keep the form blank and allow fresh submission.
+        setForm({ ...emptyVendorApplicationForm });
+        setIsEditMode(false);
       } finally {
         setLoadingExisting(false);
       }
     }
 
-    loadExisting();
-  }, [status, token, router]);
+    void loadExisting();
+  }, [status, token, role, router]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -232,17 +249,19 @@ export default function VendorApplyForm() {
         </p>
       </div>
 
-      {isEditMode && (
+      {isEditMode ? (
         <div className="mb-4 rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
           Update your previous vendor application and submit again. It will go back to pending review.
         </div>
-      )}
+      ) : null}
 
-      <form className="space-y-4" onSubmit={handleSubmit}>
+      <form className="space-y-4" onSubmit={handleSubmit} autoComplete="off">
         <div className="grid gap-4 md:grid-cols-2">
           <input
             className="rounded-2xl border border-border px-4 py-3 text-sm"
             placeholder="Owner name"
+            name="vendorOwnerName"
+            autoComplete="off"
             value={form.ownerName}
             onChange={(e) => setForm((prev) => ({ ...prev, ownerName: e.target.value }))}
           />
@@ -251,6 +270,8 @@ export default function VendorApplyForm() {
             className="rounded-2xl border border-border px-4 py-3 text-sm"
             placeholder="Business email"
             type="email"
+            name="vendorBusinessEmail"
+            autoComplete="off"
             value={form.businessEmail}
             onChange={(e) =>
               setForm((prev) => ({ ...prev, businessEmail: e.target.value }))
@@ -260,6 +281,8 @@ export default function VendorApplyForm() {
           <input
             className="rounded-2xl border border-border px-4 py-3 text-sm"
             placeholder="Phone"
+            name="vendorPhone"
+            autoComplete="off"
             value={form.phone}
             onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
           />
@@ -267,16 +290,20 @@ export default function VendorApplyForm() {
           <input
             className="rounded-2xl border border-border px-4 py-3 text-sm"
             placeholder="Shop name"
+            name="vendorShopName"
+            autoComplete="off"
             value={form.shopName}
             onChange={(e) => setForm((prev) => ({ ...prev, shopName: e.target.value }))}
           />
 
-          {!isEditMode && (
+          {!isEditMode ? (
             <>
               <input
                 className="rounded-2xl border border-border px-4 py-3 text-sm"
                 placeholder="Password"
                 type="password"
+                name="vendorPassword"
+                autoComplete="new-password"
                 value={form.password}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, password: e.target.value }))
@@ -287,17 +314,21 @@ export default function VendorApplyForm() {
                 className="rounded-2xl border border-border px-4 py-3 text-sm"
                 placeholder="Confirm password"
                 type="password"
+                name="vendorConfirmPassword"
+                autoComplete="new-password"
                 value={form.confirmPassword}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, confirmPassword: e.target.value }))
                 }
               />
             </>
-          )}
+          ) : null}
 
           <input
             className="rounded-2xl border border-border px-4 py-3 text-sm md:col-span-2"
             placeholder="Trade license number (optional)"
+            name="vendorTradeLicenseNo"
+            autoComplete="off"
             value={form.tradeLicenseNo}
             onChange={(e) =>
               setForm((prev) => ({ ...prev, tradeLicenseNo: e.target.value }))
@@ -307,6 +338,8 @@ export default function VendorApplyForm() {
           <input
             className="rounded-2xl border border-border px-4 py-3 text-sm md:col-span-2"
             placeholder="Business address"
+            name="vendorBusinessAddress"
+            autoComplete="off"
             value={form.address}
             onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))}
           />
@@ -314,6 +347,8 @@ export default function VendorApplyForm() {
           <input
             className="rounded-2xl border border-border px-4 py-3 text-sm"
             placeholder="City"
+            name="vendorCity"
+            autoComplete="off"
             value={form.city}
             onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}
           />
@@ -321,6 +356,8 @@ export default function VendorApplyForm() {
           <input
             className="rounded-2xl border border-border px-4 py-3 text-sm"
             placeholder="Area"
+            name="vendorArea"
+            autoComplete="off"
             value={form.area}
             onChange={(e) => setForm((prev) => ({ ...prev, area: e.target.value }))}
           />
@@ -333,6 +370,8 @@ export default function VendorApplyForm() {
         <input
           className="w-full rounded-2xl border border-border px-4 py-3 text-sm"
           placeholder="Specialties (comma separated, e.g. Apple, Samsung, Laptop Repair)"
+          name="vendorSpecialties"
+          autoComplete="off"
           value={form.specialties}
           onChange={(e) => setForm((prev) => ({ ...prev, specialties: e.target.value }))}
         />
@@ -340,6 +379,8 @@ export default function VendorApplyForm() {
         <textarea
           className="min-h-[120px] w-full rounded-2xl border border-border px-4 py-3 text-sm"
           placeholder="Additional notes (optional)"
+          name="vendorNotes"
+          autoComplete="off"
           value={form.notes}
           onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
         />

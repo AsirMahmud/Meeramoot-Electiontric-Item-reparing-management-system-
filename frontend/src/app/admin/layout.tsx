@@ -1,13 +1,5 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
-
-const navItems = [
-  { href: "/admin", label: "Dashboard" },
-  { href: "/admin/finance", label: "Finance Ledger" },
-  { href: "/admin/vendors", label: "Vendor Review" },
-  { href: "/admin/tickets", label: "Support Tickets" },
-  { href: "/admin/disputes", label: "Disputes" },
-];
+import AdminSidebarNav from "@/components/admin/AdminSidebarNav";
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
@@ -24,17 +16,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             </p>
           </div>
 
-          <nav className="space-y-2">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="block rounded-2xl px-4 py-3 text-sm font-medium text-[#244233] transition hover:bg-[#E6F0E2] hover:text-[#1F4D2E]"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+          <AdminSidebarNav />
         </aside>
 
         <main className="rounded-[32px] border border-[#D7E2D2] bg-[#FAFAF7] p-6 shadow-sm md:p-8">

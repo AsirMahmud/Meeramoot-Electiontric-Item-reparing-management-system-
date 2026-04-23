@@ -64,9 +64,33 @@ function getPasswordBar(password: string) {
 }
 
 type SessionUser = {
+  id?: string | null;
+  name?: string | null;
+  email?: string | null;
+  username?: string | null;
   role?: string | null;
   accessToken?: string | null;
 };
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function normalizeIdentifier(value?: string | null) {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+function sessionMatchesIdentifier(user: SessionUser | undefined, identifier: string) {
+  const expectedIdentifier = normalizeIdentifier(identifier);
+
+  if (!expectedIdentifier || !user) {
+    return false;
+  }
+
+  return [user.email, user.username].some(
+    (value) => normalizeIdentifier(value) === expectedIdentifier
+  );
+}
 
 export default function AuthCard({ mode }: { mode: Mode }) {
   const router = useRouter();
@@ -120,72 +144,116 @@ export default function AuthCard({ mode }: { mode: Mode }) {
   }, [form.username, isSignup]);
 
   async function getCurrentSessionUser(): Promise<SessionUser | undefined> {
-    const sessionResponse = await fetch("/api/auth/session");
-    const sessionData = await sessionResponse.json();
+    const sessionResponse = await fetch("/api/auth/session", {
+      cache: "no-store",
+    });
+
+    if (!sessionResponse.ok) {
+      return undefined;
+    }
+
+    const sessionData = await sessionResponse.json().catch(() => undefined);
     return sessionData?.user as SessionUser | undefined;
   }
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
-async function getCurrentSessionUserWithRetry(): Promise<SessionUser | undefined> {
-  for (let i = 0; i < 8; i++) {
-    const user = await getCurrentSessionUser();
+  async function getCurrentSessionUserWithRetry(
+    expectedIdentifier?: string
+  ): Promise<SessionUser | undefined> {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const user = await getCurrentSessionUser();
 
-    if (user?.role || user?.accessToken) {
-      return user;
+      if (!user?.role && !user?.accessToken) {
+        await sleep(250);
+        continue;
+      }
+
+      if (!expectedIdentifier || sessionMatchesIdentifier(user, expectedIdentifier)) {
+        return user;
+      }
+
+      await sleep(250);
     }
 
-    await sleep(250);
+    const finalUser = await getCurrentSessionUser();
+
+    if (!expectedIdentifier || sessionMatchesIdentifier(finalUser, expectedIdentifier)) {
+      return finalUser;
+    }
+
+    return undefined;
   }
 
-  return getCurrentSessionUser();
-}
-async function redirectByRole(user?: SessionUser) {
-  if (!user) {
+  async function redirectByRole(user?: SessionUser) {
+    if (!user) {
+      router.replace("/");
+      router.refresh();
+      return;
+    }
+
+    if (user.role === "ADMIN") {
+      router.replace("/admin/vendors");
+      router.refresh();
+      return;
+    }
+
+    if (user.role === "VENDOR") {
+      if (!user.accessToken) {
+        router.replace("/vendor/onboarding");
+        return;
+      }
+
+      try {
+        const vendorStatus = await getVendorApplicationStatus(user.accessToken);
+        const application = vendorStatus?.application;
+
+        if (application?.status === "APPROVED" && application?.setupComplete) {
+          router.replace("/vendor/dashboard");
+          router.refresh();
+          return;
+        }
+
+        if (application?.status === "APPROVED") {
+          router.replace("/vendor/setup-shop");
+          return;
+        }
+
+        router.replace("/vendor/onboarding");
+        return;
+      } catch {
+        router.replace("/vendor/onboarding");
+        return;
+      }
+    }
+
     router.replace("/");
     router.refresh();
-    return;
   }
 
-  if (user.role === "ADMIN") {
-    router.replace("/admin/vendors");
-    router.refresh();
-    return;
-  }
+  async function authenticateWithCredentials(
+    identifier: string,
+    password: string,
+    failureMessage: string
+  ) {
+    const loginResult = await signIn("credentials", {
+      identifier,
+      password,
+      redirect: false,
+    });
 
-  if (user.role === "VENDOR") {
-    if (!user.accessToken) {
-      router.replace("/vendor/onboarding");
-      return;
+    if (loginResult?.error) {
+      throw new Error(failureMessage);
     }
 
-    try {
-      const vendorStatus = await getVendorApplicationStatus(user.accessToken);
-      const application = vendorStatus?.application;
+    const user = await getCurrentSessionUserWithRetry(identifier);
 
-      if (application?.status === "APPROVED" && application?.setupComplete) {
-        router.replace("/vendor/dashboard");
-        router.refresh();
-        return;
-      }
-
-      if (application?.status === "APPROVED") {
-        router.replace("/vendor/setup-shop");
-        return;
-      }
-
-      router.replace("/vendor/onboarding");
-      return;
-    } catch {
-      router.replace("/vendor/onboarding");
-      return;
+    if (!user) {
+      throw new Error(
+        "Authentication succeeded, but the active session did not refresh correctly. Please try again."
+      );
     }
-  }
 
-  router.replace("/");
-  router.refresh();
-}
+    return user;
+  }
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -219,17 +287,11 @@ async function redirectByRole(user?: SessionUser) {
           password: form.password,
         });
 
-        const loginResult = await signIn("credentials", {
-          identifier: form.email.trim(),
-          password: form.password,
-          redirect: false,
-        });
-
-        if (loginResult?.error) {
-          throw new Error("Signup worked, but automatic login failed.");
-        }
-
-        const user = await getCurrentSessionUserWithRetry();
+        const user = await authenticateWithCredentials(
+          form.email.trim(),
+          form.password,
+          "Signup worked, but automatic login failed."
+        );
         await redirectByRole(user);
         return;
       }
@@ -242,17 +304,11 @@ async function redirectByRole(user?: SessionUser) {
         throw new Error("Password is required.");
       }
 
-      const loginResult = await signIn("credentials", {
-        identifier: form.email.trim(),
-        password: form.password,
-        redirect: false,
-      });
-
-      if (loginResult?.error) {
-        throw new Error("Invalid credentials.");
-      }
-
-      const user = await getCurrentSessionUserWithRetry();
+      const user = await authenticateWithCredentials(
+        form.email.trim(),
+        form.password,
+        "Invalid credentials."
+      );
       await redirectByRole(user);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not authenticate.");
@@ -263,7 +319,12 @@ async function redirectByRole(user?: SessionUser) {
 
   async function handleGoogleSignIn() {
     setError("");
-    await signIn("google", { callbackUrl: "/admin/vendors" });
+
+    try {
+      await signIn("google", { callbackUrl: "/auth/post-login" });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start Google sign in.");
+    }
   }
 
   const showPasswordBar =
