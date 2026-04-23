@@ -493,11 +493,20 @@ export default function VendorDashboardPage() {
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <div className="rounded-3xl bg-[#f6faf4] p-5 text-sm text-[#355541]">
                 <p className="font-semibold text-[#173726]">Services</p>
-                <p className="mt-2">
-                  {dashboard.shop.categories.length
-                    ? dashboard.shop.categories.map((value) => formatStatus(value)).join(", ")
-                    : "No services configured"}
-                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {dashboard.shop.categories.length ? (
+                    dashboard.shop.categories.map((value) => (
+                      <span
+                        key={value}
+                        className="rounded-full border border-[#cfe0c6] bg-white px-3 py-1 text-xs font-semibold capitalize text-[#214c34]"
+                      >
+                        {formatStatus(value).toLowerCase()}
+                      </span>
+                    ))
+                  ) : (
+                    <p className="mt-2 text-[#5b7262]">No services configured</p>
+                  )}
+                </div>
               </div>
               <div className="rounded-3xl bg-[#f6faf4] p-5 text-sm text-[#355541]">
                 <p className="font-semibold text-[#173726]">Base pricing</p>
