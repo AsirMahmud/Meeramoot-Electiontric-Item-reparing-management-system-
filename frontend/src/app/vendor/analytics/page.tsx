@@ -62,7 +62,7 @@ export default function VendorAnalyticsPage() {
 
     if (!token) {
       setLoading(false);
-      setFlash({ type: "error", text: "Please log in again to continue." });
+      setFlash({ type: "error", text: "Please sign in again to continue." });
       return;
     }
 

@@ -8,6 +8,27 @@ import {
   getVendorApplicationStatus,
   updateVendorApplication,
 } from "@/lib/api";
+import Select, { MultiValue } from "react-select";
+import { PasswordInput } from "@/components/ui/PasswordInput";
+
+const SPECIALTY_OPTIONS = [
+  { value: "Smartphone Repair", label: "Smartphone Repair" },
+  { value: "Laptop Repair", label: "Laptop Repair" },
+  { value: "Desktop Repair", label: "Desktop Repair" },
+  { value: "Tablet Repair", label: "Tablet Repair" },
+  { value: "Smartwatch Repair", label: "Smartwatch Repair" },
+  { value: "Console Repair", label: "Console Repair" },
+  { value: "TV Repair", label: "TV Repair" },
+  { value: "Audio Equipment Repair", label: "Audio Equipment Repair" },
+  { value: "Camera Repair", label: "Camera Repair" },
+  { value: "Drone Repair", label: "Drone Repair" },
+  { value: "Appliance Repair", label: "Appliance Repair" },
+  { value: "Micro-soldering", label: "Micro-soldering" },
+  { value: "Data Recovery", label: "Data Recovery" },
+  { value: "Screen Replacement", label: "Screen Replacement" },
+  { value: "Battery Replacement", label: "Battery Replacement" },
+  { value: "Water Damage Repair", label: "Water Damage Repair" },
+];
 
 type ExistingVendorApplication = {
   status?: "PENDING" | "APPROVED" | "REJECTED";
@@ -38,7 +59,7 @@ const emptyVendorApplicationForm = {
   address: "",
   city: "",
   area: "",
-  specialties: "",
+  specialties: [] as string[],
   courierPickup: false,
   inShopRepair: true,
   spareParts: false,
@@ -116,8 +137,8 @@ export default function VendorApplyForm() {
           city: app.city || "",
           area: app.area || "",
           specialties: Array.isArray(app.specialties)
-            ? app.specialties.join(", ")
-            : "",
+            ? app.specialties
+            : [],
           courierPickup: Boolean(app.courierPickup),
           inShopRepair:
             typeof app.inShopRepair === "boolean" ? app.inShopRepair : true,
@@ -125,9 +146,8 @@ export default function VendorApplyForm() {
           notes: app.notes || "",
         });
         setIsEditMode(app.status === "REJECTED" || app.status === "PENDING");
-      } catch {
-        setForm({ ...emptyVendorApplicationForm });
-        setIsEditMode(false);
+      } catch (err) {
+        console.error(err);
       } finally {
         setLoadingExisting(false);
       }
@@ -164,7 +184,7 @@ export default function VendorApplyForm() {
 
       if (isEditMode) {
         if (!token) {
-          throw new Error("Please log in first.");
+          throw new Error("Please sign in first.");
         }
 
         await updateVendorApplication(token, {
@@ -188,24 +208,26 @@ export default function VendorApplyForm() {
         return;
       }
 
-      if (!form.password) {
-        throw new Error("Password is required.");
-      }
+      if (!isEditMode && !token) {
+        if (!form.password) {
+          throw new Error("Password is required.");
+        }
 
-      if (form.password.length < 8) {
-        throw new Error("Password must be at least 8 characters.");
-      }
+        if (form.password.length < 8) {
+          throw new Error("Password must be at least 8 characters.");
+        }
 
-      if (form.password !== form.confirmPassword) {
-        throw new Error("Passwords do not match.");
+        if (form.password !== form.confirmPassword) {
+          throw new Error("Passwords do not match.");
+        }
       }
 
       const result = await createVendorApplication({
         ownerName: form.ownerName.trim(),
         businessEmail: form.businessEmail.trim(),
         phone: form.phone.trim(),
-        password: form.password,
-        confirmPassword: form.confirmPassword,
+        password: form.password || undefined as any,
+        confirmPassword: form.confirmPassword || undefined as any,
         shopName: form.shopName.trim(),
         tradeLicenseNo: form.tradeLicenseNo.trim() || undefined,
         address: form.address.trim(),
@@ -216,7 +238,7 @@ export default function VendorApplyForm() {
         inShopRepair: form.inShopRepair,
         spareParts: form.spareParts,
         notes: form.notes.trim() || undefined,
-      });
+      }, token || undefined);
 
       router.push(
         `/vendor/apply/success?id=${encodeURIComponent(result.application.id)}`
@@ -296,12 +318,12 @@ export default function VendorApplyForm() {
             onChange={(e) => setForm((prev) => ({ ...prev, shopName: e.target.value }))}
           />
 
-          {!isEditMode ? (
+          {!isEditMode && !token ? (
             <>
-              <input
+              <PasswordInput
+                showStrength={true}
                 className="rounded-2xl border border-border px-4 py-3 text-sm"
                 placeholder="Password"
-                type="password"
                 name="vendorPassword"
                 autoComplete="new-password"
                 value={form.password}
@@ -310,17 +332,21 @@ export default function VendorApplyForm() {
                 }
               />
 
-              <input
-                className="rounded-2xl border border-border px-4 py-3 text-sm"
-                placeholder="Confirm password"
-                type="password"
-                name="vendorConfirmPassword"
-                autoComplete="new-password"
-                value={form.confirmPassword}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, confirmPassword: e.target.value }))
-                }
-              />
+              <div>
+                <PasswordInput
+                  className="rounded-2xl border border-border px-4 py-3 text-sm"
+                  placeholder="Confirm password"
+                  name="vendorConfirmPassword"
+                  autoComplete="new-password"
+                  value={form.confirmPassword}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, confirmPassword: e.target.value }))
+                  }
+                />
+                {passwordsMismatch ? (
+                  <p className="mt-1 pl-1 text-xs font-medium text-red-500">Passwords do not match.</p>
+                ) : null}
+              </div>
             </>
           ) : null}
 
@@ -363,17 +389,32 @@ export default function VendorApplyForm() {
           />
         </div>
 
-        {!isEditMode && passwordsMismatch ? (
-          <p className="text-sm text-red-600">Passwords do not match.</p>
-        ) : null}
-
-        <input
-          className="w-full rounded-2xl border border-border px-4 py-3 text-sm"
-          placeholder="Specialties (comma separated, e.g. Apple, Samsung, Laptop Repair)"
-          name="vendorSpecialties"
-          autoComplete="off"
-          value={form.specialties}
-          onChange={(e) => setForm((prev) => ({ ...prev, specialties: e.target.value }))}
+        <Select
+          isMulti
+          options={SPECIALTY_OPTIONS}
+          value={SPECIALTY_OPTIONS.filter((option) =>
+            form.specialties.includes(option.value)
+          )}
+          onChange={(selected) =>
+            setForm((prev) => ({
+              ...prev,
+              specialties: selected ? selected.map((s) => s.value) : [],
+            }))
+          }
+          placeholder="Select specialties..."
+          className="text-sm"
+          styles={{
+            control: (base) => ({
+              ...base,
+              borderRadius: "1rem",
+              borderColor: "hsl(var(--border))",
+              padding: "0.25rem",
+              boxShadow: "none",
+              "&:hover": {
+                borderColor: "hsl(var(--border))",
+              },
+            }),
+          }}
         />
 
         <textarea

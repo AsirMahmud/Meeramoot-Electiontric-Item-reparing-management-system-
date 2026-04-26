@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { useDeliveryAdminAuth } from "@/lib/delivery-admin-auth-context";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 function LoginForm() {
   const router = useRouter();
@@ -67,9 +68,8 @@ function LoginForm() {
             <label htmlFor="da-password" className="text-sm font-semibold text-slate-200">
               Password
             </label>
-            <input
+            <PasswordInput
               id="da-password"
-              type="password"
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

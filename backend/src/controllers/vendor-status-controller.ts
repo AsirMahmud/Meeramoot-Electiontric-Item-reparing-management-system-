@@ -245,6 +245,11 @@ export async function updateVendorApplicationStatus(req: Request, res: Response)
       });
     }
 
+    const existingShop = await prisma.shop.findFirst({
+      where: { email: existing.businessEmail },
+      select: { id: true },
+    });
+
     const updated = await prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id: user.id },
@@ -254,6 +259,13 @@ export async function updateVendorApplicationStatus(req: Request, res: Response)
           phone: normalizedPhone,
         },
       });
+
+      if (existingShop) {
+        await tx.shop.update({
+          where: { id: existingShop.id },
+          data: { email: normalizedBusinessEmail },
+        });
+      }
 
       return tx.vendorApplication.update({
         where: { userId: user.id },

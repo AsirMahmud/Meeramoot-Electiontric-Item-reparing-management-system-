@@ -856,14 +856,13 @@ export async function updateVendorAssignedJobStatus(req: AuthedRequest, res: Res
       return res.status(404).json({ message: "Assigned job not found" });
     }
 
-    if (
-      nextStatus === RepairJobStatus.REPAIRING &&
-      existing.finalQuotedAmount !== null &&
-      existing.customerApproved !== true
-    ) {
-      return res.status(400).json({
-        message: "The customer must approve the final quote before repair can continue",
-      });
+    if (nextStatus === RepairJobStatus.REPAIRING) {
+      if (existing.finalQuotedAmount === null) {
+        return res.status(400).json({ message: "You must submit a final quote first." });
+      }
+      if (existing.customerApproved !== true) {
+        return res.status(400).json({ message: "The customer must approve the final quote before repair can continue" });
+      }
     }
 
     const result = await prisma.$transaction(async (tx) => {

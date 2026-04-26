@@ -10,6 +10,7 @@ import {
   signup,
   getVendorApplicationStatus,
 } from "@/lib/api";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 type Mode = "login" | "signup";
 type UsernameStatus = "idle" | "checking" | "available" | "taken";
@@ -353,7 +354,7 @@ export default function AuthCard({ mode }: { mode: Mode }) {
           <p className="mt-1 text-sm text-muted-foreground">
             {isSignup
               ? "Sign up to request repairs, compare shops, and save viewed items."
-              : "Log in to continue to your dashboard."}
+              : "Sign in to continue to your dashboard."}
           </p>
         </div>
 
@@ -464,8 +465,8 @@ export default function AuthCard({ mode }: { mode: Mode }) {
             <label className="mb-1 block text-sm font-medium text-accent-dark">
               Password
             </label>
-            <input
-              type="password"
+            <PasswordInput
+              showStrength={isSignup}
               value={form.password}
               onFocus={() => setPasswordFocused(true)}
               onBlur={() => setPasswordFocused(false)}
@@ -478,16 +479,6 @@ export default function AuthCard({ mode }: { mode: Mode }) {
               className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
               placeholder="Enter your password"
             />
-            {showPasswordBar ? (
-              <div className="mt-2">
-                <div className="h-2 w-full rounded-full bg-gray-200">
-                  <div
-                    className={`h-2 rounded-full transition-all ${passwordBar.color}`}
-                    style={{ width: passwordBar.width }}
-                  />
-                </div>
-              </div>
-            ) : null}
           </div>
 
           {isSignup ? (
@@ -496,8 +487,7 @@ export default function AuthCard({ mode }: { mode: Mode }) {
                 <label className="mb-1 block text-sm font-medium text-accent-dark">
                   Confirm password
                 </label>
-                <input
-                  type="password"
+                <PasswordInput
                   value={form.confirm}
                   onChange={(event) =>
                     setForm((previous) => ({
@@ -508,6 +498,9 @@ export default function AuthCard({ mode }: { mode: Mode }) {
                   className="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                   placeholder="Re-enter your password"
                 />
+                {form.confirm.length > 0 && form.password !== form.confirm ? (
+                  <p className="mt-1 text-xs font-medium text-red-500 pl-1">Passwords do not match.</p>
+                ) : null}
               </div>
 
               {showPasswordBar ? (
@@ -542,7 +535,7 @@ export default function AuthCard({ mode }: { mode: Mode }) {
                 : "Logging in..."
               : isSignup
               ? "Create account"
-              : "Log in"}
+              : "Sign in"}
           </button>
         </form>
         <div className="mt-4">
@@ -559,7 +552,7 @@ export default function AuthCard({ mode }: { mode: Mode }) {
             href={isSignup ? "/login" : "/signup"}
             className="font-semibold text-[#214c34] hover:underline"
           >
-            {isSignup ? "Log in" : "Sign up"}
+            {isSignup ? "Sign in" : "Sign up"}
           </Link>
         </p>
       </div>

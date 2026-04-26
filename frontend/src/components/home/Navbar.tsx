@@ -38,6 +38,7 @@ export default function Navbar({
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [vendorStatus, setVendorStatus] = useState<VendorNavbarStatus | null>(null);
 
   const { data: session } = useSession();
@@ -149,7 +150,7 @@ export default function Navbar({
                   href="/login"
                   className="rounded-full bg-[#214c34] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-[#183625]"
                 >
-                  Log in / Sign up
+                  Sign in / Sign up
                 </Link>
               ) : (
                 <div className="relative">
@@ -231,13 +232,6 @@ export default function Navbar({
                             Requests history
                           </Link>
 
-                          <Link
-                            href="/requests/new"
-                            className="block rounded-2xl px-4 py-3 text-sm text-[#234733] transition hover:bg-[#eef5ea]"
-                            onClick={() => setIsUserMenuOpen(false)}
-                          >
-                            Make request
-                          </Link>
 
                           {userRole === "ADMIN" && (
                             <Link
@@ -258,7 +252,7 @@ export default function Navbar({
                         }}
                         className="block w-full rounded-2xl px-4 py-3 text-left text-sm text-[#234733] transition hover:bg-[#eef5ea]"
                       >
-                        Log out
+                        Sign out
                       </button>
                     </div>
                   )}
@@ -321,7 +315,24 @@ export default function Navbar({
             </button>
           </form>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                if (resolvedIsLoggedIn) {
+                  router.push("/requests/new");
+                } else {
+                  setShowLoginModal(true);
+                }
+              }}
+              className={`rounded-full px-5 py-2.5 text-sm font-semibold transition ${
+                pathname === "/requests/new"
+                  ? "bg-[#214c34] text-white"
+                  : "border border-[#b9ceb7] bg-white text-[#214c34]"
+              }`}
+            >
+              Repair Request
+            </button>
             {categoryTabs.map((tab) => {
               const isActive = activeCategory === tab.value;
 
@@ -363,7 +374,7 @@ export default function Navbar({
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
-            <h3 className="text-xl font-bold text-[#173726]">Log out?</h3>
+            <h3 className="text-xl font-bold text-[#173726]">Sign out?</h3>
             <p className="mt-2 text-sm text-[#5b7262]">
               You will need to sign in again to access your account.
             </p>
@@ -379,8 +390,35 @@ export default function Navbar({
                 onClick={confirmLogout}
                 className="flex-1 rounded-full bg-[#214c34] px-5 py-3 text-sm font-semibold text-white"
               >
-                Log out
+                Sign out
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLoginModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-xl">
+            <h3 className="text-xl font-bold text-[#173726]">Sign in required</h3>
+            <p className="mt-2 text-sm text-[#5b7262]">
+              You need to sign in to make a repair request.
+            </p>
+
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setShowLoginModal(false)}
+                className="flex-1 rounded-full border border-[#214c34] bg-white px-5 py-3 text-sm font-semibold text-[#214c34]"
+              >
+                Cancel
+              </button>
+              <Link
+                href="/login"
+                className="flex flex-1 items-center justify-center rounded-full bg-[#214c34] px-5 py-3 text-sm font-semibold text-white"
+                onClick={() => setShowLoginModal(false)}
+              >
+                Sign in
+              </Link>
             </div>
           </div>
         </div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useDeliveryAuth } from "@/lib/delivery-auth-context";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 
 export default function DeliveryLoginForm() {
   const router = useRouter();
@@ -67,9 +68,8 @@ export default function DeliveryLoginForm() {
             <label htmlFor="dl-password" className="text-sm font-semibold text-[#163625]">
               Password
             </label>
-            <input
+            <PasswordInput
               id="dl-password"
-              type="password"
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

@@ -34,6 +34,9 @@ async function generateUniqueUsername(base: string) {
 
 export async function createVendorApplication(req: Request, res: Response) {
   try {
+    const authUser = (req as any).user;
+    const isAuthed = !!authUser;
+
     const {
       ownerName,
       businessEmail,
@@ -102,9 +105,9 @@ export async function createVendorApplication(req: Request, res: Response) {
       select: { id: true },
     });
 
-    if (existingUser) {
+    if (existingUser && !isAuthed) {
       return res.status(409).json({
-        message: "A user with this business email already exists",
+        message: "A user with this business email already exists. Please log in to apply.",
       });
     }
 
@@ -123,29 +126,36 @@ export async function createVendorApplication(req: Request, res: Response) {
       ? specialties.map((s) => s.trim()).filter(Boolean)
       : parseCsvList(specialties);
 
-    const usernameBase = normalizedEmail.split("@")[0] || shopName;
-    const username = await generateUniqueUsername(usernameBase);
-    const passwordHash = await bcrypt.hash(password, 10);
-
     const result = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: {
-          username,
-          email: normalizedEmail,
-          passwordHash,
-          name: ownerName.trim(),
-          phone: phone.trim(),
-          role: "VENDOR",
-        },
-        select: {
-          id: true,
-          username: true,
-          email: true,
-          name: true,
-          phone: true,
-          role: true,
-        },
-      });
+      let user;
+
+      if (isAuthed) {
+        user = await tx.user.findUnique({ where: { id: authUser.id } });
+        if (!user) throw new Error("Authenticated user not found");
+      } else {
+        const usernameBase = normalizedEmail.split("@")[0] || shopName;
+        const username = await generateUniqueUsername(usernameBase);
+        const passwordHash = await bcrypt.hash(password as string, 10);
+        
+        user = await tx.user.create({
+          data: {
+            username,
+            email: normalizedEmail,
+            passwordHash,
+            name: ownerName.trim(),
+            phone: phone.trim(),
+            role: "CUSTOMER",
+          },
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            name: true,
+            phone: true,
+            role: true,
+          },
+        });
+      }
 
       const application = await tx.vendorApplication.create({
         data: {
@@ -210,41 +220,42 @@ async function generateUniqueShopSlug(base: string) {
   return candidate;
 }
 
-export async function listVendorApplications(_req: Request, res: Response) {
+export async function listVendorApplications(req: Request, res: Response) {
   try {
-    const applications = await prisma.vendorApplication.findMany({
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        userId: true,
-        ownerName: true,
-        businessEmail: true,
-        phone: true,
-        shopName: true,
-        tradeLicenseNo: true,
-        address: true,
-        city: true,
-        area: true,
-        specialties: true,
-        courierPickup: true,
-        inShopRepair: true,
-        spareParts: true,
-        notes: true,
-        status: true,
-        rejectionReason: true,
-        createdAt: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-          },
-        },
-      },
-    });
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.max(1, Math.min(100, parseInt(req.query.limit as string) || 20));
+    const skip = (page - 1) * limit;
 
-    return res.json({ applications });
+    const [applications, total] = await Promise.all([
+      prisma.vendorApplication.findMany({
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          userId: true,
+          ownerName: true,
+          businessEmail: true,
+          phone: true,
+          shopName: true,
+          tradeLicenseNo: true,
+          address: true,
+          city: true,
+          area: true,
+          specialties: true,
+          courierPickup: true,
+          inShopRepair: true,
+          spareParts: true,
+          notes: true,
+          status: true,
+          rejectionReason: true,
+          createdAt: true,
+        },
+      }),
+      prisma.vendorApplication.count(),
+    ]);
+
+    return res.json({ applications, total, page, limit });
   } catch (error) {
     console.error("listVendorApplications error:", error);
     return res.status(500).json({ message: "Server error" });
@@ -285,7 +296,9 @@ export async function approveVendorApplication(req: Request, res: Response) {
       });
 
     if (!existingShop) {
-      const slug = await generateUniqueShopSlug(application.shopName);
+      const baseSlug = slugifyShopName(application.shopName) || "shop";
+      const randomSuffix = Math.random().toString(36).substring(2, 6);
+      const slug = `${baseSlug}-${randomSuffix}`;
 
       await tx.shop.create({
         data: {

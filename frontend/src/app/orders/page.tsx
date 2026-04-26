@@ -101,7 +101,7 @@ export default function OrdersPage() {
   const loadOrders = useCallback(async () => {
     if (!token) {
       setOrders([]);
-      setEmptyMessage("Log in to view your requests.");
+      setEmptyMessage("Sign in to view your requests.");
       setLoading(false);
       return;
     }

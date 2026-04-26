@@ -35,7 +35,7 @@ export default function VendorStatusPage() {
     async function load() {
       try {
         if (!token) {
-          throw new Error("Please log in first.");
+          throw new Error("Please sign in first.");
         }
 
         const result = await getVendorApplicationStatus(token);

@@ -58,16 +58,10 @@ export default function VendorOnboardingPage() {
       setLoadingStatus(true);
 
       try {
-        let resolvedToken = token;
-
-        for (let index = 0; index < 6 && !resolvedToken; index += 1) {
-          await sleep(250);
-          resolvedToken =
-            (session?.user as { accessToken?: string } | undefined)?.accessToken;
-        }
+        const resolvedToken = token;
 
         if (!resolvedToken) {
-          throw new Error("Vendor session token is missing. Please log in again.");
+          throw new Error("Vendor session token is missing. Please sign in again.");
         }
 
         const result = await getVendorApplicationStatus(resolvedToken);

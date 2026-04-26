@@ -55,7 +55,7 @@ export default function NewRequestPage() {
               setMessage("");
 
               if (!session?.user) {
-                setMessage("Please log in first.");
+                setMessage("Please sign in first.");
                 return;
               }
 

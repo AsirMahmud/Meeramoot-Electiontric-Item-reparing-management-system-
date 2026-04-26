@@ -254,7 +254,7 @@ export default function VendorDashboardPage() {
 
   async function handleBidSubmit(requestId: string) {
     if (!token) {
-      setFlash({ type: "error", text: "Please log in again to continue." });
+      setFlash({ type: "error", text: "Please sign in again to continue." });
       return;
     }
 
@@ -307,7 +307,7 @@ export default function VendorDashboardPage() {
 
   async function handleJobStatusSubmit(jobId: string) {
     if (!token) {
-      setFlash({ type: "error", text: "Please log in again to continue." });
+      setFlash({ type: "error", text: "Please sign in again to continue." });
       return;
     }
 
@@ -333,7 +333,7 @@ export default function VendorDashboardPage() {
 
   async function handleFinalQuoteSubmit(jobId: string) {
     if (!token) {
-      setFlash({ type: "error", text: "Please log in again to continue." });
+      setFlash({ type: "error", text: "Please sign in again to continue." });
       return;
     }
 

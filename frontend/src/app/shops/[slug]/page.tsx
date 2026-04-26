@@ -188,7 +188,7 @@ export default function ShopDetailsPage({ params }: { params: Promise<{ slug: st
         <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
           <section className="rounded-[2rem] bg-white p-6 shadow-sm">
             <h2 className="text-2xl font-bold text-[#173726]">Write a review</h2>
-            {!session?.user && <p className="mt-3 text-sm text-[#5b7262]">Log in to review a shop after a completed service.</p>}
+            {!session?.user && <p className="mt-3 text-sm text-[#5b7262]">Sign in to review a shop after a completed service.</p>}
             {session?.user && eligibility && !eligibility.eligible && (
               <p className="mt-3 text-sm text-[#5b7262]">You can review this shop only after a completed service, and only once.</p>
             )}

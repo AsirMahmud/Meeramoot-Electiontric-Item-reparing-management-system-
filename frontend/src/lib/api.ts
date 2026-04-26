@@ -121,7 +121,7 @@ export type VendorApplicationPayload = {
   notes?: string;
 };
 
-export function createVendorApplication(data: VendorApplicationPayload) {
+export function createVendorApplication(data: VendorApplicationPayload, token?: string) {
   return request<{
     message: string;
     application: {
@@ -135,6 +135,7 @@ export function createVendorApplication(data: VendorApplicationPayload) {
     };
   }>("/vendor/applications", {
     method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: JSON.stringify(data),
   });
 }
