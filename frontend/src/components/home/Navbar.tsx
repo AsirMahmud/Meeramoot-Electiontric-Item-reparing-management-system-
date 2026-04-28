@@ -133,13 +133,13 @@ export default function Navbar({
       <header className="w-full border-b border-[#c7ddc8] bg-[#d5ead8]">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 md:px-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <Link href="/" className="inline-flex items-center">
+            <Link href="/" className="inline-flex items-center group">
               <Image
                 src="/images/meramot.svg"
                 alt="Meramot"
                 width={280}
                 height={100}
-                className="h-16 w-auto object-contain md:h-20"
+                className="h-16 w-auto object-contain md:h-20 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:scale-105 group-hover:-translate-y-0.5"
                 priority
               />
             </Link>

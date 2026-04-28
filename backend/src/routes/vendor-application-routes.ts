@@ -7,10 +7,11 @@ import {
   updateMyVendorApplication
 } from "../controllers/vendor-application-controller.js";
 import { requireAdmin, requireAuth } from "../middleware/auth.js";
+import { vendorApplyRateLimiter } from "../middleware/rate-limit.js";
 
 const router = Router();
 
-router.post("/", createVendorApplication);
+router.post("/", vendorApplyRateLimiter, createVendorApplication);
 
 router.get("/admin", requireAuth, requireAdmin, listVendorApplications);
 router.patch("/admin/:id/approve", requireAuth, requireAdmin, approveVendorApplication);

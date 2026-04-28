@@ -451,13 +451,13 @@ export async function completeVendorShopSetup(req: Request, res: Response) {
         : Number(expressFee);
 
     if (
-      (inspectionFeeNumber !== null && Number.isNaN(inspectionFeeNumber)) ||
-      (baseLaborFeeNumber !== null && Number.isNaN(baseLaborFeeNumber)) ||
-      (pickupFeeNumber !== null && Number.isNaN(pickupFeeNumber)) ||
-      (expressFeeNumber !== null && Number.isNaN(expressFeeNumber))
+      (inspectionFeeNumber !== null && (Number.isNaN(inspectionFeeNumber) || inspectionFeeNumber < 0)) ||
+      (baseLaborFeeNumber !== null && (Number.isNaN(baseLaborFeeNumber) || baseLaborFeeNumber < 0)) ||
+      (pickupFeeNumber !== null && (Number.isNaN(pickupFeeNumber) || pickupFeeNumber < 0)) ||
+      (expressFeeNumber !== null && (Number.isNaN(expressFeeNumber) || expressFeeNumber < 0))
     ) {
       return res.status(400).json({
-        message: "Pricing fields must be valid numbers",
+        message: "Pricing fields must be valid non-negative numbers",
       });
     }
 

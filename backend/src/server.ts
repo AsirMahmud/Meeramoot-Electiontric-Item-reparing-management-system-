@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import routes from "./routes/index.js";
 import { env } from "./config/env.js";
+import { startOrphanCleanupScheduler } from "./services/orphan-cleanup.js";
 
 const app = express();
 
@@ -23,4 +24,5 @@ app.use((_req, res) => {
 
 app.listen(env.port, () => {
   console.log(`Backend running on port ${env.port}`);
+  startOrphanCleanupScheduler();
 });

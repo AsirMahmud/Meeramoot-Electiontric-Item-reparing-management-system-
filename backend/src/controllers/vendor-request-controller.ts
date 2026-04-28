@@ -161,6 +161,10 @@ function normalizeQuoteItems(items: QuoteItemInput[]) {
         throw new HttpError(400, `Final quote amount for ${label} must be valid`);
       }
 
+      if (amount > 500000) {
+        throw new HttpError(400, `Final quote amount for ${label} exceeds the maximum allowed (৳500,000)`);
+      }
+
       return {
         label,
         description: description || null,
@@ -761,12 +765,9 @@ export async function upsertVendorBid(req: AuthedRequest, res: Response) {
       },
     });
 
-    const relevance = buildRelevance(repairRequest, shop.specialties);
-    if (!relevance.isRelevant && !existingBid) {
-      return res.status(403).json({
-        message: "This repair request does not match your configured skill tags",
-      });
-    }
+    // Relevance is used for ranking only — vendors are not blocked from bidding
+    // on jobs outside their configured skill tags. This prevents false negatives
+    // from the naive token-matching algorithm locking out capable vendors.
 
     const { partsCost, laborCost, estimatedDays, notes } = req.body as {
       partsCost?: number | string;
@@ -840,7 +841,7 @@ export async function updateVendorAssignedJobStatus(req: AuthedRequest, res: Res
     const userId = req.user?.id;
     const role = req.user?.role;
     const { jobId } = req.params;
-    const { status } = req.body as { status?: string };
+    const { status, reason } = req.body as { status?: string; reason?: string };
 
     if (!userId) {
       return res.status(401).json({ message: "Authentication required" });
@@ -894,6 +895,14 @@ export async function updateVendorAssignedJobStatus(req: AuthedRequest, res: Res
       }
     }
 
+    // Require a reason when cancelling a job for accountability
+    if (nextStatus === RepairJobStatus.CANCELLED) {
+      const trimmedReason = typeof reason === "string" ? reason.trim() : "";
+      if (!trimmedReason) {
+        return res.status(400).json({ message: "A cancellation reason is required" });
+      }
+    }
+
     const result = await prisma.$transaction(async (tx) => {
       const repairJob = await tx.repairJob.update({
         where: { id: jobId },
@@ -905,6 +914,10 @@ export async function updateVendorAssignedJobStatus(req: AuthedRequest, res: Res
               : existing.startedAt,
           completedAt:
             nextStatus === RepairJobStatus.COMPLETED ? new Date() : undefined,
+          // Store cancellation reason in diagnosisNotes for admin auditing
+          ...(nextStatus === RepairJobStatus.CANCELLED && typeof reason === "string"
+            ? { diagnosisNotes: `[CANCELLED] ${reason.trim()}` }
+            : {}),
         },
         select: {
           id: true,

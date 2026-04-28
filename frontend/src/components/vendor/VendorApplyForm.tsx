@@ -8,8 +8,9 @@ import {
   getVendorApplicationStatus,
   updateVendorApplication,
 } from "@/lib/api";
-import Select, { MultiValue } from "react-select";
+import CreatableSelect from "react-select/creatable";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import Link from "next/link";
 
 const SPECIALTY_OPTIONS = [
   { value: "Smartphone Repair", label: "Smartphone Repair" },
@@ -89,6 +90,15 @@ export default function VendorApplyForm() {
 
   const passwordsMismatch =
     form.confirmPassword.length > 0 && form.password !== form.confirmPassword;
+
+  // Build options list: merge predefined options with any DB-stored values
+  // that aren't in the predefined list (prevents silent data loss on update)
+  const mergedOptions = [
+    ...SPECIALTY_OPTIONS,
+    ...form.specialties
+      .filter((s) => !SPECIALTY_OPTIONS.some((o) => o.value === s))
+      .map((s) => ({ value: s, label: s })),
+  ];
 
   useEffect(() => {
     if (status === "loading") {
@@ -279,60 +289,83 @@ export default function VendorApplyForm() {
 
       <form className="space-y-4" onSubmit={handleSubmit} autoComplete="off">
         <div className="grid gap-4 md:grid-cols-2">
-          <input
-            className="rounded-2xl border border-border px-4 py-3 text-sm"
-            placeholder="Owner name"
-            name="vendorOwnerName"
-            autoComplete="off"
-            value={form.ownerName}
-            onChange={(e) => setForm((prev) => ({ ...prev, ownerName: e.target.value }))}
-          />
+          <div className="flex flex-col gap-1">
+            <label htmlFor="vendorOwnerName" className="text-xs font-medium text-slate-600 pl-1">Owner name</label>
+            <input
+              id="vendorOwnerName"
+              className="rounded-2xl border border-border px-4 py-3 text-sm"
+              placeholder="Owner name"
+              name="vendorOwnerName"
+              autoComplete="off"
+              value={form.ownerName}
+              onChange={(e) => setForm((prev) => ({ ...prev, ownerName: e.target.value }))}
+            />
+          </div>
 
-          <input
-            className="rounded-2xl border border-border px-4 py-3 text-sm"
-            placeholder="Business email"
-            type="email"
-            name="vendorBusinessEmail"
-            autoComplete="off"
-            value={form.businessEmail}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, businessEmail: e.target.value }))
-            }
-          />
+          <div className="flex flex-col gap-1">
+            <label htmlFor="vendorBusinessEmail" className="text-xs font-medium text-slate-600 pl-1">Business email</label>
+            <input
+              id="vendorBusinessEmail"
+              className="rounded-2xl border border-border px-4 py-3 text-sm"
+              placeholder="Business email"
+              type="email"
+              name="vendorBusinessEmail"
+              autoComplete="off"
+              value={form.businessEmail}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, businessEmail: e.target.value }))
+              }
+            />
+          </div>
 
-          <input
-            className="rounded-2xl border border-border px-4 py-3 text-sm"
-            placeholder="Phone"
-            name="vendorPhone"
-            autoComplete="off"
-            value={form.phone}
-            onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
-          />
+          <div className="flex flex-col gap-1">
+            <label htmlFor="vendorPhone" className="text-xs font-medium text-slate-600 pl-1">Phone</label>
+            <input
+              id="vendorPhone"
+              className="rounded-2xl border border-border px-4 py-3 text-sm"
+              placeholder="01XXXXXXXXX"
+              type="tel"
+              pattern="^(?:\+?8801|01)[3-9]\d{8}$"
+              title="Enter a valid Bangladeshi phone number (e.g. 01712345678)"
+              name="vendorPhone"
+              autoComplete="off"
+              value={form.phone}
+              onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
+            />
+          </div>
 
-          <input
-            className="rounded-2xl border border-border px-4 py-3 text-sm"
-            placeholder="Shop name"
-            name="vendorShopName"
-            autoComplete="off"
-            value={form.shopName}
-            onChange={(e) => setForm((prev) => ({ ...prev, shopName: e.target.value }))}
-          />
+          <div className="flex flex-col gap-1">
+            <label htmlFor="vendorShopName" className="text-xs font-medium text-slate-600 pl-1">Shop name</label>
+            <input
+              id="vendorShopName"
+              className="rounded-2xl border border-border px-4 py-3 text-sm"
+              placeholder="Shop name"
+              name="vendorShopName"
+              autoComplete="off"
+              value={form.shopName}
+              onChange={(e) => setForm((prev) => ({ ...prev, shopName: e.target.value }))}
+            />
+          </div>
 
           {!isEditMode && !token ? (
             <>
-              <PasswordInput
-                showStrength={true}
-                className="rounded-2xl border border-border px-4 py-3 text-sm"
-                placeholder="Password"
-                name="vendorPassword"
-                autoComplete="new-password"
-                value={form.password}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, password: e.target.value }))
-                }
-              />
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-slate-600 pl-1">Password</label>
+                <PasswordInput
+                  showStrength={true}
+                  className="rounded-2xl border border-border px-4 py-3 text-sm"
+                  placeholder="Password"
+                  name="vendorPassword"
+                  autoComplete="new-password"
+                  value={form.password}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, password: e.target.value }))
+                  }
+                />
+              </div>
 
               <div>
+                <label className="text-xs font-medium text-slate-600 pl-1">Confirm password</label>
                 <PasswordInput
                   className="rounded-2xl border border-border px-4 py-3 text-sm"
                   placeholder="Confirm password"
@@ -350,72 +383,92 @@ export default function VendorApplyForm() {
             </>
           ) : null}
 
-          <input
-            className="rounded-2xl border border-border px-4 py-3 text-sm md:col-span-2"
-            placeholder="Trade license number (optional)"
-            name="vendorTradeLicenseNo"
-            autoComplete="off"
-            value={form.tradeLicenseNo}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, tradeLicenseNo: e.target.value }))
-            }
-          />
+          <div className="flex flex-col gap-1 md:col-span-2">
+            <label htmlFor="vendorTradeLicenseNo" className="text-xs font-medium text-slate-600 pl-1">Trade license number (optional)</label>
+            <input
+              id="vendorTradeLicenseNo"
+              className="rounded-2xl border border-border px-4 py-3 text-sm"
+              placeholder="Trade license number (optional)"
+              name="vendorTradeLicenseNo"
+              autoComplete="off"
+              value={form.tradeLicenseNo}
+              onChange={(e) =>
+                setForm((prev) => ({ ...prev, tradeLicenseNo: e.target.value }))
+              }
+            />
+          </div>
 
-          <input
-            className="rounded-2xl border border-border px-4 py-3 text-sm md:col-span-2"
-            placeholder="Business address"
-            name="vendorBusinessAddress"
-            autoComplete="off"
-            value={form.address}
-            onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))}
-          />
+          <div className="flex flex-col gap-1 md:col-span-2">
+            <label htmlFor="vendorBusinessAddress" className="text-xs font-medium text-slate-600 pl-1">Business address</label>
+            <input
+              id="vendorBusinessAddress"
+              className="rounded-2xl border border-border px-4 py-3 text-sm"
+              placeholder="Business address"
+              name="vendorBusinessAddress"
+              autoComplete="off"
+              value={form.address}
+              onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))}
+            />
+          </div>
 
-          <input
-            className="rounded-2xl border border-border px-4 py-3 text-sm"
-            placeholder="City"
-            name="vendorCity"
-            autoComplete="off"
-            value={form.city}
-            onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}
-          />
+          <div className="flex flex-col gap-1">
+            <label htmlFor="vendorCity" className="text-xs font-medium text-slate-600 pl-1">City</label>
+            <input
+              id="vendorCity"
+              className="rounded-2xl border border-border px-4 py-3 text-sm"
+              placeholder="City"
+              name="vendorCity"
+              autoComplete="off"
+              value={form.city}
+              onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}
+            />
+          </div>
 
-          <input
-            className="rounded-2xl border border-border px-4 py-3 text-sm"
-            placeholder="Area"
-            name="vendorArea"
-            autoComplete="off"
-            value={form.area}
-            onChange={(e) => setForm((prev) => ({ ...prev, area: e.target.value }))}
-          />
+          <div className="flex flex-col gap-1">
+            <label htmlFor="vendorArea" className="text-xs font-medium text-slate-600 pl-1">Area</label>
+            <input
+              id="vendorArea"
+              className="rounded-2xl border border-border px-4 py-3 text-sm"
+              placeholder="Area"
+              name="vendorArea"
+              autoComplete="off"
+              value={form.area}
+              onChange={(e) => setForm((prev) => ({ ...prev, area: e.target.value }))}
+            />
+          </div>
         </div>
 
-        <Select
-          isMulti
-          options={SPECIALTY_OPTIONS}
-          value={SPECIALTY_OPTIONS.filter((option) =>
-            form.specialties.includes(option.value)
-          )}
-          onChange={(selected) =>
-            setForm((prev) => ({
-              ...prev,
-              specialties: selected ? selected.map((s) => s.value) : [],
-            }))
-          }
-          placeholder="Select specialties..."
-          className="text-sm"
-          styles={{
-            control: (base) => ({
-              ...base,
-              borderRadius: "1rem",
-              borderColor: "hsl(var(--border))",
-              padding: "0.25rem",
-              boxShadow: "none",
-              "&:hover": {
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-slate-600 pl-1">Specialties</label>
+          <CreatableSelect
+            isMulti
+            options={mergedOptions}
+            value={mergedOptions.filter((option) =>
+              form.specialties.includes(option.value)
+            )}
+            onChange={(selected) =>
+              setForm((prev) => ({
+                ...prev,
+                specialties: selected ? selected.map((s) => s.value) : [],
+              }))
+            }
+            placeholder="Select or create specialties..."
+            formatCreateLabel={(inputValue) => `Add "${inputValue}"`}
+            className="text-sm"
+            styles={{
+              control: (base) => ({
+                ...base,
+                borderRadius: "1rem",
                 borderColor: "hsl(var(--border))",
-              },
-            }),
-          }}
-        />
+                padding: "0.25rem",
+                boxShadow: "none",
+                "&:hover": {
+                  borderColor: "hsl(var(--border))",
+                },
+              }),
+            }}
+          />
+        </div>
 
         <textarea
           className="min-h-[120px] w-full rounded-2xl border border-border px-4 py-3 text-sm"
@@ -461,7 +514,21 @@ export default function VendorApplyForm() {
           </label>
         </div>
 
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? (
+          error.toLowerCase().includes("already exists") || error.toLowerCase().includes("sign in") ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <p>{error}</p>
+              <Link
+                href="/login"
+                className="mt-2 inline-block rounded-xl bg-accent-dark px-4 py-2 text-xs font-semibold text-white hover:opacity-90"
+              >
+                Go to Sign in
+              </Link>
+            </div>
+          ) : (
+            <p className="text-sm text-red-600">{error}</p>
+          )
+        ) : null}
 
         <button
           type="submit"
