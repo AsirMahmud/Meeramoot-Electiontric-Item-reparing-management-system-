@@ -45,6 +45,13 @@ export default function Navbar({
   const confirmLogout = async () => {
     setIsUserMenuOpen(false);
     setShowLogoutConfirm(false);
+
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("meramot.user");
+      localStorage.removeItem("meramot.token");
+      window.dispatchEvent(new Event("meramot-auth-changed"));
+    }
+
     await signOut({ callbackUrl: "/" });
   };
 
@@ -135,14 +142,6 @@ export default function Navbar({
                         onClick={() => setIsUserMenuOpen(false)}
                       >
                         AI help chat
-                      </Link>
-
-                      <Link
-                        href="/checkout"
-                        className="block rounded-2xl px-4 py-3 text-sm text-[var(--foreground)] transition hover:bg-[var(--mint-50)]"
-                        onClick={() => setIsUserMenuOpen(false)}
-                      >
-                        Pay with SSLCommerz
                       </Link>
 
                       <button

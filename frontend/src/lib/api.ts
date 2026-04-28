@@ -49,7 +49,6 @@ async function authedRequest<T>(path: string, token?: string, init?: RequestInit
 export type ShopCategory = "COURIER_PICKUP" | "IN_SHOP_REPAIR" | "SPARE_PARTS";
 export type ShopServicePricingType = "FIXED" | "STARTING_FROM" | "INSPECTION_REQUIRED";
 
-/** 🔥 Unified shop type (merged both versions) */
 export type Shop = {
   id: string;
   name: string;
@@ -1096,5 +1095,28 @@ export async function chatWithAi(payload: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(payload),
+  });
+}
+
+export async function getAiChatSessions(token?: string) {
+  return authedRequest("/ai-chat/sessions", token);
+}
+
+export async function createAiChatSession(title = "New Chat", token?: string) {
+  return authedRequest("/ai-chat/sessions", token, {
+    method: "POST",
+    body: JSON.stringify({ title }),
+  });
+}
+
+export async function saveAiChatMessage(
+  sessionId: string,
+  role: "user" | "assistant",
+  text: string,
+  token?: string
+) {
+  return authedRequest(`/ai-chat/sessions/${sessionId}/messages`, token, {
+    method: "POST",
+    body: JSON.stringify({ role, text }),
   });
 }
