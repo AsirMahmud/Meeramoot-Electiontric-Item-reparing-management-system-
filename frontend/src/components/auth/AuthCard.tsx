@@ -87,10 +87,6 @@ export default function AuthCard({ mode }: { mode: Mode }) {
     useState<UsernameStatus>("idle");
   const [passwordFocused, setPasswordFocused] = useState(false);
 
-  const passwordChecks = useMemo(
-    () => getPasswordChecks(form.password),
-    [form.password]
-  );
   const passwordBar = useMemo(
     () => getPasswordBar(form.password),
     [form.password]

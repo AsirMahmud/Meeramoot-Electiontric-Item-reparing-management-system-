@@ -583,10 +583,27 @@ model Delivery {
   deliveryAgent RiderProfile?    @relation(fields: [deliveryAgentId], references: [id], onDelete: SetNull)
   coverageZone  CoverageZone?    @relation(fields: [coverageZoneId], references: [id], onDelete: SetNull)
   notifications NotificationLog[]
+  chatMessages  DeliveryChatMessage[]
 
   @@index([repairJobId])
   @@index([status])
   @@index([deliveryAgentId])
+}
+
+model DeliveryChatMessage {
+  id              String   @id @default(cuid())
+  deliveryId      String
+  senderUserId    String
+  senderRole      UserRole
+  recipientUserId String
+  message         String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  delivery Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryId, createdAt])
+  @@index([senderUserId, recipientUserId, createdAt])
 }
 
 model VerificationRecord {

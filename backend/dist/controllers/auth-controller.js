@@ -2,11 +2,13 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import prisma from "../models/prisma.js";
 import { env } from "../config/env.js";
+import { isAdminEmail } from "../config/admin.js";
 function signToken(user) {
     return jwt.sign({
         sub: user.id,
         username: user.username,
         email: user.email,
+        role: user.role ?? undefined,
     }, env.jwtSecret, { expiresIn: "7d" });
 }
 export async function signup(req, res) {
@@ -17,11 +19,10 @@ export async function signup(req, res) {
                 message: "name, username, email, phone, and password are required",
             });
         }
-        const cleanUsername = username.trim();
-        const cleanEmail = email.trim().toLowerCase();
+        const normalizedEmail = email.trim().toLowerCase();
         const existing = await prisma.user.findFirst({
             where: {
-                OR: [{ username: cleanUsername }, { email: cleanEmail }],
+                OR: [{ username: username.trim() }, { email: normalizedEmail }],
             },
             select: { id: true },
         });
@@ -34,10 +35,12 @@ export async function signup(req, res) {
         const user = await prisma.user.create({
             data: {
                 name: name.trim(),
-                username: cleanUsername,
-                email: cleanEmail,
+                username: username.trim(),
+                email: normalizedEmail,
                 phone: phone.trim(),
                 passwordHash,
+                role: isAdminEmail(normalizedEmail) ? "ADMIN" : "CUSTOMER",
+                isEmailVerified: true,
             },
             select: {
                 id: true,
@@ -45,6 +48,7 @@ export async function signup(req, res) {
                 username: true,
                 email: true,
                 phone: true,
+                role: true,
             },
         });
         const token = signToken(user);
@@ -67,10 +71,10 @@ export async function login(req, res) {
                 message: "identifier and password are required",
             });
         }
-        const cleanIdentifier = identifier.trim();
+        const normalizedIdentifier = identifier.trim().toLowerCase();
         const user = await prisma.user.findFirst({
             where: {
-                OR: [{ email: cleanIdentifier.toLowerCase() }, { username: cleanIdentifier }],
+                OR: [{ email: normalizedIdentifier }, { username: identifier.trim() }],
             },
         });
         if (!user) {
@@ -99,6 +103,50 @@ export async function login(req, res) {
         return res.status(500).json({ message: "Server error" });
     }
 }
+export async function adminDemoLogin(req, res) {
+    try {
+        if (env.nodeEnv === "production") {
+            return res.status(403).json({
+                message: "Demo admin login is disabled in production",
+            });
+        }
+        const { identifier, password } = req.body;
+        if (!identifier || !password) {
+            return res.status(400).json({
+                message: "identifier and password are required",
+            });
+        }
+        const normalizedIdentifier = identifier.trim().toLowerCase();
+        const expectedIdentifier = env.demoAdminIdentifier.trim().toLowerCase();
+        if (normalizedIdentifier !== expectedIdentifier ||
+            password !== env.demoAdminPassword) {
+            return res.status(401).json({ message: "Invalid demo admin credentials" });
+        }
+        const demoUser = {
+            id: "demo-admin-user",
+            name: env.demoAdminName,
+            username: "demo_admin",
+            email: env.demoAdminIdentifier,
+            phone: null,
+            role: "ADMIN",
+        };
+        const token = signToken({
+            id: demoUser.id,
+            username: demoUser.username,
+            email: demoUser.email,
+            role: demoUser.role,
+        });
+        return res.json({
+            message: "Demo admin login successful",
+            token,
+            user: demoUser,
+        });
+    }
+    catch (error) {
+        console.error("admin demo login error:", error);
+        return res.status(500).json({ message: "Server error" });
+    }
+}
 export async function checkUsername(req, res) {
     try {
         const username = String(req.query.username || "").trim();
@@ -113,6 +161,68 @@ export async function checkUsername(req, res) {
     }
     catch (error) {
         console.error("checkUsername error:", error);
+        return res.status(500).json({ message: "Server error" });
+    }
+}
+export async function googleExchange(req, res) {
+    try {
+        const { email, name } = req.body;
+        if (!email) {
+            return res.status(400).json({ message: "email is required" });
+        }
+        const normalizedEmail = email.trim().toLowerCase();
+        let user = await prisma.user.findFirst({
+            where: { email: normalizedEmail },
+        });
+        if (!user) {
+            const baseUsername = normalizedEmail.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "") || "user";
+            let username = baseUsername;
+            let counter = 1;
+            while (await prisma.user.findFirst({
+                where: { username },
+                select: { id: true },
+            })) {
+                username = `${baseUsername}${counter++}`;
+            }
+            user = await prisma.user.create({
+                data: {
+                    name: name?.trim() || baseUsername,
+                    username,
+                    email: normalizedEmail,
+                    phone: null,
+                    passwordHash: await bcrypt.hash(Math.random().toString(36), 10),
+                    role: isAdminEmail(normalizedEmail) ? "ADMIN" : "CUSTOMER",
+                    isEmailVerified: true,
+                },
+            });
+        }
+        else {
+            const shouldBeAdmin = isAdminEmail(normalizedEmail);
+            user = await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    isEmailVerified: true,
+                    name: user.name || name?.trim() || user.name,
+                    role: shouldBeAdmin ? "ADMIN" : user.role,
+                },
+            });
+        }
+        const token = signToken(user);
+        return res.json({
+            message: "Google exchange successful",
+            token,
+            user: {
+                id: user.id,
+                name: user.name,
+                username: user.username,
+                email: user.email,
+                phone: user.phone,
+                role: user.role,
+            },
+        });
+    }
+    catch (error) {
+        console.error("googleExchange error:", error);
         return res.status(500).json({ message: "Server error" });
     }
 }

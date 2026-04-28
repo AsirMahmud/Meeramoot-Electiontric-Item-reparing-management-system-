@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Package } from "lucide-react";
+import { ArrowLeft, MessageCircle, Package } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import {
   acceptDelivery,
+  fetchDeliveryChatMessages,
   fetchDeliveryDeliveries,
+  sendDeliveryChatMessage,
   type DeliveryStatusValue,
+  type DeliveryChatMessage,
   type DeliveryWithJob,
   updateDeliveryStatus,
 } from "@/lib/api";
@@ -57,6 +60,10 @@ export default function OrderRequestDetails() {
   const [accepting, setAccepting] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState("");
+  const [chatMessages, setChatMessages] = useState<DeliveryChatMessage[]>([]);
+  const [chatText, setChatText] = useState("");
+  const [sendingChat, setSendingChat] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const id = typeof params?.id === "string" ? params.id : "";
   const registrationStatus = me?.registrationStatus ?? "APPROVED";
@@ -77,6 +84,72 @@ export default function OrderRequestDetails() {
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load order"))
       .finally(() => setLoading(false));
+  }, [token, id, registrationStatus]);
+
+  useEffect(() => {
+    if (!token || !id || registrationStatus !== "APPROVED") return;
+    fetchDeliveryChatMessages(token, id)
+      .then((data) => setChatMessages(data.messages ?? []))
+      .catch(() => {
+        setChatMessages([]);
+      });
+  }, [token, id, registrationStatus]);
+
+  useEffect(() => {
+    if (!token || !id || registrationStatus !== "APPROVED" || !isChatOpen) return;
+
+    const interval = setInterval(() => {
+      fetchDeliveryChatMessages(token, id)
+        .then((data) => {
+          const latest = data.messages ?? [];
+          setChatMessages((prev) => {
+            if (prev.length === latest.length) return prev;
+            return latest;
+          });
+        })
+        .catch(() => {
+          // keep existing messages if refresh fails temporarily
+        });
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [token, id, registrationStatus, isChatOpen]);
+
+  useEffect(() => {
+    if (!token || !id || registrationStatus !== "APPROVED") return;
+    let disposed = false;
+    let cleanup: (() => void) | null = null;
+
+    (async () => {
+      try {
+        const [{ pusher }, { default: Pusher }] = await Promise.all([
+          fetchDeliveryChatMessages(token, id),
+          import("pusher-js"),
+        ]);
+        if (disposed || !pusher?.enabled || !pusher.key || !pusher.cluster) return;
+
+        const client = new Pusher(pusher.key, {
+          cluster: pusher.cluster,
+          forceTLS: true,
+        });
+        const channel = client.subscribe(`private-delivery-chat-${id}`);
+        channel.bind("message:new", (payload: DeliveryChatMessage) => {
+          setChatMessages((prev) => (prev.some((m) => m.id === payload.id) ? prev : [...prev, payload]));
+        });
+        cleanup = () => {
+          channel.unbind_all();
+          client.unsubscribe(`private-delivery-chat-${id}`);
+          client.disconnect();
+        };
+      } catch {
+        // no realtime when pusher is not configured
+      }
+    })();
+
+    return () => {
+      disposed = true;
+      if (cleanup) cleanup();
+    };
   }, [token, id, registrationStatus]);
 
   const nextStatus = useMemo(() => (delivery ? NEXT_STATUS[delivery.status] ?? null : null), [delivery]);
@@ -117,6 +190,20 @@ export default function OrderRequestDetails() {
     }
   }
 
+  async function handleSendChat() {
+    if (!token || !id || !chatText.trim() || registrationStatus !== "APPROVED") return;
+    setSendingChat(true);
+    try {
+      const result = await sendDeliveryChatMessage(token, id, chatText);
+      setChatMessages((prev) => [...prev, result.message]);
+      setChatText("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send message");
+    } finally {
+      setSendingChat(false);
+    }
+  }
+
   return (
     <div className="flex flex-col bg-white rounded-3xl overflow-hidden shadow-sm border border-[#d9e5d5] relative pb-10">
       <div className="p-6 border-b border-[#e7efe2]">
@@ -132,6 +219,14 @@ export default function OrderRequestDetails() {
             Delivery #{id.slice(0, 8)}
           </div>
         </div>
+        <button
+          type="button"
+          onClick={() => setIsChatOpen(true)}
+          className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[#d9e5d5] bg-white px-3 py-2 text-xs font-bold text-[#163625] hover:bg-[#f8fbf6]"
+        >
+          <MessageCircle size={14} />
+          Open chat
+        </button>
       </div>
 
       <div className="p-6">
@@ -251,6 +346,78 @@ export default function OrderRequestDetails() {
           </>
         )}
       </div>
+
+      {isChatOpen ? (
+        <>
+          <button
+            type="button"
+            aria-label="Close chat drawer"
+            className="fixed inset-0 z-20 bg-black/40"
+            onClick={() => setIsChatOpen(false)}
+          />
+          <aside className="fixed right-0 top-0 z-30 flex h-full w-full max-w-md flex-col border-l border-[#d9e5d5] bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#e7efe2] px-4 py-3">
+              <div>
+                <p className="text-sm font-bold text-[#163625]">Chat with delivery admin</p>
+                <p className="text-xs text-[#163625]/65">Delivery #{id.slice(0, 8)}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsChatOpen(false)}
+                className="rounded-lg border border-[#d9e5d5] px-3 py-1 text-xs font-semibold text-[#163625] hover:bg-[#f8fbf6]"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="flex-1 space-y-2 overflow-y-auto bg-[#f8fbf6] px-4 py-3">
+              {chatMessages.length === 0 ? (
+                <p className="text-xs text-[#163625]/65">No messages yet.</p>
+              ) : (
+                chatMessages.map((msg) => {
+                  const isMine = msg.senderRole === "DELIVERY";
+                  return (
+                    <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+                      <div
+                        className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
+                          isMine
+                            ? "bg-[#163625] text-[#E4FCD5]"
+                            : "border border-[#d9e5d5] bg-white text-[#163625]"
+                        }`}
+                      >
+                        <p>{msg.message}</p>
+                        <p className={`mt-1 text-[10px] ${isMine ? "text-[#E4FCD5]/80" : "text-[#163625]/45"}`}>
+                          {new Date(msg.createdAt).toLocaleTimeString()}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="border-t border-[#e7efe2] p-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={chatText}
+                  onChange={(e) => setChatText(e.target.value)}
+                  placeholder="Type message for admin"
+                  className="flex-1 rounded-xl border border-[#d9e5d5] bg-white px-3 py-2 text-sm text-[#163625] outline-none focus:border-[#163625]"
+                />
+                <button
+                  type="button"
+                  onClick={handleSendChat}
+                  disabled={sendingChat || !chatText.trim()}
+                  className="rounded-xl bg-[#163625] px-4 py-2 text-sm font-bold text-[#E4FCD5] disabled:opacity-60"
+                >
+                  {sendingChat ? "Sending..." : "Send"}
+                </button>
+              </div>
+            </div>
+          </aside>
+        </>
+      ) : null}
     </div>
   );
 }

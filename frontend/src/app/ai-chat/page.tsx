@@ -42,7 +42,9 @@ export default function AiChatPage() {
   const [loading, setLoading] = useState(false);
 
   const activeChat = useMemo(() => {
-    return chatSessions.find((chat) => chat.id === activeChatId) ?? chatSessions[0];
+    return (
+      chatSessions.find((chat) => chat.id === activeChatId) ?? chatSessions[0]
+    );
   }, [chatSessions, activeChatId]);
 
   const previews: ChatPreview[] = useMemo(() => {
@@ -137,13 +139,13 @@ export default function AiChatPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--background)]">
+    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Navbar />
 
       <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
-        <div className="rounded-[2.5rem] border border-[var(--border)] bg-[linear-gradient(180deg,#eaf8de_0%,#f8fcf5_100%)] p-4 shadow-[0_20px_50px_rgba(67,100,64,0.12)] md:p-6">
+        <div className="rounded-[2.5rem] border border-[var(--border)] bg-[var(--card)] p-4 shadow-[0_20px_50px_rgba(67,100,64,0.12)] md:p-6 dark:shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
           <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-            <aside className="rounded-[2rem] border border-[var(--border)] bg-white/90 p-4 shadow-sm">
+            <aside className="rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm">
               <button
                 type="button"
                 onClick={createNewChat}
@@ -199,7 +201,7 @@ export default function AiChatPage() {
               </div>
             </aside>
 
-            <section className="flex min-h-[620px] flex-col rounded-[2rem] border border-[var(--border)] bg-white/90 p-4 shadow-sm md:p-6">
+            <section className="flex min-h-[620px] flex-col rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm md:p-6">
               <div className="flex items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
                 <div>
                   <h1 className="text-2xl font-bold text-[var(--foreground)]">
@@ -245,7 +247,7 @@ export default function AiChatPage() {
                     <div
                       className={`max-w-[78%] rounded-[1.4rem] px-4 py-3 text-sm leading-7 shadow-sm ${
                         msg.role === "user"
-                          ? "bg-[linear-gradient(135deg,var(--accent-dark),#2e6d44)] text-white"
+                          ? "bg-[var(--accent-dark)] text-white"
                           : "bg-[var(--mint-100)] text-[var(--foreground)]"
                       }`}
                     >
@@ -286,20 +288,20 @@ export default function AiChatPage() {
               </div>
 
               <div className="border-t border-[var(--border)] pt-4">
-                <div className="flex items-end gap-3 rounded-[1.6rem] bg-[linear-gradient(90deg,var(--accent-dark),#2f7a47)] p-3 shadow-sm">
+                <div className="flex items-end gap-3 rounded-[1.6rem] bg-[var(--mint-100)] p-3 shadow-sm">
                   <textarea
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     rows={2}
                     placeholder="Type your message here..."
-                    className="min-h-[56px] flex-1 resize-none rounded-[1.2rem] bg-white/10 px-4 py-3 text-sm text-white outline-none placeholder:text-white/75"
+                    className="min-h-[56px] flex-1 resize-none rounded-[1.2rem] border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
                   />
 
                   <button
                     type="button"
                     onClick={handleSend}
                     disabled={loading}
-                    className="rounded-full bg-[#dfe8c7] px-5 py-3 text-sm font-semibold text-[var(--accent-dark)] transition hover:opacity-95 disabled:opacity-60"
+                    className="rounded-full bg-[var(--accent-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-95 disabled:opacity-60"
                   >
                     Send
                   </button>

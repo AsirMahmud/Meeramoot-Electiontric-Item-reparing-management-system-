@@ -3,13 +3,13 @@ import {
   getFeaturedShops,
   getShopBySlug,
   getShops,
-} from "../controllers/shop-controllers";
+} from "../controllers/shop-controllers.js";
 import {
   canReviewShop,
   createReview,
   getShopReviews,
-} from "../controllers/review-controller";
-import { requireAuth } from "../middleware/auth.js";
+} from "../controllers/review-controller.js";
+import { requireAuth } from "../middleware/require-auth.js";
 
 const router = Router();
 
