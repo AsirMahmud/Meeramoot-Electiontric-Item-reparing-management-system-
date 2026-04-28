@@ -42,7 +42,7 @@ export default function HomePage() {
       />
 
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 md:px-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <SidebarFilters />
+      <SidebarFilters targetPath="/shops" />
 
         <div className="space-y-8">
           <OfferCarousel />

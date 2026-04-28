@@ -548,6 +548,12 @@ export function updateProfile(token: string, payload: any) {
   });
 }
 
+export function deleteProfile(token: string) {
+  return authedRequest("/profile/me", token, {
+    method: "DELETE",
+  });
+}
+
 /* =========================================================
    DELIVERY (RIDER)
 ========================================================= */
@@ -1018,8 +1024,6 @@ export type Cart = {
   items: CartItem[];
 };
 
-
-
 export async function addServiceToCart(
   payload: {
     shopSlug: string;
@@ -1063,7 +1067,7 @@ export async function checkoutCart(
   payload: {
     scheduleType: "NOW" | "LATER";
     scheduledAt?: string;
-    paymentMethod: "CASH" | "BKASH";
+    paymentMethod: "CASH" | "SSLCOMMERZ";
     addressMode: "PROFILE" | "MANUAL" | "MAP";
     address: string;
     city?: string;
@@ -1079,6 +1083,17 @@ export async function checkoutCart(
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+const GUEST_CART_KEY = "meramot.guestCart";
+
+export function getGuestCart(): Cart[] {
+  if (typeof window === "undefined") return [];
+  return JSON.parse(localStorage.getItem(GUEST_CART_KEY) || "[]");
+}
+
+export function setGuestCart(cart: Cart[]) {
+  localStorage.setItem(GUEST_CART_KEY, JSON.stringify(cart));
 }
 
 /* =========================================================
