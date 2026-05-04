@@ -26,6 +26,8 @@ type VendorApplication = {
     id: string;
     isActive: boolean;
     isFeatured: boolean;
+    ratingAvg?: number | null;
+    reviewCount?: number | null;
   } | null;
 };
 

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 
-const DEMO_ADMIN_IDENTIFIER = "admin@meeramoot.demo";
+const DEMO_ADMIN_IDENTIFIER = "mustahid000@gmail.com";
 const DEMO_ADMIN_PASSWORD = "AdminDemo123!";
 
 type AdminLoginResponse = {
