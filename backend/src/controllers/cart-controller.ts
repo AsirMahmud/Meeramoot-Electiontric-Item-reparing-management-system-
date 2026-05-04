@@ -86,6 +86,12 @@ export async function addItemToCart(req: AuthedRequest, res: Response) {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
+    // Guard against stale JWT tokens referencing deleted users (e.g. after a re-seed)
+    const userExists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!userExists) {
+      return res.status(401).json({ message: "Your session has expired. Please log out and log back in." });
+    }
+
     const {
       shopSlug,
       serviceName,

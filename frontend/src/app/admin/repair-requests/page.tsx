@@ -11,20 +11,42 @@ type RepairBid = {
   totalCost: number;
   partsCost: number;
   laborCost: number;
+  partsList?: Array<{ name: string; cost: number | string }> | null;
   notes: string | null;
   status: string;
   createdAt: string;
-  shop: { id: string; name: string; slug: string; area: string; city: string };
+  shop: { id: string; name: string; slug: string; area: string; city: string; inspectionFee?: number | null };
+};
+
+type AcceptedBid = {
+  id: string;
+  partsCost: number;
+  laborCost: number;
+  totalCost: number;
+  partsList?: Array<{ name: string; cost: number | string }> | null;
+  estimatedDays?: number | null;
+  notes: string | null;
+  status: string;
+};
+
+type FinalQuoteItem = {
+  label: string;
+  description?: string;
+  amount: number;
 };
 
 type RepairJob = {
   id: string;
   status: string;
   finalQuotedAmount: number | null;
+  diagnosisNotes?: string | null;
+  finalQuoteItems?: FinalQuoteItem[] | null;
+  customerApproved?: boolean | null;
+  acceptedBid?: AcceptedBid | null;
   startedAt: string | null;
   completedAt: string | null;
   createdAt: string;
-  shop: { id: string; name: string; slug: string; area: string; city: string };
+  shop: { id: string; name: string; slug: string; area: string; city: string; inspectionFee?: number | null };
 };
 
 type RepairRequest = {
@@ -71,6 +93,16 @@ export default function AdminRepairRequestsPage() {
   const [requests, setRequests] = useState<RepairRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expandedBids, setExpandedBids] = useState<Set<string>>(new Set());
+
+  const toggleBidExpand = (id: string) => {
+    setExpandedBids((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!token) return;
@@ -314,6 +346,102 @@ export default function AdminRepairRequestsPage() {
                         </div>
                       )}
 
+                  {/* Accepted Initial Quote */}
+                  {hasJob && req.repairJob?.acceptedBid && (
+                    <div className="mb-4">
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)] md:text-xs">
+                        Initial Quote (Accepted Bid)
+                      </p>
+                      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+                        <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between md:gap-4 mb-2">
+                          <div>
+                            <span className="text-xs font-bold text-[var(--accent-dark)] md:text-sm">
+                              ৳{req.repairJob.acceptedBid.totalCost.toLocaleString()}
+                            </span>
+                            {req.repairJob.acceptedBid.estimatedDays && (
+                              <span className="ml-2 text-[10px] text-[var(--muted-foreground)] md:text-xs">
+                                Est. {req.repairJob.acceptedBid.estimatedDays} day(s)
+                              </span>
+                            )}
+                          </div>
+                          <span className={`rounded-full px-2 py-0.5 text-[8px] font-bold uppercase md:text-[10px] ${statusColors[req.repairJob.acceptedBid.status] || "bg-green-100 text-green-700"}`}>
+                            {req.repairJob.acceptedBid.status.replace(/_/g, " ")}
+                          </span>
+                        </div>
+                        {req.repairJob.acceptedBid.notes && (
+                          <p className="text-[10px] italic text-[var(--muted-foreground)] md:text-xs mb-2">
+                            &ldquo;{req.repairJob.acceptedBid.notes}&rdquo;
+                          </p>
+                        )}
+                        <div className="rounded-lg bg-[var(--mint-50)] p-3 text-[10px] md:text-xs border border-[var(--border)]">
+                          <div className="flex flex-col gap-2">
+                            {req.repairJob.acceptedBid.partsList && req.repairJob.acceptedBid.partsList.length > 0 ? (
+                              req.repairJob.acceptedBid.partsList.map((part, pIndex) => (
+                                <div key={pIndex} className="flex justify-between items-center">
+                                  <span className="font-medium text-[var(--foreground)]">{part.name || 'Component'}</span>
+                                  <span className="text-[var(--muted-foreground)] font-medium">৳{Number(part.cost).toLocaleString()}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="flex justify-between items-center">
+                                <span className="font-medium text-[var(--foreground)]">Parts Total</span>
+                                <span className="text-[var(--muted-foreground)] font-medium">৳{req.repairJob.acceptedBid.partsCost.toLocaleString()}</span>
+                              </div>
+                            )}
+                            <div className="mt-1 pt-2 border-t border-[var(--border)] flex justify-between items-center">
+                              <span className="font-semibold text-[var(--foreground)]">Labor Fee</span>
+                              <span className="text-[var(--muted-foreground)] font-medium">৳{req.repairJob.acceptedBid.laborCost.toLocaleString()}</span>
+                            </div>
+                            {typeof req.repairJob.shop.inspectionFee === 'number' && (
+                              <div className="mt-1 pt-2 border-t border-[var(--border)] flex justify-between items-center">
+                                <span className="font-semibold text-[var(--foreground)]">Inspection Fee <span className="text-[8px] font-normal text-[var(--muted-foreground)]">(non-refundable)</span></span>
+                                <span className="text-[var(--muted-foreground)] font-medium">৳{req.repairJob.shop.inspectionFee.toLocaleString()}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Final Diagnosis Quote */}
+                  {hasJob && req.repairJob?.finalQuoteItems && (req.repairJob.finalQuoteItems as FinalQuoteItem[]).length > 0 && (
+                    <div className="mb-4">
+                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)] md:text-xs">
+                        Final Diagnosis Quote
+                        {req.repairJob.customerApproved === true && (
+                          <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-[8px] font-bold text-green-700">Customer Approved</span>
+                        )}
+                        {req.repairJob.customerApproved === false && (
+                          <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-[8px] font-bold text-red-700">Customer Declined</span>
+                        )}
+                      </p>
+                      {req.repairJob.diagnosisNotes && (
+                        <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 mb-2">
+                          <p className="text-[10px] font-semibold text-[var(--foreground)] md:text-xs">Diagnosis Notes</p>
+                          <p className="mt-1 text-[10px] text-[var(--muted-foreground)] md:text-xs whitespace-pre-line">{req.repairJob.diagnosisNotes}</p>
+                        </div>
+                      )}
+                      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+                        <div className="space-y-2">
+                          {(req.repairJob.finalQuoteItems as FinalQuoteItem[]).map((item, idx) => (
+                            <div key={idx} className="flex justify-between items-start gap-2 text-[10px] md:text-xs">
+                              <div className="min-w-0 flex-1">
+                                <p className="font-semibold text-[var(--foreground)]">{item.label}</p>
+                                {item.description && <p className="text-[var(--muted-foreground)]">{item.description}</p>}
+                              </div>
+                              <span className="shrink-0 font-bold text-[var(--accent-dark)]">৳{Number(item.amount).toLocaleString()}</span>
+                            </div>
+                          ))}
+                          <div className="mt-1 pt-2 border-t border-dashed border-[var(--border)] flex justify-between items-center text-xs">
+                            <span className="font-bold text-[var(--foreground)]">Final Total</span>
+                            <span className="font-bold text-[var(--accent-dark)] text-sm">৳{(req.repairJob.finalQuotedAmount ?? 0).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                       {/* Bids */}
                       {hasBids && (
                         <div>
@@ -324,32 +452,70 @@ export default function AdminRepairRequestsPage() {
                             {req.bids.map((bid) => (
                               <div
                                 key={bid.id}
-                                className="flex flex-col gap-1 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3 md:flex-row md:items-center md:justify-between md:gap-4"
+                                className="flex flex-col gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] p-3"
                               >
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-xs font-semibold text-[var(--foreground)] md:text-sm">
-                                    {bid.shop.name}
-                                  </p>
-                                  <p className="text-[10px] text-[var(--muted-foreground)] md:text-xs">
-                                    {bid.shop.area}, {bid.shop.city}
-                                  </p>
-                                  {bid.notes && (
-                                    <p className="mt-1 text-[10px] italic text-[var(--muted-foreground)] md:text-xs">
-                                      &ldquo;{bid.notes}&rdquo;
+                                <div className="flex flex-col gap-1 md:flex-row md:items-center md:justify-between md:gap-4">
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-semibold text-[var(--foreground)] md:text-sm">
+                                      {bid.shop.name}
                                     </p>
-                                  )}
+                                    <p className="text-[10px] text-[var(--muted-foreground)] md:text-xs">
+                                      {bid.shop.area}, {bid.shop.city}
+                                    </p>
+                                    {bid.notes && (
+                                      <p className="mt-1 text-[10px] italic text-[var(--muted-foreground)] md:text-xs">
+                                        &ldquo;{bid.notes}&rdquo;
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className={`rounded-full px-2 py-0.5 text-[8px] font-bold uppercase md:text-[10px] ${statusColors[bid.status] || "bg-gray-100 text-gray-700"}`}>
+                                      {bid.status.replace(/_/g, " ")}
+                                    </span>
+                                    <span className="text-xs font-bold text-[var(--accent-dark)]">
+                                      ৳{bid.totalCost.toLocaleString()}
+                                    </span>
+                                    <span className="text-[9px] text-[var(--muted-foreground)] md:text-[10px]">
+                                      {new Date(bid.createdAt).toLocaleDateString()}
+                                    </span>
+                                    <button
+                                      onClick={() => toggleBidExpand(bid.id)}
+                                      className="rounded-full border border-[var(--border)] bg-[var(--mint-50)] px-2 py-0.5 text-[9px] font-semibold text-[var(--foreground)] hover:bg-[var(--mint-100)] md:text-[10px]"
+                                    >
+                                      {expandedBids.has(bid.id) ? "Hide quote" : "View quote"}
+                                    </button>
+                                  </div>
                                 </div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className={`rounded-full px-2 py-0.5 text-[8px] font-bold uppercase md:text-[10px] ${statusColors[bid.status] || "bg-gray-100 text-gray-700"}`}>
-                                    {bid.status.replace(/_/g, " ")}
-                                  </span>
-                                  <span className="text-xs font-bold text-[var(--accent-dark)]">
-                                    ৳{bid.totalCost.toLocaleString()}
-                                  </span>
-                                  <span className="text-[9px] text-[var(--muted-foreground)] md:text-[10px]">
-                                    {new Date(bid.createdAt).toLocaleDateString()}
-                                  </span>
-                                </div>
+                                
+                                {expandedBids.has(bid.id) && (
+                                  <div className="mt-2 rounded-lg bg-[var(--mint-50)] p-3 text-[10px] md:text-xs border border-[var(--border)]">
+                                    <div className="flex flex-col gap-2">
+                                      {bid.partsList && bid.partsList.length > 0 ? (
+                                        bid.partsList.map((part, pIndex) => (
+                                          <div key={pIndex} className="flex justify-between items-center">
+                                            <span className="font-medium text-[var(--foreground)]">{part.name || 'Component'}</span>
+                                            <span className="text-[var(--muted-foreground)] font-medium">৳{Number(part.cost).toLocaleString()}</span>
+                                          </div>
+                                        ))
+                                      ) : (
+                                        <div className="flex justify-between items-center">
+                                          <span className="font-medium text-[var(--foreground)]">Parts Total</span>
+                                          <span className="text-[var(--muted-foreground)] font-medium">৳{bid.partsCost.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      <div className="mt-1 pt-2 border-t border-[var(--border)] flex justify-between items-center">
+                                        <span className="font-semibold text-[var(--foreground)]">Labor Fee</span>
+                                        <span className="text-[var(--muted-foreground)] font-medium">৳{bid.laborCost.toLocaleString()}</span>
+                                      </div>
+                                      {typeof bid.shop.inspectionFee === 'number' && (
+                                        <div className="mt-1 pt-2 border-t border-[var(--border)] flex justify-between items-center">
+                                          <span className="font-semibold text-[var(--foreground)]">Inspection Fee <span className="text-[8px] font-normal text-[var(--muted-foreground)]">(non-refundable)</span></span>
+                                          <span className="text-[var(--muted-foreground)] font-medium">৳{bid.shop.inspectionFee.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             ))}
                           </div>
