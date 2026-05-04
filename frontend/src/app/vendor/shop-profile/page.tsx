@@ -38,6 +38,43 @@ function formatMoney(amount?: number | null) {
   return new Intl.NumberFormat("en-BD", { style: "currency", currency: "BDT", maximumFractionDigits: 0 }).format(amount);
 }
 
+function SparePartsCountdownBanner({ message, expiresAt, onExpired }: { message: string; expiresAt: string; onExpired: () => void }) {
+  const [timeLeft, setTimeLeft] = useState("");
+
+  useEffect(() => {
+    function tick() {
+      const diff = new Date(expiresAt).getTime() - Date.now();
+      if (diff <= 0) {
+        setTimeLeft("0:00");
+        onExpired();
+        return;
+      }
+      const mins = Math.floor(diff / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+      setTimeLeft(`${mins}:${secs.toString().padStart(2, "0")}`);
+    }
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [expiresAt, onExpired]);
+
+  return (
+    <div className="mb-6 rounded-3xl border border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 px-5 py-4 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300 shrink-0">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+          <span className="font-bold text-sm">Action Required</span>
+        </div>
+        <p className="text-sm text-amber-800 dark:text-amber-200 flex-1">{message}</p>
+        <div className="shrink-0 flex items-center gap-2 bg-amber-100 dark:bg-amber-800/50 rounded-xl px-3 py-1.5">
+          <svg className="w-4 h-4 text-amber-600 dark:text-amber-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <span className="text-sm font-bold tabular-nums text-amber-700 dark:text-amber-200">{timeLeft}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function VendorShopProfilePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -50,6 +87,8 @@ export default function VendorShopProfilePage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewPage, setReviewPage] = useState(1);
+  const [sparePartsWarning, setSparePartsWarning] = useState<{ message: string; expiresAt: string } | null>(null);
+  const [countdown, setCountdown] = useState("");
 
   // New Service Form
   const [newServiceName, setNewServiceName] = useState("");
@@ -74,6 +113,7 @@ export default function VendorShopProfilePage() {
       setLoading(true);
       const data = await getVendorShopProfile(token);
       setProfile(data);
+      setSparePartsWarning((data as any).sparePartsWarning ?? null);
       // Load reviews using the shop slug
       if (data.shop?.slug) {
         try {
@@ -270,6 +310,15 @@ export default function VendorShopProfilePage() {
           <div className={`mb-6 rounded-3xl px-5 py-4 text-sm font-medium ${flash.type === "success" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
             {flash.text}
           </div>
+        )}
+
+        {/* Spare Parts Grace Period Warning */}
+        {sparePartsWarning && (
+          <SparePartsCountdownBanner
+            message={sparePartsWarning.message}
+            expiresAt={sparePartsWarning.expiresAt}
+            onExpired={loadProfile}
+          />
         )}
 
         {/* Shop Info Header */}

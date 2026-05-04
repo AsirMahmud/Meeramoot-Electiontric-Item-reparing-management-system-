@@ -49,11 +49,52 @@ export async function getVendorShopProfile(req: AuthenticatedRequest, res: Respo
       orderBy: { createdAt: "desc" },
     });
 
+    // ── Spare Parts Grace Period Check ──
+    // If shop has SPARE_PARTS category but no parts, enforce 10-minute grace.
+    let sparePartsWarning: { message: string; expiresAt: string } | null = null;
+    const GRACE_MS = 10 * 60 * 1000; // 10 minutes
+
+    if (shop.categories.includes("SPARE_PARTS") && spareParts.length === 0 && shop.setupComplete) {
+      if (shop.sparePartsEmptySince) {
+        const elapsed = Date.now() - new Date(shop.sparePartsEmptySince).getTime();
+        if (elapsed >= GRACE_MS) {
+          // Grace period expired — remove SPARE_PARTS category
+          await prisma.shop.update({
+            where: { id: shop.id },
+            data: {
+              categories: shop.categories.filter((c: string) => c !== "SPARE_PARTS"),
+              sparePartsEmptySince: null,
+            },
+          });
+          shop.categories = shop.categories.filter((c: string) => c !== "SPARE_PARTS");
+        } else {
+          // Still within grace — return warning with time remaining
+          const expiresAt = new Date(new Date(shop.sparePartsEmptySince).getTime() + GRACE_MS).toISOString();
+          sparePartsWarning = {
+            message: "You've selected Spare Parts as a service category but haven't listed any parts yet. Please add at least one spare part to your shop profile, or this category will be automatically removed.",
+            expiresAt,
+          };
+        }
+      } else {
+        // First detection — start the countdown
+        await prisma.shop.update({
+          where: { id: shop.id },
+          data: { sparePartsEmptySince: new Date() },
+        });
+        const expiresAt = new Date(Date.now() + GRACE_MS).toISOString();
+        sparePartsWarning = {
+          message: "You've selected Spare Parts as a service category but haven't listed any parts yet. Please add at least one spare part to your shop profile, or this category will be automatically removed.",
+          expiresAt,
+        };
+      }
+    }
+
     return res.json({
       shop,
       services,
       spareParts,
       aiSuggestions,
+      sparePartsWarning,
     });
   } catch (error) {
     console.error("getVendorShopProfile error:", error);
@@ -153,13 +194,12 @@ export async function addVendorSparePart(req: AuthenticatedRequest, res: Respons
       },
     });
 
-    // Auto-add SPARE_PARTS if not present
+    // Auto-add SPARE_PARTS category if not present + clear grace timer
+    const updates: Record<string, any> = { sparePartsEmptySince: null };
     if (!shop.categories.includes("SPARE_PARTS")) {
-      await prisma.shop.update({
-        where: { id: shop.id },
-        data: { categories: { push: "SPARE_PARTS" } }
-      });
+      updates.categories = { push: "SPARE_PARTS" };
     }
+    await prisma.shop.update({ where: { id: shop.id }, data: updates });
 
     return res.status(201).json({ message: "Spare part added successfully", sparePart });
   } catch (error) {
@@ -221,12 +261,12 @@ export async function removeVendorSparePart(req: AuthenticatedRequest, res: Resp
 
     await prisma.sparePart.delete({ where: { id: sparePartId } });
 
-    // Auto-remove SPARE_PARTS category if no spare parts remain
+    // If no spare parts remain and shop has SPARE_PARTS category, start grace timer
     const remaining = await prisma.sparePart.count({ where: { shopId: shop.id, isActive: true } });
     if (remaining === 0 && shop.categories.includes("SPARE_PARTS")) {
       await prisma.shop.update({
         where: { id: shop.id },
-        data: { categories: shop.categories.filter((c: string) => c !== "SPARE_PARTS") },
+        data: { sparePartsEmptySince: new Date() },
       });
     }
 

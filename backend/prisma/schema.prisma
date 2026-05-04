@@ -401,6 +401,8 @@ model Shop {
   notifyRelevantByEmail Boolean @default(true)
   notifyRelevantBySms   Boolean @default(false)
 
+  sparePartsEmptySince DateTime? // Set when SPARE_PARTS category exists but 0 parts; auto-removes category after 10min
+
   aiServiceSuggestions AiServiceSuggestion[]
   spareParts           SparePart[]
 
