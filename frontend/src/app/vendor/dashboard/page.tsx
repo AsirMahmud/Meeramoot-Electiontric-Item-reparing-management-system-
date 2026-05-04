@@ -196,6 +196,7 @@ export default function VendorDashboardPage() {
   const [biddingFilter, setBiddingFilter] = useState("relevant");
   const [biddingSort, setBiddingSort] = useState("desc");
   const [loadingBidding, setLoadingBidding] = useState(false);
+  const [activeTab, setActiveTab] = useState<"overview" | "marketplace" | "direct_orders" | "assigned_jobs">("overview");
 
   const loadDashboard = useCallback(async () => {
     if (!token) {
@@ -681,6 +682,34 @@ export default function VendorDashboardPage() {
           </div>
         ) : null}
 
+        {/* Dashboard Tabs */}
+        <div className="mt-6 flex overflow-x-auto whitespace-nowrap gap-2 border-b border-[#cfe0c6] pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          {[
+            { id: "overview", label: "Overview" },
+            { id: "marketplace", label: "Marketplace" },
+            { id: "direct_orders", label: "Direct Orders", count: dashboard.pendingOrders?.length || 0 },
+            { id: "assigned_jobs", label: "My Repair Jobs", count: dashboard.assignedJobs?.length || 0 },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`relative rounded-t-2xl px-5 py-3 text-sm font-semibold transition-colors ${
+                activeTab === tab.id
+                  ? "bg-white text-[#173726] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] border-t border-x border-[#cfe0c6]"
+                  : "bg-transparent text-[#5b7262] hover:bg-[#dff0dc]/50"
+              }`}
+            >
+              {tab.label}
+              {tab.count ? (
+                <span className="ml-2 rounded-full bg-[#214c34] px-2 py-0.5 text-xs text-white">
+                  {tab.count}
+                </span>
+              ) : null}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'overview' && (
         <section className="mt-4 grid gap-3 grid-cols-2 md:mt-6 md:gap-4 xl:grid-cols-4">
           {summaryCards.map((card) => {
             const inner = (
@@ -725,7 +754,9 @@ export default function VendorDashboardPage() {
             );
           })}
         </section>
+      )}
 
+        {activeTab === 'overview' && (
         <section className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
           <article className="rounded-[1.5rem] bg-white p-4 shadow-sm md:rounded-[2rem] md:p-6">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-4">
@@ -784,8 +815,9 @@ export default function VendorDashboardPage() {
             </div>
           </article>
         </section>
+      )}
 
-        {dashboard.pendingOrders?.length > 0 && (
+        {activeTab === 'direct_orders' && dashboard.pendingOrders?.length > 0 && (
           <section id="pending-orders" className="mt-6 scroll-mt-6 md:mt-8">
             <div className="mb-3 md:mb-4">
               <h2 className="text-xl font-bold text-[#173726] md:text-2xl">Pending direct orders</h2>
@@ -862,6 +894,7 @@ export default function VendorDashboardPage() {
           </section>
         )}
 
+        {activeTab === 'marketplace' && (
         <section id="relevant-requests" className="mt-6 scroll-mt-6 md:mt-8">
           <div className="mb-3 flex flex-col gap-2 md:mb-4 md:flex-row md:items-center md:justify-between md:gap-3">
             <div>
@@ -1241,7 +1274,9 @@ export default function VendorDashboardPage() {
             )}
           </div>
         </section>
+        )}
 
+        {activeTab === 'assigned_jobs' && (
         <section className="mt-8">
           <div className="mb-4">
             <h2 className="text-xl font-bold text-[#173726] md:text-2xl">Assigned jobs and final quote</h2>
@@ -1524,6 +1559,7 @@ export default function VendorDashboardPage() {
             ) : null}
           </div>
         </section>
+        )}
       </div>
       {/* ── Bid Confirmation Modal ─────────────────────────────── */}
       {bidConfirm ? (
