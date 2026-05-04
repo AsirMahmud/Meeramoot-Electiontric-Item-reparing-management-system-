@@ -553,23 +553,17 @@ export default function AuthCard({ mode }: { mode: Mode }) {
           </button>
         </form>
         {isSignup ? (
-        <div className="mt-4 space-y-3">
+        <div className="mt-4">
         <Link
           href="/vendor/apply"
           className="block w-full rounded-[1.25rem] bg-[#D4AF37] px-5 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:brightness-95"
         >
           Register as a vendor
         </Link>
-        <Link
-          href="/delivery/login"
-          className="block w-full rounded-[1.25rem] bg-[#0ea5e9] px-5 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:brightness-95"
-        >
-          Delivery partner login
-        </Link>
       </div>
         ) : null}
         <p className="mt-5 text-center text-sm text-[#5e6d64]">
-          {isSignup ? "Already have an account?" : "Don’t have an account?"}{" "}
+          {isSignup ? "Already have an account?" : "Don't have an account?"}{" "}
           <Link
             href={isSignup ? "/login" : "/signup"}
             className="font-semibold text-[#214c34] hover:underline"
@@ -577,6 +571,16 @@ export default function AuthCard({ mode }: { mode: Mode }) {
             {isSignup ? "Sign in" : "Sign up"}
           </Link>
         </p>
+        {!isSignup ? (
+          <p className="mt-2 text-center text-sm">
+            <Link
+              href="/delivery/login"
+              className="font-medium text-[#1e3a5f] hover:underline"
+            >
+              Delivery partner? Sign in here
+            </Link>
+          </p>
+        ) : null}
       </div>
     </div>
   );
