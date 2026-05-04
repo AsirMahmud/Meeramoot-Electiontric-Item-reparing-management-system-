@@ -267,6 +267,26 @@ async function main() {
 
   console.log("✓ Admin account ready:", admin.email);
 
+  // Create delivery admin account
+  const deliveryAdminPasswordHash = await bcrypt.hash("DeliveryAdmin@123", 10);
+
+  const deliveryAdmin = await prisma.user.upsert({
+    where: { email: "delivery.admin.demo@meeramoot.test" },
+    update: { passwordHash: deliveryAdminPasswordHash, role: "DELIVERY_ADMIN" },
+    create: {
+      email: "delivery.admin.demo@meeramoot.test",
+      username: "delivery_admin",
+      name: "Delivery Admin",
+      phone: "+8801700000002",
+      passwordHash: deliveryAdminPasswordHash,
+      role: "DELIVERY_ADMIN",
+      status: "ACTIVE",
+      isEmailVerified: true,
+    },
+  });
+
+  console.log("✓ Delivery Admin account ready:", deliveryAdmin.email);
+
   // Create demo customer account
   const passwordHash = await bcrypt.hash("password123", 10);
 
