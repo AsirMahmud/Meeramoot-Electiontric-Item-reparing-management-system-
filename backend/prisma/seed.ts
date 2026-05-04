@@ -587,62 +587,266 @@ async function main() {
   }
   console.log(`  ✓ ${ticketData.length} support tickets created.`);
 
+  // ── REPAIR REQUEST SEEDS ──────────────────────────────────────────
+  // Covers: DIRECT (PENDING), MARKETPLACE (BIDDING), and lifecycle stages
+  console.log("  Creating repair request seeds...");
+
+  // ── 1. COMPLETED request (demo customer → shop 0) ──
   const completedRequest = await prisma.repairRequest.create({
     data: {
       userId: user.id,
-      title: "MacBook Air M2 Repair",
+      source: "DIRECT_SERVICE",
+      requestedShopId: shops[0].id,
+      title: "MacBook Air M2 Battery Replacement",
       deviceType: "Laptop",
       brand: "Apple",
       model: "MacBook Air M2",
-      problem: "Battery drains too quickly",
+      problem: "Battery drains too quickly, only lasts 2 hours",
       issueCategory: "Battery",
       imageUrls: [],
       mode: RequestMode.CHECKUP_AND_REPAIR,
       status: RequestStatus.COMPLETED,
       preferredPickup: true,
+      quotedFinalAmount: 12500,
+      approvedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
     },
   });
-
   await prisma.repairJob.create({
     data: {
       repairRequestId: completedRequest.id,
       shopId: shops[0].id,
       status: RepairJobStatus.COMPLETED,
-      diagnosisNotes: "Battery replaced with original cell.",
-      finalQuotedAmount: 12500, // Realistic BDT for MacBook Air M2 Battery
+      diagnosisNotes: "Battery replaced with genuine Apple cell. Full health restored.",
+      finalQuotedAmount: 12500,
       customerApproved: true,
-      startedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
+      startedAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
       completedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
     },
   });
 
-  const activeRequest = await prisma.repairRequest.create({
+  // ── 2. REPAIRING request (demo customer → shop 1) ──
+  const repairingRequest = await prisma.repairRequest.create({
     data: {
       userId: user.id,
-      title: "ThinkPad keyboard issue",
+      source: "DIRECT_CUSTOM_SHOP",
+      requestedShopId: shops[1].id,
+      title: "ThinkPad T14 Keyboard Fix",
       deviceType: "Laptop",
       brand: "Lenovo",
       model: "ThinkPad T14",
-      problem: "Several keys are unresponsive",
+      problem: "Several keys are unresponsive after coffee spill",
       issueCategory: "Keyboard",
       imageUrls: [],
       mode: RequestMode.DIRECT_REPAIR,
       status: RequestStatus.REPAIRING,
       preferredPickup: false,
+      quotedFinalAmount: 4500,
+      approvedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+    },
+  });
+  await prisma.repairJob.create({
+    data: {
+      repairRequestId: repairingRequest.id,
+      shopId: shops[1].id,
+      status: RepairJobStatus.REPAIRING,
+      diagnosisNotes: "Keyboard assembly needs full replacement. Parts ordered.",
+      finalQuotedAmount: 4500,
+      customerApproved: true,
+      startedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
     },
   });
 
-  await prisma.repairJob.create({
+  // ── 3–5. PENDING DIRECT requests (waiting for shop approval) ──
+  const pendingDirectRequests = [
+    {
+      title: "Samsung Galaxy S24 Screen Crack",
+      deviceType: "Phone", brand: "Samsung", model: "Galaxy S24",
+      problem: "Screen cracked from a drop, touch still works but glass is shattered",
+      issueCategory: "Screen", mode: RequestMode.DIRECT_REPAIR,
+      shopIdx: 2, source: "DIRECT_SERVICE" as const,
+    },
+    {
+      title: "iPad Pro 12.9 Charging Port",
+      deviceType: "Tablet", brand: "Apple", model: "iPad Pro 12.9",
+      problem: "Charging port is loose, cable doesn't stay connected properly",
+      issueCategory: "Charging Port", mode: RequestMode.CHECKUP_AND_REPAIR,
+      shopIdx: 5, source: "DIRECT_SERVICE" as const,
+    },
+    {
+      title: "Dell XPS 15 Fan Noise",
+      deviceType: "Laptop", brand: "Dell", model: "XPS 15 9520",
+      problem: "Fan makes loud grinding noise under any load, overheating issues",
+      issueCategory: "Overheating", mode: RequestMode.CHECKUP_ONLY,
+      shopIdx: 8, source: "DIRECT_CUSTOM_SHOP" as const,
+    },
+  ];
+
+  for (const req of pendingDirectRequests) {
+    await prisma.repairRequest.create({
+      data: {
+        userId: user.id,
+        source: req.source,
+        requestedShopId: shops[req.shopIdx].id,
+        title: req.title,
+        deviceType: req.deviceType,
+        brand: req.brand,
+        model: req.model,
+        problem: req.problem,
+        issueCategory: req.issueCategory,
+        imageUrls: [],
+        mode: req.mode,
+        status: RequestStatus.PENDING,
+        preferredPickup: true,
+        createdAt: new Date(Date.now() - Math.floor(Math.random() * 3) * 60 * 60 * 1000),
+      },
+    });
+  }
+  console.log(`  ✓ ${pendingDirectRequests.length} PENDING (direct) repair requests created.`);
+
+  // ── 6–9. BIDDING MARKETPLACE requests (open for vendor bids) ──
+  const biddingRequests = [
+    {
+      title: "iPhone 15 Pro Water Damage Recovery",
+      deviceType: "Phone", brand: "Apple", model: "iPhone 15 Pro",
+      problem: "Phone fell in water, screen flickers and speaker is muffled",
+      issueCategory: "Water Damage", mode: RequestMode.CHECKUP_AND_REPAIR,
+      bidShops: [0, 3, 7, 12],  // indices into shops[] — 4 vendors bid
+    },
+    {
+      title: "ASUS ROG Laptop Motherboard Issue",
+      deviceType: "Laptop", brand: "ASUS", model: "ROG Strix G15",
+      problem: "Laptop won't power on after a power surge, no LED indicators",
+      issueCategory: "Motherboard", mode: RequestMode.CHECKUP_AND_REPAIR,
+      bidShops: [1, 4, 9],  // 3 vendors bid
+    },
+    {
+      title: "Google Pixel 8 Battery Swelling",
+      deviceType: "Phone", brand: "Google", model: "Pixel 8",
+      problem: "Battery is visibly swollen, back panel is lifting, phone gets hot",
+      issueCategory: "Battery", mode: RequestMode.DIRECT_REPAIR,
+      bidShops: [2, 6, 10, 15, 20],  // 5 vendors bid
+    },
+    {
+      title: "HP Pavilion Display Flickering",
+      deviceType: "Laptop", brand: "HP", model: "Pavilion 15",
+      problem: "Display flickers randomly, sometimes goes black for a few seconds",
+      issueCategory: "Display", mode: RequestMode.CHECKUP_AND_REPAIR,
+      bidShops: [5, 11],  // 2 vendors bid
+    },
+  ];
+
+  for (const req of biddingRequests) {
+    const request = await prisma.repairRequest.create({
+      data: {
+        userId: user.id,
+        source: "MARKETPLACE",
+        title: req.title,
+        deviceType: req.deviceType,
+        brand: req.brand,
+        model: req.model,
+        problem: req.problem,
+        issueCategory: req.issueCategory,
+        imageUrls: [],
+        mode: req.mode,
+        status: RequestStatus.BIDDING,
+        preferredPickup: true,
+        createdAt: new Date(Date.now() - Math.floor(Math.random() * 48) * 60 * 60 * 1000),
+      },
+    });
+
+    // Create bids from the specified shops
+    for (const shopIdx of req.bidShops) {
+      if (shopIdx >= shops.length) continue;
+      const baseCost = Math.floor(Math.random() * 4000) + 1500;
+      const laborCost = Math.floor(Math.random() * 2000) + 500;
+      await prisma.bid.create({
+        data: {
+          repairRequestId: request.id,
+          shopId: shops[shopIdx].id,
+          partsCost: baseCost,
+          laborCost: laborCost,
+          totalCost: baseCost + laborCost,
+          estimatedDays: Math.floor(Math.random() * 5) + 2,
+          notes: randomFrom([
+            "We have this part in stock, can start immediately.",
+            "Experienced with this model. Quick turnaround guaranteed.",
+            "Genuine parts only. 6-month warranty included.",
+            "We'll diagnose for free first, then provide final quote.",
+            "Same-day service available for this repair type.",
+          ]),
+          status: "ACTIVE",
+        },
+      });
+    }
+  }
+  console.log(`  ✓ ${biddingRequests.length} BIDDING (marketplace) repair requests with bids created.`);
+
+  // ── 10–11. ASSIGNED requests (bid accepted, job created, in progress) ──
+  const assignedRequest = await prisma.repairRequest.create({
     data: {
-      repairRequestId: activeRequest.id,
-      shopId: shops[1].id,
-      status: RepairJobStatus.REPAIRING,
-      diagnosisNotes: "Keyboard assembly needs replacement.",
-      finalQuotedAmount: 4500, // Realistic BDT for ThinkPad keyboard
-      customerApproved: true,
-      startedAt: new Date(),
+      userId: user.id,
+      source: "MARKETPLACE",
+      title: "OnePlus 12 Back Glass Replacement",
+      deviceType: "Phone", brand: "OnePlus", model: "OnePlus 12",
+      problem: "Back glass cracked, camera module is fine but glass is shattered",
+      issueCategory: "Back Panel",
+      imageUrls: [],
+      mode: RequestMode.DIRECT_REPAIR,
+      status: RequestStatus.ASSIGNED,
+      preferredPickup: true,
+      quotedFinalAmount: 3200,
+      approvedAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
     },
   });
+  const assignedBid = await prisma.bid.create({
+    data: {
+      repairRequestId: assignedRequest.id,
+      shopId: shops[3].id,
+      partsCost: 2200, laborCost: 1000, totalCost: 3200,
+      estimatedDays: 3,
+      notes: "We have OnePlus genuine back panels in stock.",
+      status: "ACCEPTED",
+    },
+  });
+  await prisma.repairJob.create({
+    data: {
+      repairRequestId: assignedRequest.id,
+      shopId: shops[3].id,
+      acceptedBidId: assignedBid.id,
+      status: RepairJobStatus.CREATED,
+      finalQuotedAmount: 3200,
+      customerApproved: true,
+    },
+  });
+
+  // DIAGNOSING stage
+  const diagnosingRequest = await prisma.repairRequest.create({
+    data: {
+      userId: user.id,
+      source: "DIRECT_SERVICE",
+      requestedShopId: shops[6].id,
+      title: "MacBook Pro 14 Trackpad Unresponsive",
+      deviceType: "Laptop", brand: "Apple", model: "MacBook Pro 14",
+      problem: "Trackpad stopped clicking, force touch not working at all",
+      issueCategory: "Trackpad",
+      imageUrls: [],
+      mode: RequestMode.CHECKUP_AND_REPAIR,
+      status: RequestStatus.DIAGNOSING,
+      preferredPickup: false,
+      approvedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+    },
+  });
+  await prisma.repairJob.create({
+    data: {
+      repairRequestId: diagnosingRequest.id,
+      shopId: shops[6].id,
+      status: RepairJobStatus.DIAGNOSING,
+      diagnosisNotes: "Inspecting trackpad flex cable and haptic engine...",
+      startedAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
+    },
+  });
+
+  console.log("  ✓ ASSIGNED + DIAGNOSING repair requests created.");
 
   // Create 500 dummy users with realistic Bangladeshi names
   const firstNames = [
