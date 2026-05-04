@@ -66,9 +66,12 @@ export default function VendorApprovalsPage() {
     setExpanded((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   }
 
-  // Filter to jobs that are waiting for customer approval
+  // Filter to jobs that are waiting for customer approval, or recently responded to
   const waitingJobs = (dashboard?.assignedJobs ?? []).filter(
-    (job) => job.status === "WAITING_APPROVAL" || job.customerApproved !== null
+    (job) => 
+      (job.status === "WAITING_APPROVAL" || job.customerApproved !== null) && 
+      job.status !== "COMPLETED" && 
+      job.status !== "CANCELLED"
   );
 
   if (status === "loading" || loading) {
