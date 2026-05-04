@@ -461,11 +461,12 @@ async function main() {
         passwordHash,
         name: applicant.name,
         phone: applicant.phone,
-        role: "VENDOR_APPLICANT", // stays VENDOR_APPLICANT until approved
+        role: "VENDOR_APPLICANT",
+        status: "SUSPENDED",
       },
     });
 
-    await prisma.vendorApplication.upsert({
+    const vendorApp = await prisma.vendorApplication.upsert({
       where: { businessEmail: applicant.email },
       update: {},
       create: {
@@ -484,19 +485,53 @@ async function main() {
         status: "PENDING",
       },
     });
+
+    // Create shop stub (matches new application flow)
+    const appSlug = applicant.shopName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const appShop = await prisma.shop.upsert({
+      where: { slug: appSlug },
+      update: {},
+      create: {
+        vendorApplicationId: vendorApp.id,
+        name: applicant.shopName,
+        slug: appSlug,
+        address: applicant.address,
+        city: applicant.city,
+        area: applicant.area,
+        phone: applicant.phone,
+        email: applicant.email,
+        categories: [ShopCategory.COURIER_PICKUP, ShopCategory.IN_SHOP_REPAIR],
+        specialties: applicant.specialties,
+        isActive: false,
+        isPublic: false,
+        setupComplete: false,
+      },
+    });
+
+    await prisma.shopStaff.upsert({
+      where: { shopId_userId: { shopId: appShop.id, userId: appUser.id } },
+      update: {},
+      create: { shopId: appShop.id, userId: appUser.id, role: "OWNER", isActive: true },
+    });
   }
   console.log(`  ✓ ${pendingApplicants.length} pending vendor applications created.`);
 
-  // ── PENDING DELIVERY RIDER REGISTRATIONS ──
-  console.log("  Creating pending delivery rider registrations...");
-  const pendingRiders = [
-    { name: "Jubayer Ahmed", email: "jubayer.rider@gmail.com", phone: "+8801712346001", vehicle: "Motorbike", area: "Mirpur" },
-    { name: "Morshed Alam", email: "morshed.rider@gmail.com", phone: "+8801812346002", vehicle: "Bicycle", area: "Dhanmondi" },
-    { name: "Rifat Hasan", email: "rifat.rider@gmail.com", phone: "+8801912346003", vehicle: "Motorbike", area: "Gulshan" },
-    { name: "Sumaiya Akter", email: "sumaiya.rider@gmail.com", phone: "+8801612346004", vehicle: "Bicycle", area: "Uttara" },
+  // ── DELIVERY RIDER REGISTRATIONS (with coordinates) ──
+  console.log("  Creating delivery rider registrations...");
+  const riderData = [
+    { name: "Jubayer Ahmed", email: "jubayer.rider@gmail.com", phone: "+8801712346001", vehicle: "Motorbike", area: "Mirpur", lat: 23.8042, lng: 90.3688, status: "PENDING" as const },
+    { name: "Morshed Alam", email: "morshed.rider@gmail.com", phone: "+8801812346002", vehicle: "Bicycle", area: "Dhanmondi", lat: 23.7461, lng: 90.3742, status: "PENDING" as const },
+    { name: "Rifat Hasan", email: "rifat.rider@gmail.com", phone: "+8801912346003", vehicle: "Motorbike", area: "Gulshan", lat: 23.7925, lng: 90.4078, status: "APPROVED" as const },
+    { name: "Sumaiya Akter", email: "sumaiya.rider@gmail.com", phone: "+8801612346004", vehicle: "Bicycle", area: "Uttara", lat: 23.8759, lng: 90.3795, status: "APPROVED" as const },
+    { name: "Arman Khan", email: "arman.rider@gmail.com", phone: "+8801712346005", vehicle: "Motorbike", area: "Banani", lat: 23.7940, lng: 90.4023, status: "APPROVED" as const },
+    { name: "Fahim Chowdhury", email: "fahim.rider@gmail.com", phone: "+8801812346006", vehicle: "Motorbike", area: "Tejgaon", lat: 23.7594, lng: 90.3988, status: "PENDING" as const },
   ];
 
-  for (const rider of pendingRiders) {
+  for (const rider of riderData) {
+    const areaCoord = areaCoords.find(a => a.name === rider.area);
+    const riderLat = rider.lat ?? areaCoord?.lat ?? 23.7806;
+    const riderLng = rider.lng ?? areaCoord?.lng ?? 90.4078;
+
     const riderUser = await prisma.user.upsert({
       where: { email: rider.email },
       update: {},
@@ -507,8 +542,11 @@ async function main() {
         name: rider.name,
         phone: rider.phone,
         role: "DELIVERY",
+        status: "ACTIVE",
         area: rider.area,
         city: "Dhaka",
+        lat: riderLat,
+        lng: riderLng,
       },
     });
 
@@ -518,13 +556,15 @@ async function main() {
       create: {
         userId: riderUser.id,
         vehicleType: rider.vehicle,
-        status: "OFFLINE",
-        isActive: false,
-        registrationStatus: "PENDING",
+        status: rider.status === "APPROVED" ? "AVAILABLE" : "OFFLINE",
+        isActive: rider.status === "APPROVED",
+        registrationStatus: rider.status,
+        currentLat: riderLat + (Math.random() - 0.5) * 0.005,
+        currentLng: riderLng + (Math.random() - 0.5) * 0.005,
       },
     });
   }
-  console.log(`  ✓ ${pendingRiders.length} pending delivery rider registrations created.`);
+  console.log(`  ✓ ${riderData.length} delivery rider registrations created.`);
 
   // ── ADDITIONAL SUPPORT TICKETS (diverse statuses) ──
   console.log("  Creating support tickets...");
