@@ -604,8 +604,6 @@ export async function completeVendorShopSetup(req: Request, res: Response) {
           isPublic: true,
           setupComplete: true,
           isActive: true,
-          // Start spare parts grace timer if vendor selected SPARE_PARTS but has no parts yet
-          ...(serviceCategories.includes("SPARE_PARTS") ? { sparePartsEmptySince: new Date() } : {}),
         },
         select: {
           id: true,
