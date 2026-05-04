@@ -936,7 +936,7 @@ export default function ShopDetailsPage({ params }: { params: Promise<{ slug: st
                           className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--mint-100)] px-4 py-2 text-sm font-bold text-[var(--accent-dark)] transition hover:bg-[var(--accent-dark)] hover:text-white lg:mt-0 lg:h-11 lg:w-auto lg:px-6"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4"/></svg>
-                          Add
+                          {addingService === item.name ? "Adding..." : "Add to cart"}
                         </button>
                       </div>
                     </article>
@@ -1013,7 +1013,7 @@ export default function ShopDetailsPage({ params }: { params: Promise<{ slug: st
                             className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-[var(--mint-100)] px-4 py-2 text-sm font-bold text-[var(--accent-dark)] transition hover:bg-[var(--accent-dark)] hover:text-white lg:mt-0 lg:h-11 lg:w-auto lg:px-6"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4"/></svg>
-                            Add
+                            {addingService === item.name ? "Adding..." : "Add to cart"}
                           </button>
                         </div>
                       </article>
