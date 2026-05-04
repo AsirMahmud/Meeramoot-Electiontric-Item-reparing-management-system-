@@ -37,7 +37,7 @@ router.get("/vendors", async (_req: Request, res: Response) => {
 
     return res.json({
       success: true,
-      data: applications,
+      applications,
     });
   } catch (error) {
     console.error("GET /vendors error:", error);
@@ -118,6 +118,7 @@ router.patch("/vendors/:id/approve", async (req: Request & { user?: any }, res: 
 
     const application = await prisma.vendorApplication.findUnique({
       where: { id: applicationId },
+      include: { shop: true },
     });
 
     if (!application) {
@@ -127,38 +128,63 @@ router.patch("/vendors/:id/approve", async (req: Request & { user?: any }, res: 
       });
     }
 
-    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const shop = await tx.shop.create({
-        data: {
-          vendorApplicationId: application.id,
-          name: application.shopName,
-          slug: `${application.shopName}-${Date.now()}`
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-|-$/g, ""),
-          address: application.address,
-          city: application.city,
-          area: application.area,
-          phone: application.phone,
-          email: application.businessEmail,
-          categories: [
-            ...(application.courierPickup ? ["COURIER_PICKUP" as const] : []),
-            ...(application.inShopRepair ? ["IN_SHOP_REPAIR" as const] : []),
-            ...(application.spareParts ? ["SPARE_PARTS" as const] : []),
-          ],
-          specialties: application.specialties,
-          isActive: true,
-        },
+    if (application.status === "APPROVED") {
+      return res.status(400).json({
+        success: false,
+        message: "This application is already approved",
       });
+    }
 
-      await tx.shopStaff.create({
-        data: {
-          shopId: shop.id,
-          userId: application.userId,
-          role: "OWNER",
-          isActive: true,
-        },
-      });
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      let shop;
+
+      if (application.shop) {
+        // Shop already exists (created during application) — update it
+        shop = await tx.shop.update({
+          where: { id: application.shop.id },
+          data: {
+            isActive: false,   // Will become active after setup-shop
+            isPublic: false,
+            setupComplete: false,
+          },
+        });
+      } else {
+        // Fallback: create shop if it doesn't exist (legacy applications)
+        shop = await tx.shop.create({
+          data: {
+            vendorApplicationId: application.id,
+            name: application.shopName,
+            slug: `${application.shopName}-${Date.now()}`
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/^-|-$/g, ""),
+            address: application.address,
+            city: application.city,
+            area: application.area,
+            phone: application.phone,
+            email: application.businessEmail,
+            categories: [
+              ...(application.courierPickup ? ["COURIER_PICKUP" as const] : []),
+              ...(application.inShopRepair ? ["IN_SHOP_REPAIR" as const] : []),
+              ...(application.spareParts ? ["SPARE_PARTS" as const] : []),
+            ],
+            specialties: application.specialties,
+            isActive: false,
+            isPublic: false,
+            setupComplete: false,
+          },
+        });
+
+        // Create shop staff record for legacy path
+        await tx.shopStaff.create({
+          data: {
+            shopId: shop.id,
+            userId: application.userId,
+            role: "OWNER",
+            isActive: true,
+          },
+        });
+      }
 
       const updatedApplication = await tx.vendorApplication.update({
         where: { id: application.id },
@@ -166,14 +192,15 @@ router.patch("/vendors/:id/approve", async (req: Request & { user?: any }, res: 
           status: "APPROVED",
           reviewedAt: new Date(),
           reviewedByAdminId: req.user.id,
-                    
         },
       });
 
+      // Set role to VENDOR and status to SUSPENDED (until shop setup is complete)
       const updatedUser = await tx.user.update({
         where: { id: application.userId },
         data: {
           role: "VENDOR",
+          status: "SUSPENDED",
         },
       });
 
