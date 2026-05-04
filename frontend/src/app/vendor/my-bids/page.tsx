@@ -107,7 +107,7 @@ export default function VendorMyBidsPage() {
     try {
       setLoading(true);
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000/api"}/vendor/requests/my-bids`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/vendor/requests/my-bids`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (!res.ok) throw new Error("Failed to load bids");
