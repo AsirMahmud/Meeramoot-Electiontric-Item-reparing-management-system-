@@ -374,10 +374,11 @@ export default function AuthCard({ mode }: { mode: Mode }) {
         <button
           type="button"
           onClick={handleGoogleSignIn}
-          className="mb-4 flex w-full items-center justify-center gap-3 rounded-full border border-border bg-white px-4 py-3 text-sm font-semibold text-[#203126] shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md hover:bg-secondary"
+          className="group relative mb-4 flex w-full items-center justify-center gap-3 overflow-hidden rounded-full border border-border bg-white px-4 py-3 text-sm font-semibold text-[#203126] transition-all duration-300 hover:border-[#4285f4]/40 hover:shadow-[0_0_20px_-5px_rgba(66,133,244,0.3)]"
         >
-          <span className="text-base">G</span>
-          Continue with Google
+          <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-[#4285f4]/[0.07] to-transparent transition-transform duration-500 group-hover:translate-x-full" />
+          <span className="relative text-base">G</span>
+          <span className="relative">Continue with Google</span>
         </button>
 
         <div className="mb-4 flex items-center gap-3">
