@@ -150,7 +150,7 @@ export function NavbarInner({
               <button
               type="button"
               onClick={() => setMobileMenuOpen((prev) => !prev)}
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--card)] text-xl text-[var(--foreground)] shadow-sm md:hidden"
+              className="flex h-[43px] w-[43px] shrink-0 items-center justify-center rounded-[10px] bg-[var(--card)] text-lg text-[var(--foreground)] shadow-sm md:hidden"
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? "✕" : "☰"}
