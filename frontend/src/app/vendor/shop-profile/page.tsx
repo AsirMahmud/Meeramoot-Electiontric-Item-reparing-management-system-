@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import Navbar from "@/components/home/Navbar";
 import {
   getVendorShopProfile,
+  getShopReviews,
   addVendorService,
   removeVendorService,
   addVendorSparePart,
@@ -21,6 +22,14 @@ import {
   type SparePartItem,
   type AiServiceSuggestionItem,
 } from "@/lib/api";
+
+type Review = {
+  id: string;
+  score: number;
+  review?: string | null;
+  createdAt?: string;
+  user?: { name?: string | null; username?: string | null } | null;
+};
 
 type FlashMessage = { type: "success" | "error"; text: string };
 
@@ -39,6 +48,8 @@ export default function VendorShopProfilePage() {
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState<FlashMessage | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewPage, setReviewPage] = useState(1);
 
   // New Service Form
   const [newServiceName, setNewServiceName] = useState("");
@@ -63,6 +74,13 @@ export default function VendorShopProfilePage() {
       setLoading(true);
       const data = await getVendorShopProfile(token);
       setProfile(data);
+      // Load reviews using the shop slug
+      if (data.shop?.slug) {
+        try {
+          const reviewData = await getShopReviews(data.shop.slug);
+          setReviews(reviewData);
+        } catch { /* ignore */ }
+      }
     } catch (e) {
       setFlash({ type: "error", text: "Failed to load shop profile." });
     } finally {
@@ -254,6 +272,32 @@ export default function VendorShopProfilePage() {
           </div>
         )}
 
+        {/* Shop Info Header */}
+        <section className="mb-6 bg-white dark:bg-[#1C251F] rounded-3xl p-6 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-2xl font-black text-[#173726] dark:text-white truncate">{profile.shop.name}</h2>
+              <p className="text-sm text-[#5b7262] dark:text-[#a3b9a0] mt-1">{profile.shop.address}{profile.shop.city ? `, ${profile.shop.city}` : ""}{profile.shop.area ? ` (${profile.shop.area})` : ""}</p>
+              {profile.shop.description && <p className="text-sm text-[#58725f] dark:text-[#8fa98b] mt-2 line-clamp-2">{profile.shop.description}</p>}
+            </div>
+            <div className="flex items-center gap-4 shrink-0">
+              <div className="text-center">
+                <p className="text-2xl font-black text-[#214c34] dark:text-[#a3d9a5]">{profile.shop.ratingAvg.toFixed(1)}</p>
+                <p className="text-[10px] uppercase font-semibold text-[#58725f] dark:text-[#8fa98b] tracking-wider">rating</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-black text-[#214c34] dark:text-[#a3d9a5]">{profile.shop.reviewCount}</p>
+                <p className="text-[10px] uppercase font-semibold text-[#58725f] dark:text-[#8fa98b] tracking-wider">reviews</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-black text-[#214c34] dark:text-[#a3d9a5]">{profile.services.length}</p>
+                <p className="text-[10px] uppercase font-semibold text-[#58725f] dark:text-[#8fa98b] tracking-wider">services</p>
+              </div>
+            </div>
+          </div>
+          {profile.shop.phone && <p className="text-xs text-[#58725f] dark:text-[#8fa98b] mt-3">📞 {profile.shop.phone} {profile.shop.email ? `  •  ✉ ${profile.shop.email}` : ""}</p>}
+        </section>
+
         <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
           <div className="space-y-6">
             <section className="bg-white rounded-3xl p-6 shadow-sm">
@@ -334,6 +378,36 @@ export default function VendorShopProfilePage() {
                 </div>
                 <button type="submit" disabled={!!actionLoading} className="w-fit rounded-full bg-[#173726] text-white px-6 py-2 font-semibold hover:bg-[#214c34]">Add Spare Part</button>
               </form>
+            </section>
+
+            {/* Customer Reviews — Read Only */}
+            <section className="bg-white dark:bg-[#1C251F] rounded-3xl p-6 shadow-sm">
+              <h2 className="text-xl font-bold text-[#173726] dark:text-white mb-4">Customer Reviews ({reviews.length})</h2>
+              {reviews.length === 0 ? (
+                <p className="text-sm text-[#5b7262] dark:text-[#a3b9a0]">No reviews yet.</p>
+              ) : (
+                <>
+                  <div className="space-y-4">
+                    {reviews.slice((reviewPage - 1) * 5, reviewPage * 5).map((r) => (
+                      <div key={r.id} className="bg-[#f6faf4] dark:bg-[#1a2e1f] p-4 rounded-2xl border border-[#cfe0c6] dark:border-[#2a4a32]">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-semibold text-[#173726] dark:text-white">{r.user?.name || r.user?.username || "Customer"}</span>
+                          <span className="text-amber-500 font-bold text-sm">{"★".repeat(r.score)}{"☆".repeat(5 - r.score)}</span>
+                        </div>
+                        {r.review && <p className="text-sm text-[#5b7262] dark:text-[#a3b9a0]">{r.review}</p>}
+                        {r.createdAt && <p className="text-[10px] text-[#8fa98b] mt-2">{new Date(r.createdAt).toLocaleDateString()}</p>}
+                      </div>
+                    ))}
+                  </div>
+                  {reviews.length > 5 && (
+                    <div className="flex items-center justify-center gap-4 mt-4 text-sm">
+                      <button onClick={() => setReviewPage(p => Math.max(1, p - 1))} disabled={reviewPage === 1} className="px-3 py-1 rounded-lg bg-[#dff0dc] dark:bg-[#1a2e1f] text-[#173726] dark:text-white font-semibold disabled:opacity-40">← Prev</button>
+                      <span className="text-[#58725f] dark:text-[#8fa98b] font-medium">Page {reviewPage} of {Math.ceil(reviews.length / 5)}</span>
+                      <button onClick={() => setReviewPage(p => Math.min(Math.ceil(reviews.length / 5), p + 1))} disabled={reviewPage >= Math.ceil(reviews.length / 5)} className="px-3 py-1 rounded-lg bg-[#dff0dc] dark:bg-[#1a2e1f] text-[#173726] dark:text-white font-semibold disabled:opacity-40">Next →</button>
+                    </div>
+                  )}
+                </>
+              )}
             </section>
           </div>
 
