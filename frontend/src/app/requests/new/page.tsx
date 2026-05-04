@@ -95,6 +95,7 @@ function NewRequestPageInner() {
     model: "",
     displaySize: "",
     chipset: "",
+    year: "",
     issueCategory: "Checkup and diagnosis",
     problem: "",
     mode: shopSlug ? "DIRECT_REPAIR" : "CHECKUP_AND_REPAIR",
@@ -110,6 +111,8 @@ function NewRequestPageInner() {
     pickupLng: "",
     contactPhone: "",
   });
+
+  const YEAR_DEVICE_TYPES = ["Laptop", "Desktop", "Tablet", "Smart TV", "Monitor", "Game Console", "Smartwatch", "E-Reader", "VR Headset"];
 
   const token = (session?.user as { accessToken?: string } | undefined)?.accessToken;
 
@@ -360,7 +363,8 @@ function NewRequestPageInner() {
                     model: [
                       form.model,
                       form.deviceType === "Laptop" && form.displaySize.trim() ? `(${form.displaySize})` : "",
-                      form.deviceType === "Mobile Phone" && form.brand.toLowerCase() === "samsung" && form.chipset.trim() ? `(${form.chipset})` : ""
+                      form.deviceType === "Mobile Phone" && form.brand.toLowerCase() === "samsung" && form.chipset.trim() ? `(${form.chipset})` : "",
+                      YEAR_DEVICE_TYPES.includes(form.deviceType) && form.year.trim() ? `(${form.year.trim()})` : ""
                     ].filter(Boolean).join(" "),
                     issueCategory: form.issueCategory,
                     problem: form.problem,
@@ -501,6 +505,22 @@ function NewRequestPageInner() {
                     onChange={(e) => setForm((prev) => ({ ...prev, chipset: e.target.value }))}
                     className="w-full rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 outline-none focus:border-[var(--accent-dark)]"
                     placeholder="Chipset (e.g. Snapdragon, Exynos)"
+                  />
+                </div>
+              )}
+
+              {YEAR_DEVICE_TYPES.includes(form.deviceType) && (
+                <div className={`relative ${form.deviceType === "Laptop" ? "" : "md:col-span-2"}`}>
+                  <input
+                    value={form.year}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 4);
+                      setForm((prev) => ({ ...prev, year: val }));
+                    }}
+                    inputMode="numeric"
+                    maxLength={4}
+                    className="w-full rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 outline-none focus:border-[var(--accent-dark)]"
+                    placeholder="Year (e.g. 2024)"
                   />
                 </div>
               )}
