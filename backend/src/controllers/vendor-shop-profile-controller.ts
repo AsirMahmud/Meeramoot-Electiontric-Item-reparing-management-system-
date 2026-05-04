@@ -221,6 +221,15 @@ export async function removeVendorSparePart(req: AuthenticatedRequest, res: Resp
 
     await prisma.sparePart.delete({ where: { id: sparePartId } });
 
+    // Auto-remove SPARE_PARTS category if no spare parts remain
+    const remaining = await prisma.sparePart.count({ where: { shopId: shop.id, isActive: true } });
+    if (remaining === 0 && shop.categories.includes("SPARE_PARTS")) {
+      await prisma.shop.update({
+        where: { id: shop.id },
+        data: { categories: shop.categories.filter((c: string) => c !== "SPARE_PARTS") },
+      });
+    }
+
     return res.json({ message: "Spare part removed successfully" });
   } catch (error) {
     console.error("removeVendorSparePart error:", error);

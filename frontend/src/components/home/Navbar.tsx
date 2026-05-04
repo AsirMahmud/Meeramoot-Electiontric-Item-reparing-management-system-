@@ -150,7 +150,7 @@ export function NavbarInner({
               <button
               type="button"
               onClick={() => setMobileMenuOpen((prev) => !prev)}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--card)] text-xl text-[var(--foreground)] shadow-sm md:hidden"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--mint-200)] text-xl text-[var(--accent-dark)] shadow-sm md:hidden"
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? "✕" : "☰"}
@@ -255,6 +255,13 @@ export function NavbarInner({
                                   onClick={() => setIsUserMenuOpen(false)}
                                 >
                                   Shop analytics
+                                </Link>
+                                <Link
+                                  href="/vendor/shop-profile"
+                                  className="block rounded-2xl px-4 py-3 text-sm text-[var(--foreground)] transition hover:bg-[var(--mint-50)]"
+                                  onClick={() => setIsUserMenuOpen(false)}
+                                >
+                                  My Shop Profile
                                 </Link>
                               </>
                             ) : isVendorSetupIncomplete ? (
@@ -547,6 +554,13 @@ export function NavbarInner({
                             className="block rounded-xl px-4 py-3 text-sm text-[var(--foreground)] transition hover:bg-[var(--mint-50)]"
                           >
                             Shop analytics
+                          </Link>
+                          <Link
+                            href="/vendor/shop-profile"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="block rounded-xl px-4 py-3 text-sm text-[var(--foreground)] transition hover:bg-[var(--mint-50)]"
+                          >
+                            My Shop Profile
                           </Link>
                         </>
                       )}
