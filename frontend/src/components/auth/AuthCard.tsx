@@ -552,6 +552,7 @@ export default function AuthCard({ mode }: { mode: Mode }) {
               : "Sign in"}
           </button>
         </form>
+        {isSignup ? (
         <div className="mt-4 space-y-3">
         <Link
           href="/vendor/apply"
@@ -566,6 +567,7 @@ export default function AuthCard({ mode }: { mode: Mode }) {
           Delivery partner login
         </Link>
       </div>
+        ) : null}
         <p className="mt-5 text-center text-sm text-[#5e6d64]">
           {isSignup ? "Already have an account?" : "Don’t have an account?"}{" "}
           <Link
