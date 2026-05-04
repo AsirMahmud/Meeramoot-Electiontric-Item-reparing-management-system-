@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import { getAuthHeaders } from "@/lib/api";
 import Link from "next/link";
-
-import { useSession } from "next-auth/react";
+import { useAdminToken } from "@/hooks/useAdminToken";
 
 type DashboardStats = {
   totalUsers: number;
@@ -17,18 +16,17 @@ type DashboardStats = {
 };
 
 export default function AdminDashboardPage() {
-  const { data: session } = useSession();
+  const token = useAdminToken();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = (session?.user as any)?.accessToken;
     if (!token) return;
 
     const fetchDashboard = async () => {
       try {
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/dashboard`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: getAuthHeaders(token),
         });
         const data = await res.json();
         if (res.ok) {
@@ -42,7 +40,7 @@ export default function AdminDashboardPage() {
     };
 
     fetchDashboard();
-  }, [session]);
+  }, [token]);
 
   const cards = stats
     ? [

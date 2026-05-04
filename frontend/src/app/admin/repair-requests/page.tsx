@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 import { getAuthHeaders } from "@/lib/api";
 import AdminTableControls from "@/components/admin/AdminTableControls";
 import { useAdminTableState } from "@/hooks/useAdminTableState";
+import { useAdminToken } from "@/hooks/useAdminToken";
 
 type RepairBid = {
   id: string;
@@ -67,8 +67,7 @@ const modeLabels: Record<string, string> = {
 };
 
 export default function AdminRepairRequestsPage() {
-  const { data: session } = useSession();
-  const token = (session?.user as any)?.accessToken;
+  const token = useAdminToken();
   const [requests, setRequests] = useState<RepairRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());

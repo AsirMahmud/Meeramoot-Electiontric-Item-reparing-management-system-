@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import { getAuthHeaders } from "@/lib/api";
 import AdminTableControls from "@/components/admin/AdminTableControls";
 import { useAdminTableState } from "@/hooks/useAdminTableState";
+import { useAdminToken } from "@/hooks/useAdminToken";
 
 type Dispute = {
   id: string;
@@ -26,8 +26,7 @@ type Dispute = {
 };
 
 export default function AdminDisputesPage() {
-  const { data: session } = useSession();
-  const token = (session?.user as any)?.accessToken;
+  const token = useAdminToken();
   const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [loading, setLoading] = useState(true);
 

@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getAuthHeaders } from "@/lib/api";
-import { useSession } from "next-auth/react";
 import AdminTableControls from "@/components/admin/AdminTableControls";
 import { useAdminTableState } from "@/hooks/useAdminTableState";
+import { useAdminToken } from "@/hooks/useAdminToken";
 
 type VendorApplication = {
   id: string;
@@ -32,19 +32,17 @@ type VendorApplication = {
 };
 
 export default function AdminVendorsPage() {
-  const { data: session } = useSession();
+  const token = useAdminToken();
   const [vendors, setVendors] = useState<VendorApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
   const [hasNewData, setHasNewData] = useState(false);
 
   useEffect(() => {
-    const token = (session?.user as any)?.accessToken;
     if (token) fetchVendors(token);
-  }, [session]);
+  }, [token]);
 
   useEffect(() => {
-    const token = (session?.user as any)?.accessToken;
     if (!token || loading) return;
 
     // Poll every 15 seconds to check for data concurrency
@@ -71,7 +69,7 @@ export default function AdminVendorsPage() {
     }, 15000);
 
     return () => clearInterval(interval);
-  }, [session, vendors, loading]);
+  }, [token, vendors, loading]);
 
   const fetchVendors = async (token: string) => {
     try {
@@ -93,7 +91,6 @@ export default function AdminVendorsPage() {
   const handleApplicationAction = async (id: string, action: "approve" | "reject" | "request-info") => {
     try {
       setActionId(id);
-      const token = (session?.user as any)?.accessToken;
       if (!token) return;
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/vendors/${id}/${action}`, {
         method: "PATCH",
@@ -149,7 +146,6 @@ export default function AdminVendorsPage() {
 
     try {
       setActionId(vendorId);
-      const token = (session?.user as any)?.accessToken;
       if (!token) return;
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/shops/${shopId}/active`, {
         method: "PATCH",
@@ -194,7 +190,6 @@ export default function AdminVendorsPage() {
 
     try {
       setActionId(vendorId);
-      const token = (session?.user as any)?.accessToken;
       if (!token) return;
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/shops/${shopId}/featured`, {
         method: "PATCH",
@@ -245,7 +240,6 @@ export default function AdminVendorsPage() {
 
     try {
       setActionId(id);
-      const token = (session?.user as any)?.accessToken;
       if (!token) return;
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/vendors/${id}`, {
         method: "DELETE",

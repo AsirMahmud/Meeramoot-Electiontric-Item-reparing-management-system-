@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 import { getAuthHeaders } from "@/lib/api";
 import AdminTableControls from "@/components/admin/AdminTableControls";
 import { useAdminTableState } from "@/hooks/useAdminTableState";
+import { useAdminToken } from "@/hooks/useAdminToken";
 
 type Review = {
   id: string;
@@ -25,8 +25,7 @@ type Review = {
 };
 
 export default function AdminReviewsPage() {
-  const { data: session } = useSession();
-  const token = (session?.user as any)?.accessToken;
+  const token = useAdminToken();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedReviewText, setSelectedReviewText] = useState<string | null>(null);

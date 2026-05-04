@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import { getAuthHeaders } from "@/lib/api";
 import AdminTableControls from "@/components/admin/AdminTableControls";
 import { useAdminTableState } from "@/hooks/useAdminTableState";
+import { useAdminToken } from "@/hooks/useAdminToken";
 
 type Ticket = {
   id: string;
@@ -21,8 +21,7 @@ type Ticket = {
 };
 
 export default function AdminTicketsPage() {
-  const { data: session } = useSession();
-  const token = (session?.user as any)?.accessToken;
+  const token = useAdminToken();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
 

@@ -1,16 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
-import { getAdminPayments, type AdminPaymentRecord } from "@/lib/api";
+import { getAdminPayments, getAuthHeaders, type AdminPaymentRecord } from "@/lib/api";
 import AdminTableControls from "@/components/admin/AdminTableControls";
 import { useAdminTableState } from "@/hooks/useAdminTableState";
+import { useAdminToken } from "@/hooks/useAdminToken";
 
 const FILTERS = ["ALL", "PENDING", "PAID", "FAILED", "REFUNDED", "PARTIALLY_REFUNDED"] as const;
 
 export default function AdminPaymentsPage() {
-  const { data: session } = useSession();
-  const token = (session?.user as any)?.accessToken;
+  const token = useAdminToken();
   const [payments, setPayments] = useState<AdminPaymentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("ALL");
@@ -30,9 +29,7 @@ export default function AdminPaymentsPage() {
         if (methodFilter !== "ALL") url += `method=${methodFilter}&`;
 
         const response = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+          headers: getAuthHeaders(token),
         });
         const json = await response.json();
         if (!response.ok) throw new Error(json.message || "Failed to load payments");

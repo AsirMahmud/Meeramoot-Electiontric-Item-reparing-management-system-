@@ -1,11 +1,11 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { useSession } from "next-auth/react";
 
 import { getAuthHeaders } from "@/lib/api";
 import AdminTableControls from "@/components/admin/AdminTableControls";
 import { useAdminTableState } from "@/hooks/useAdminTableState";
+import { useAdminToken } from "@/hooks/useAdminToken";
 import {
   LineChart,
   Line,
@@ -69,8 +69,7 @@ function formatMoney(value: number | string | null | undefined) {
 }
 
 export default function AdminFinancePage() {
-  const { data: session } = useSession();
-  const token = (session?.user as any)?.accessToken;
+  const token = useAdminToken();
   const [summary, setSummary] = useState<FinancialSummary | null>(null);
   const [chartData, setChartData] = useState<ChartData | null>(null);
   const [entries, setEntries] = useState<LedgerEntry[]>([]);

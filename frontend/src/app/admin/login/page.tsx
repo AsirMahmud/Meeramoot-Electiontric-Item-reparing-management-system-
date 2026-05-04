@@ -2,23 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
 
 const DEMO_ADMIN_IDENTIFIER = "mustahid000@gmail.com";
 const DEMO_ADMIN_PASSWORD = "AdminDemo123!";
-
-type AdminLoginResponse = {
-  message: string;
-  token: string;
-  user: {
-    id: string;
-    name?: string | null;
-    username?: string | null;
-    email?: string | null;
-    phone?: string | null;
-    role?: string | null;
-  };
-};
 
 import { signIn } from "next-auth/react";
 

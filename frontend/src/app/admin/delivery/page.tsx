@@ -4,16 +4,11 @@ import { useSession } from "next-auth/react";
 import { fetchAdminDeliveryRiders, updateAdminDeliveryRiderStatus, deleteAdminDeliveryRider, fetchAdminDeliveryStats, type AdminDeliveryRider, type AdminDeliveryStats } from "@/lib/api";
 import AdminTableControls from "@/components/admin/AdminTableControls";
 import { useAdminTableState } from "@/hooks/useAdminTableState";
-
-type SessionUser = {
-  accessToken?: string;
-  role?: string;
-};
+import { useAdminToken } from "@/hooks/useAdminToken";
 
 export default function AdminDeliveryPage() {
-  const { data: session, status } = useSession();
-  const sessionUser = session?.user as SessionUser | undefined;
-
+  const { status } = useSession();
+  const token = useAdminToken();
   const [riders, setRiders] = useState<AdminDeliveryRider[]>([]);
   const [stats, setStats] = useState<AdminDeliveryStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,13 +16,13 @@ export default function AdminDeliveryPage() {
   const [actionId, setActionId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!sessionUser?.accessToken) return;
+    if (!token) return;
     setLoading(true);
     setError("");
     try {
       const [ridersData, statsRes] = await Promise.all([
-        fetchAdminDeliveryRiders(sessionUser.accessToken),
-        fetchAdminDeliveryStats(sessionUser.accessToken),
+        fetchAdminDeliveryRiders(token),
+        fetchAdminDeliveryStats(token),
       ]);
       setRiders(ridersData);
       setStats(statsRes);
@@ -36,7 +31,7 @@ export default function AdminDeliveryPage() {
     } finally {
       setLoading(false);
     }
-  }, [sessionUser]);
+  }, [token]);
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -45,10 +40,10 @@ export default function AdminDeliveryPage() {
   }, [status, load]);
 
   async function handleStatusUpdate(userId: string, newStatus: "APPROVED" | "REJECTED") {
-    if (!sessionUser?.accessToken) return;
+    if (!token) return;
     setActionId(userId);
     try {
-      await updateAdminDeliveryRiderStatus(sessionUser.accessToken, userId, newStatus);
+      await updateAdminDeliveryRiderStatus(token, userId, newStatus);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Status update failed");
@@ -58,7 +53,7 @@ export default function AdminDeliveryPage() {
   }
 
   async function handleDeleteRider(userId: string) {
-    if (!sessionUser?.accessToken) return;
+    if (!token) return;
     if (!window.confirm("Are you sure you want to completely delete this delivery partner registration? They will have to apply again from scratch.")) return;
     
     const passkey = window.prompt("SECURITY CHECK:\nPlease enter your 1-hour Admin Passkey (sent to your email) to confirm this deletion:");
@@ -69,7 +64,7 @@ export default function AdminDeliveryPage() {
 
     setActionId(userId);
     try {
-      await deleteAdminDeliveryRider(sessionUser.accessToken, userId, passkey);
+      await deleteAdminDeliveryRider(token, userId, passkey);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Deletion failed");

@@ -3,8 +3,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import { getAuthHeaders } from "@/lib/api";
+import { useAdminToken } from "@/hooks/useAdminToken";
 
 type Message = {
   id: string;
@@ -47,8 +47,7 @@ type Ticket = {
 export default function AdminTicketDetailPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
-  const { data: session } = useSession();
-  const token = (session?.user as any)?.accessToken;
+  const token = useAdminToken();
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true);

@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import { getAuthHeaders } from "@/lib/api";
+import { useAdminToken } from "@/hooks/useAdminToken";
 
 type Note = {
   id: string;
@@ -56,8 +56,7 @@ type Dispute = {
 export default function AdminDisputeDetailPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
-  const { data: session } = useSession();
-  const token = (session?.user as any)?.accessToken;
+  const token = useAdminToken();
 
   const [dispute, setDispute] = useState<Dispute | null>(null);
   const [loading, setLoading] = useState(true);
