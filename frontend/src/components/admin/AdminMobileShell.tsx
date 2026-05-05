@@ -93,10 +93,7 @@ export default function AdminMobileShell({
             </div>
           )}
 
-          {/* Desktop top bar (theme toggle only — logo/nav are in sidebar) */}
-          <div className="hidden md:flex items-center justify-end px-6 py-4 border-b border-[var(--border)]">
-            <ThemeToggle />
-          </div>
+
 
           {/* Page content */}
           <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
