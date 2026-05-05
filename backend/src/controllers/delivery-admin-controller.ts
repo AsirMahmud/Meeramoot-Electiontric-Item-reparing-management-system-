@@ -1,53 +1,12 @@
-// delivery-admin-controller.ts
-import { DeliveryPartnerApprovalStatus, Prisma } from "@prisma/client";
+import { DeliveryStatus } from "@prisma/client";
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import prisma from "../models/prisma.js";
-import { sendDeliveryCredentialsEmail } from "../services/delivery-credentials-email-service.js";
-import { sendSms } from "../services/sms-service.js";
 import { getPusherPublicConfig, publishDeliveryChatMessage } from "../services/pusher-service.js";
-
-function randomChars(length: number) {
-  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let output = "";
-  for (let i = 0; i < length; i += 1) {
-    output += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return output;
-}
-
-async function generateUniqueUsername(tx: Prisma.TransactionClient, baseName: string) {
-  const normalizedBase = baseName
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "")
-    .slice(0, 12) || "delivery";
-
-  for (let i = 0; i < 8; i += 1) {
-    const candidate = `${normalizedBase}${randomChars(4)}`;
-    const existing = await tx.user.findUnique({
-      where: { username: candidate },
-      select: { id: true },
-    });
-    if (!existing) return candidate;
-  }
-
-  return `${normalizedBase}${Date.now().toString(36).slice(-4)}`;
-}
-
-function generatePassword() {
-  return `DM-${randomChars(4)}-${randomChars(4)}-${Math.floor(100 + Math.random() * 900)}`;
-}
-
-function parseRegistrationFilter(raw: unknown): DeliveryPartnerApprovalStatus | undefined {
-  if (typeof raw !== "string" || !raw.trim()) return undefined;
-  const v = raw.trim() as DeliveryPartnerApprovalStatus;
-  return Object.values(DeliveryPartnerApprovalStatus).includes(v) ? v : undefined;
-}
+import { sendDeliveryCredentialsEmail } from "../services/delivery-credentials-email-service.js";
 
 export async function getDeliveryAdminStats(_req: Request, res: Response) {
   try {
-    const partnerUser = { user: { role: "DELIVERY" as const } };
-
     const [
       pendingRegistrations,
       activeApprovedPartners,
@@ -55,25 +14,34 @@ export async function getDeliveryAdminStats(_req: Request, res: Response) {
       totalPartners,
       completedDeliveriesTotal,
     ] = await Promise.all([
-      prisma.riderProfile.count({ where: { ...partnerUser, registrationStatus: "PENDING" } }),
+      prisma.riderProfile.count({ where: { registrationStatus: "PENDING" } }),
       prisma.riderProfile.count({
-        where: { ...partnerUser, registrationStatus: "APPROVED", isActive: true },
+        where: { registrationStatus: "APPROVED", user: { status: "ACTIVE" } },
       }),
-      prisma.riderProfile.count({ where: { ...partnerUser, registrationStatus: "REJECTED" } }),
-      prisma.riderProfile.count({ where: partnerUser }),
+      prisma.riderProfile.count({ where: { registrationStatus: "REJECTED" } }),
+      prisma.user.count({ where: { role: "DELIVERY" } }),
       prisma.delivery.count({ where: { status: "DELIVERED" } }),
     ]);
 
-    const partnersWithCompleted = await prisma.delivery.groupBy({
-      by: ["deliveryAgentId"],
+    const partnersWithCompleted = await prisma.delivery.findMany({
       where: {
         status: "DELIVERED",
         deliveryAgentId: { not: null },
       },
-      _count: { _all: true },
+      select: {
+        deliveryAgent: {
+          select: {
+            userId: true,
+          },
+        },
+      },
     });
 
-    const partnersCompletedAtLeastOne = partnersWithCompleted.length;
+    const partnerUserIds = (partnersWithCompleted as Array<{ deliveryAgent: { userId: string } | null }>)
+      .map((row: { deliveryAgent: { userId: string } | null }) => row.deliveryAgent?.userId)
+      .filter((id: string | undefined): id is string => Boolean(id));
+
+    const partnersCompletedAtLeastOne = new Set(partnerUserIds).size;
 
     return res.json({
       stats: {
@@ -93,28 +61,30 @@ export async function getDeliveryAdminStats(_req: Request, res: Response) {
 
 export async function listDeliveryPartners(req: Request, res: Response) {
   try {
-    const statusFilter = parseRegistrationFilter(req.query.registrationStatus);
-    if (typeof req.query.registrationStatus === "string" && req.query.registrationStatus.trim() && !statusFilter) {
-      return res.status(400).json({ message: "Invalid registrationStatus filter" });
-    }
+    const rawRegistrationStatus =
+      typeof req.query.registrationStatus === "string"
+        ? req.query.registrationStatus.trim().toUpperCase()
+        : "";
+    const allowedRegistrationStatuses = new Set(["PENDING", "APPROVED", "REJECTED"]);
+    const registrationStatusFilter = allowedRegistrationStatuses.has(rawRegistrationStatus)
+      ? rawRegistrationStatus
+      : "";
 
-    const where: Prisma.RiderProfileWhereInput = {
-      user: { role: "DELIVERY" },
-      ...(statusFilter ? { registrationStatus: statusFilter } : {}),
-    };
-
-    const partners = await prisma.riderProfile.findMany({
-      where,
+    const partners = await prisma.user.findMany({
+      where: { role: "DELIVERY" },
       include: {
-        user: {
+        riderProfile: {
           select: {
             id: true,
-            name: true,
-            username: true,
-            email: true,
-            phone: true,
+            vehicleType: true,
+            nidDocumentUrl: true,
+            educationDocumentUrl: true,
+            cvDocumentUrl: true,
             status: true,
-            createdAt: true,
+            isActive: true,
+            registrationStatus: true,
+            currentLat: true,
+            currentLng: true,
           },
         },
       },
@@ -122,39 +92,109 @@ export async function listDeliveryPartners(req: Request, res: Response) {
       take: 200,
     });
 
-    const ids = partners.map((p) => p.id);
+    const ids = (partners as Array<{ id: string }>).map((p: { id: string }) => p.id);
     const completedByRider =
       ids.length === 0
         ? []
-        : await prisma.delivery.groupBy({
-            by: ["deliveryAgentId"],
+        : await prisma.delivery.findMany({
             where: {
               status: "DELIVERED",
-              deliveryAgentId: { in: ids },
+              deliveryAgent: {
+                is: {
+                  userId: { in: ids },
+                },
+              },
             },
-            _count: { _all: true },
+            select: {
+              deliveryAgent: {
+                select: {
+                  userId: true,
+                },
+              },
+            },
           });
 
-    const completedMap = new Map(
-      completedByRider.map((row) => [row.deliveryAgentId, row._count._all]),
+    const completedMap = (completedByRider as Array<{ deliveryAgent: { userId: string } | null }>).reduce<
+      Map<string, number>
+    >((acc: Map<string, number>, row: { deliveryAgent: { userId: string } | null }) => {
+      const userId = row.deliveryAgent?.userId;
+      if (!userId) return acc;
+      acc.set(userId, (acc.get(userId) ?? 0) + 1);
+      return acc;
+    }, new Map());
+
+    const riderProfiles = ids.length
+      ? await prisma.riderProfile.findMany({
+          where: { userId: { in: ids } },
+          select: {
+            id: true,
+            userId: true,
+          },
+        })
+      : [];
+
+    const riderProfileByUserId = new Map<string, string>(
+      riderProfiles.map((profile: { userId: string; id: string }) => [profile.userId, profile.id]),
     );
 
-    const rows = partners.map((p) => ({
-      id: p.id,
-      vehicleType: p.vehicleType,
-      nidDocumentUrl: p.nidDocumentUrl,
-      educationDocumentUrl: p.educationDocumentUrl,
-      cvDocumentUrl: p.cvDocumentUrl,
-      agentStatus: p.status,
-      isActive: p.isActive,
-      registrationStatus: p.registrationStatus,
-      currentLat: p.currentLat,
-      currentLng: p.currentLng,
-      createdAt: p.createdAt,
-      updatedAt: p.updatedAt,
-      user: p.user,
-      completedDeliveries: completedMap.get(p.id) ?? 0,
-    }));
+    const activeDeliveries = riderProfiles.length
+      ? await prisma.delivery.findMany({
+          where: {
+            deliveryAgentId: {
+              in: riderProfiles.map((profile: { id: string }) => profile.id),
+            },
+            status: {
+              in: ["SCHEDULED", "DISPATCHED", "PICKED_UP", "IN_TRANSIT"],
+            },
+          },
+          orderBy: { updatedAt: "desc" },
+          select: {
+            id: true,
+            status: true,
+            direction: true,
+            pickupAddress: true,
+            dropAddress: true,
+            updatedAt: true,
+            deliveryAgentId: true,
+          },
+        })
+      : [];
+
+    const activeDeliveryByRiderProfileId = new Map<string, (typeof activeDeliveries)[number]>();
+    for (const delivery of activeDeliveries) {
+      if (!delivery.deliveryAgentId) continue;
+      if (!activeDeliveryByRiderProfileId.has(delivery.deliveryAgentId)) {
+        activeDeliveryByRiderProfileId.set(delivery.deliveryAgentId, delivery);
+      }
+    }
+
+    const rows = (partners as Array<any>)
+      .map((p: any) => {
+        const registrationStatus = p.riderProfile?.registrationStatus ?? "PENDING";
+        const riderProfileId = riderProfileByUserId.get(p.id);
+        const activeDelivery = riderProfileId
+          ? activeDeliveryByRiderProfileId.get(riderProfileId) ?? null
+          : null;
+
+        return {
+          id: p.id,
+          vehicleType: p.riderProfile?.vehicleType ?? null,
+          nidDocumentUrl: p.riderProfile?.nidDocumentUrl ?? null,
+          educationDocumentUrl: p.riderProfile?.educationDocumentUrl ?? null,
+          cvDocumentUrl: p.riderProfile?.cvDocumentUrl ?? null,
+          agentStatus: p.riderProfile?.status ?? p.status,
+          isActive: p.riderProfile?.isActive ?? p.status === "ACTIVE",
+          registrationStatus,
+          currentLat: p.riderProfile?.currentLat ?? p.lat,
+          currentLng: p.riderProfile?.currentLng ?? p.lng,
+          createdAt: p.createdAt,
+          updatedAt: p.updatedAt,
+          user: p,
+          completedDeliveries: completedMap.get(p.id) ?? 0,
+          activeDelivery,
+        };
+      })
+      .filter((row) => (registrationStatusFilter ? row.registrationStatus === registrationStatusFilter : true));
 
     return res.json({ partners: rows });
   } catch (error) {
@@ -163,195 +203,13 @@ export async function listDeliveryPartners(req: Request, res: Response) {
   }
 }
 
-export async function approveDeliveryPartner(req: Request, res: Response) {
-  try {
-    const rawId = (req.params as { id?: unknown }).id;
-    if (typeof rawId !== "string" || !rawId.trim()) {
-      return res.status(400).json({ message: "Partner id is required" });
-    }
-
-    const partnerId = rawId.trim();
-    const generatedPassword = generatePassword();
-
-    const updated = await prisma.$transaction(async (tx) => {
-      const rider = await tx.riderProfile.findUnique({
-        where: { id: partnerId },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              username: true,
-              email: true,
-              phone: true,
-              status: true,
-            },
-          },
-        },
-      });
-
-      if (!rider) {
-        throw new Error("PARTNER_NOT_FOUND");
-      }
-
-      const generatedUsername = await generateUniqueUsername(
-        tx,
-        rider.user.name ?? rider.user.email.split("@")[0] ?? "delivery",
-      );
-      const passwordHash = await bcrypt.hash(generatedPassword, 10);
-
-      await tx.user.update({
-        where: { id: rider.userId },
-        data: {
-          username: generatedUsername,
-          passwordHash,
-          role: "DELIVERY",
-          status: "ACTIVE",
-        },
-      });
-
-      return tx.riderProfile.update({
-        where: { id: partnerId },
-        data: {
-          registrationStatus: "APPROVED",
-          isActive: true,
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              username: true,
-              email: true,
-              phone: true,
-              status: true,
-            },
-          },
-        },
-      });
-    });
-
-    try {
-      await sendDeliveryCredentialsEmail({
-        toEmail: updated.user.email,
-        recipientName: updated.user.name ?? updated.user.username,
-        username: updated.user.username,
-        password: generatedPassword,
-      });
-    } catch (emailError) {
-      console.error("approveDeliveryPartner email send error:", emailError);
-    }
-
-    if (updated.user.phone) {
-      sendSms(
-        updated.user.phone,
-        `Your delivery partner registration is approved. Username: ${updated.user.username}, Password: ${generatedPassword}. Please change your password after login.`
-      ).catch((smsError) => {
-        console.error("approveDeliveryPartner sms send error:", smsError);
-      });
-    }
-
-    return res.json({
-      message: "Delivery partner approved and credentials emailed",
-      partner: updated,
-    });
-  } catch (error) {
-    if (error instanceof Error && error.message === "PARTNER_NOT_FOUND") {
-      return res.status(404).json({ message: "Partner not found" });
-    }
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
-      return res.status(404).json({ message: "Partner not found" });
-    }
-    console.error("approveDeliveryPartner error:", error);
-    return res.status(500).json({ message: "Server error" });
-  }
-}
-
-export async function rejectDeliveryPartner(req: Request, res: Response) {
-  try {
-    const rawId = (req.params as { id?: unknown }).id;
-    if (typeof rawId !== "string" || !rawId.trim()) {
-      return res.status(400).json({ message: "Partner id is required" });
-    }
-
-    const updated = await prisma.riderProfile.update({
-      where: { id: rawId.trim() },
-      data: {
-        registrationStatus: "REJECTED",
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            username: true,
-            email: true,
-            phone: true,
-            status: true,
-          },
-        },
-      },
-    });
-
-    return res.json({
-      message: "Delivery partner registration rejected",
-      partner: updated,
-    });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
-      return res.status(404).json({ message: "Partner not found" });
-    }
-    console.error("rejectDeliveryPartner error:", error);
-    return res.status(500).json({ message: "Server error" });
-  }
-}
-
-export async function deleteDeliveryPartner(req: Request, res: Response) {
-  try {
-    const rawId = (req.params as { id?: unknown }).id;
-    if (typeof rawId !== "string" || !rawId.trim()) {
-      return res.status(400).json({ message: "Partner id is required" });
-    }
-
-    const id = rawId.trim();
-
-    const existing = await prisma.riderProfile.findUnique({
-      where: { id },
-      select: { id: true, userId: true },
-    });
-
-    if (!existing) {
-      return res.status(404).json({ message: "Partner not found" });
-    }
-
-    await prisma.riderProfile.delete({
-      where: { id }
-    });
-
-    return res.json({ message: "Delivery partner registration deleted successfully" });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
-      return res.status(404).json({ message: "Partner not found" });
-    }
-    console.error("deleteDeliveryPartner error:", error);
-    return res.status(500).json({ message: "Server error" });
-  }
-}
-
 export async function listDeliveryOrders(req: Request, res: Response) {
   try {
     const rawStatus = typeof req.query.status === "string" ? req.query.status.trim().toUpperCase() : "";
-    const allowedStatuses = new Set([
-      "PENDING",
-      "SCHEDULED",
-      "DISPATCHED",
-      "PICKED_UP",
-      "IN_TRANSIT",
-      "DELIVERED",
-      "FAILED",
-      "CANCELLED",
-    ]);
-    const statusFilter = allowedStatuses.has(rawStatus) ? (rawStatus as any) : undefined;
+    const allowedStatuses = new Set<DeliveryStatus>(Object.values(DeliveryStatus));
+    const statusFilter = allowedStatuses.has(rawStatus as DeliveryStatus)
+      ? (rawStatus as DeliveryStatus)
+      : undefined;
 
     const deliveries = await prisma.delivery.findMany({
       where: {
@@ -415,8 +273,6 @@ export async function listDeliveryOrders(req: Request, res: Response) {
   }
 }
 
-
-
 export async function assignDeliveryOrder(req: Request, res: Response) {
   try {
     const rawDeliveryId = (req.params as { id?: unknown }).id;
@@ -456,19 +312,6 @@ export async function assignDeliveryOrder(req: Request, res: Response) {
         },
         select: { id: true },
       });
-    }
-
-    const activeDelivery = await prisma.delivery.findFirst({
-      where: {
-        deliveryAgentId: riderProfile.id,
-        status: { in: ["SCHEDULED", "DISPATCHED", "PICKED_UP", "IN_TRANSIT"] },
-      },
-      select: { id: true },
-    });
-    if (activeDelivery) {
-      return res
-        .status(409)
-        .json({ message: "Delivery agent already has an active delivery in progress" });
     }
 
     const now = new Date();
@@ -528,8 +371,6 @@ export async function assignDeliveryOrder(req: Request, res: Response) {
     return res.status(500).json({ message: "Server error" });
   }
 }
-
-
 
 export async function getDeliveryOrderTimeline(req: Request, res: Response) {
   try {
@@ -599,8 +440,6 @@ export async function getDeliveryOrderTimeline(req: Request, res: Response) {
   }
 }
 
-
-
 export async function getAdminDeliveryChatMessages(req: Request, res: Response) {
   try {
     const rawDeliveryId = (req.params as { id?: unknown }).id;
@@ -624,8 +463,6 @@ export async function getAdminDeliveryChatMessages(req: Request, res: Response) 
     return res.status(500).json({ message: "Server error" });
   }
 }
-
-
 
 export async function sendAdminDeliveryChatMessage(req: Request, res: Response) {
   try {
@@ -680,7 +517,220 @@ export async function sendAdminDeliveryChatMessage(req: Request, res: Response) 
   }
 }
 
+export async function approveDeliveryPartner(req: Request, res: Response) {
+  try {
+    const rawId = (req.params as { id?: unknown }).id;
+    if (typeof rawId !== "string" || !rawId.trim()) {
+      return res.status(400).json({ message: "Partner id is required" });
+    }
 
+    const partnerId = rawId.trim();
+    const tempPassword = `${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: partnerId },
+        data: {
+          status: "ACTIVE",
+          passwordHash,
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          username: true,
+        },
+      });
+
+      const riderProfile = await tx.riderProfile.upsert({
+        where: { userId: partnerId },
+        create: {
+          userId: partnerId,
+          registrationStatus: "APPROVED",
+          isActive: true,
+          status: "AVAILABLE",
+        },
+        update: {
+          registrationStatus: "APPROVED",
+          isActive: true,
+          status: "AVAILABLE",
+        },
+      });
+
+      return { user, riderProfile };
+    });
+
+    try {
+      await sendDeliveryCredentialsEmail({
+        toEmail: updated.user.email,
+        recipientName: updated.user.name ?? updated.user.username,
+        username: updated.user.username,
+        password: tempPassword,
+      });
+    } catch (emailError) {
+      console.error("approveDeliveryPartner credentials email error:", emailError);
+    }
+
+    return res.json({
+      message: "Delivery partner approved",
+      partner: updated.riderProfile,
+    });
+  } catch (error) {
+    console.error("approveDeliveryPartner error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+export async function rejectDeliveryPartner(req: Request, res: Response) {
+  try {
+    const rawId = (req.params as { id?: unknown }).id;
+    if (typeof rawId !== "string" || !rawId.trim()) {
+      return res.status(400).json({ message: "Partner id is required" });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: rawId.trim() },
+        data: { status: "SUSPENDED" },
+      });
+
+      return tx.riderProfile.upsert({
+        where: { userId: rawId.trim() },
+        create: {
+          userId: rawId.trim(),
+          registrationStatus: "REJECTED",
+          isActive: false,
+          status: "SUSPENDED",
+        },
+        update: {
+          registrationStatus: "REJECTED",
+          isActive: false,
+          status: "SUSPENDED",
+        },
+      });
+    });
+
+    return res.json({
+      message: "Delivery partner rejected",
+      partner: updated,
+    });
+  } catch (error) {
+    console.error("rejectDeliveryPartner error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+export async function blockDeliveryPartner(req: Request, res: Response) {
+  try {
+    const rawId = (req.params as { id?: unknown }).id;
+    if (typeof rawId !== "string" || !rawId.trim()) {
+      return res.status(400).json({ message: "Partner id is required" });
+    }
+
+    const partnerId = rawId.trim();
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: partnerId },
+        data: { status: "SUSPENDED" },
+      });
+
+      return tx.riderProfile.upsert({
+        where: { userId: partnerId },
+        create: {
+          userId: partnerId,
+          registrationStatus: "APPROVED",
+          isActive: false,
+          status: "SUSPENDED",
+        },
+        update: {
+          isActive: false,
+          status: "SUSPENDED",
+        },
+      });
+    });
+
+    return res.json({
+      message: "Delivery partner blocked",
+      partner: updated,
+    });
+  } catch (error) {
+    console.error("blockDeliveryPartner error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+export async function deleteDeliveryPartner(req: Request, res: Response) {
+  try {
+    const rawId = (req.params as { id?: unknown }).id;
+    if (typeof rawId !== "string" || !rawId.trim()) {
+      return res.status(400).json({ message: "Partner id is required" });
+    }
+    const partnerRef = rawId.trim();
+
+    const existing =
+      (await prisma.user.findUnique({
+        where: { id: partnerRef },
+        select: {
+          id: true,
+          role: true,
+          riderProfile: {
+            select: { id: true },
+          },
+        },
+      })) ??
+      (await prisma.user.findFirst({
+        where: {
+          role: "DELIVERY",
+          riderProfile: {
+            is: {
+              id: partnerRef,
+            },
+          },
+        },
+        select: {
+          id: true,
+          role: true,
+          riderProfile: {
+            select: { id: true },
+          },
+        },
+      }));
+
+    if (!existing || existing.role !== "DELIVERY") {
+      return res.status(404).json({ message: "Delivery partner not found" });
+    }
+
+    const partnerId = existing.id;
+    if (!partnerId) {
+      return res.status(404).json({ message: "Delivery partner not found" });
+    }
+
+    if (existing.riderProfile?.id) {
+      const activeDelivery = await prisma.delivery.findFirst({
+        where: {
+          deliveryAgentId: existing.riderProfile.id,
+          status: { in: ["SCHEDULED", "DISPATCHED", "PICKED_UP", "IN_TRANSIT"] },
+        },
+        select: { id: true },
+      });
+      if (activeDelivery) {
+        return res.status(409).json({
+          message: "Cannot delete delivery partner with active deliveries. Block first and finish active jobs.",
+        });
+      }
+    }
+
+    await prisma.user.delete({
+      where: { id: partnerId },
+    });
+
+    return res.json({ message: "Delivery partner deleted successfully" });
+  } catch (error) {
+    console.error("deleteDeliveryPartner error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
 
 export async function listDeliveryPayoutRequests(req: Request, res: Response) {
   try {
@@ -722,8 +772,6 @@ export async function listDeliveryPayoutRequests(req: Request, res: Response) {
     return res.status(500).json({ message: "Server error" });
   }
 }
-
-
 
 export async function approveDeliveryPayoutRequest(req: Request, res: Response) {
   try {

@@ -35,8 +35,10 @@ export default function MapPage() {
   const [mapPoints, setMapPoints] = useState<MapPoint[]>([]);
   const [selectedPointKey, setSelectedPointKey] = useState("");
   const [error, setError] = useState("");
-  const riderLat = me?.currentLat ?? me?.lat;
-  const riderLng = me?.currentLng ?? me?.lng;
+  const [mapReady, setMapReady] = useState(false);
+  const locationSyncInFlightRef = useRef(false);
+  const riderLat = me?.currentLat ?? me?.user?.lat ?? me?.lat;
+  const riderLng = me?.currentLng ?? me?.user?.lng ?? me?.lng;
 
   useEffect(() => {
     if (!token) return;
@@ -201,8 +203,8 @@ export default function MapPage() {
   }, [filteredDeliveries]);
 
   useEffect(() => {
-    if (!mapRef.current || !leafletModuleRef.current) return;
-    const L = ((leafletModuleRef.current as any).default || leafletModuleRef.current) as typeof import("leaflet");
+    if (!mapReady || !mapRef.current || !leafletModuleRef.current) return;
+    const L = leafletModuleRef.current.default;
     const map = mapRef.current;
 
     if (!deliveryMarkersRef.current) {
@@ -270,11 +272,11 @@ export default function MapPage() {
     } else if (boundsPoints.length === 1) {
       map.flyTo(boundsPoints[0], 14, { duration: 1 });
     }
-  }, [mapPoints, riderLat, riderLng]);
+  }, [mapReady, mapPoints, riderLat, riderLng]);
 
   useEffect(() => {
-    if (!mapRef.current || !leafletModuleRef.current) return;
-    const L = ((leafletModuleRef.current as any).default || leafletModuleRef.current) as typeof import("leaflet");
+    if (!mapReady || !mapRef.current || !leafletModuleRef.current) return;
+    const L = leafletModuleRef.current.default;
 
     if (routeLineRef.current) {
       routeLineRef.current.remove();
@@ -283,14 +285,10 @@ export default function MapPage() {
 
     if (!selectedPoint || typeof riderLat !== "number" || typeof riderLng !== "number") return;
 
-    const sp = selectedPoint;
-    const rlat = riderLat;
-    const rlng = riderLng;
-
     let disposed = false;
     async function drawRoadRoute() {
       try {
-        const url = `${OSRM_ROUTE_ENDPOINT}/${rlng},${rlat};${sp.lng},${sp.lat}?overview=full&geometries=geojson`;
+        const url = `${OSRM_ROUTE_ENDPOINT}/${riderLng},${riderLat};${selectedPoint.lng},${selectedPoint.lat}?overview=full&geometries=geojson`;
         const res = await fetch(url);
         if (!res.ok) throw new Error("Route service unavailable");
         const data = (await res.json()) as {
@@ -309,8 +307,8 @@ export default function MapPage() {
         if (disposed) return;
         routeLineRef.current = L.polyline(
           [
-            [rlat, rlng],
-            [sp.lat, sp.lng],
+            [riderLat, riderLng],
+            [selectedPoint.lat, selectedPoint.lng],
           ],
           { color: "#163625", weight: 4, opacity: 0.85, dashArray: "8,6" },
         ).addTo(mapRef.current!);
@@ -320,7 +318,7 @@ export default function MapPage() {
     return () => {
       disposed = true;
     };
-  }, [selectedPoint, riderLat, riderLng]);
+  }, [mapReady, selectedPoint, riderLat, riderLng]);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -346,6 +344,7 @@ export default function MapPage() {
       }).addTo(map);
 
       mapRef.current = map;
+      setMapReady(true);
     }
 
     setupMap().catch((mapError) => {
@@ -367,11 +366,12 @@ export default function MapPage() {
         mapRef.current = null;
       }
       leafletModuleRef.current = null;
+      setMapReady(false);
     };
   }, []);
 
   useEffect(() => {
-    if (!mapRef.current || !leafletModuleRef.current) return;
+    if (!mapReady || !mapRef.current || !leafletModuleRef.current) return;
     if (typeof riderLat !== "number" || typeof riderLng !== "number") return;
 
     if (markerRef.current) {
@@ -379,16 +379,27 @@ export default function MapPage() {
       markerRef.current = null;
     }
 
-    const L = ((leafletModuleRef.current as any).default || leafletModuleRef.current) as typeof import("leaflet");
+    const L = leafletModuleRef.current.default;
+    const avatarUrl = me?.user?.avatarUrl?.trim();
+    const avatarInitial = (me?.user?.name ?? me?.user?.username ?? "D").slice(0, 1).toUpperCase();
     const riderMarkerIcon = L.divIcon({
       className: "",
-      html: `<div style="position:relative;width:24px;height:32px;">
-        <div style="position:absolute;top:0;left:50%;width:24px;height:24px;background:#163625;border:2px solid #ffffff;border-radius:999px;transform:translateX(-50%);box-shadow:0 2px 6px rgba(15,23,42,.35);"></div>
-        <div style="position:absolute;bottom:0;left:50%;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:10px solid #163625;transform:translateX(-50%);"></div>
-      </div>`,
-      iconSize: [24, 32],
-      iconAnchor: [12, 32],
-      popupAnchor: [0, -30],
+      html: avatarUrl
+        ? `<div style="position:relative;width:38px;height:50px;">
+          <div style="position:absolute;top:0;left:50%;width:38px;height:38px;transform:translateX(-50%);border-radius:999px;border:2px solid #ffffff;overflow:hidden;box-shadow:0 3px 10px rgba(15,23,42,.35);background:#163625;">
+            <img src="${avatarUrl}" alt="Rider avatar" style="width:100%;height:100%;object-fit:cover;" />
+          </div>
+          <div style="position:absolute;bottom:0;left:50%;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-top:12px solid #163625;transform:translateX(-50%);"></div>
+        </div>`
+        : `<div style="position:relative;width:38px;height:50px;">
+          <div style="position:absolute;top:0;left:50%;width:38px;height:38px;transform:translateX(-50%);display:flex;align-items:center;justify-content:center;border-radius:999px;border:2px solid #ffffff;box-shadow:0 3px 10px rgba(15,23,42,.35);background:#163625;color:#E4FCD5;font-weight:700;font-size:14px;">
+            ${avatarInitial}
+          </div>
+          <div style="position:absolute;bottom:0;left:50%;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-top:12px solid #163625;transform:translateX(-50%);"></div>
+        </div>`,
+      iconSize: [38, 50],
+      iconAnchor: [19, 50],
+      popupAnchor: [0, -46],
     });
     markerRef.current = L.marker([riderLat, riderLng], {
       icon: riderMarkerIcon,
@@ -402,10 +413,12 @@ export default function MapPage() {
       .addTo(mapRef.current);
 
     mapRef.current.flyTo([riderLat, riderLng], 14, { duration: 1 });
-  }, [riderLat, riderLng]);
+  }, [mapReady, riderLat, riderLng, me?.user?.avatarUrl, me?.user?.name, me?.user?.username]);
 
   async function updateMyLocation() {
     if (!token || !navigator.geolocation) return;
+    if (locationSyncInFlightRef.current) return;
+    locationSyncInFlightRef.current = true;
     setUpdatingLocation(true);
     setError("");
     navigator.geolocation.getCurrentPosition(
@@ -416,26 +429,36 @@ export default function MapPage() {
         } catch (err) {
           setError(err instanceof Error ? err.message : "Failed to update location");
         } finally {
+          locationSyncInFlightRef.current = false;
           setUpdatingLocation(false);
         }
       },
       () => {
         setError("Location permission denied");
+        locationSyncInFlightRef.current = false;
         setUpdatingLocation(false);
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
   }
 
+  useEffect(() => {
+    if (!token || !navigator.geolocation) return;
+    const interval = window.setInterval(() => {
+      updateMyLocation();
+    }, 30000);
+    return () => window.clearInterval(interval);
+  }, [token]);
+
   return (
     <div className="flex h-[calc(100vh-6rem)] flex-col rounded-3xl border border-[#d9e5d5] bg-white p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-[var(--foreground)]">Live Map</h1>
+        <h1 className="text-xl font-bold text-[#163625]">Live Map</h1>
         <button
           type="button"
           onClick={updateMyLocation}
           disabled={updatingLocation}
-          className="inline-flex items-center gap-2 rounded-xl bg-[var(--foreground)] px-4 py-2 text-sm font-bold text-[#E4FCD5] disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-xl bg-[#163625] px-4 py-2 text-sm font-bold text-[#E4FCD5] disabled:opacity-60"
         >
           <RefreshCw size={16} className={updatingLocation ? "animate-spin" : ""} />
           {updatingLocation ? "Updating..." : "Update my location"}
@@ -444,24 +467,24 @@ export default function MapPage() {
 
       <div className="mb-4 grid gap-3 md:grid-cols-3">
         <div className="rounded-2xl border border-[#d9e5d5] bg-[#eef4ea] p-4">
-          <p className="text-xs font-semibold text-[var(--foreground)]/70">Current coordinates</p>
-          <p className="mt-1 text-sm font-bold text-[var(--foreground)]">{coordsText}</p>
+          <p className="text-xs font-semibold text-[#163625]/70">Current coordinates</p>
+          <p className="mt-1 text-sm font-bold text-[#163625]">{coordsText}</p>
         </div>
         <div className="rounded-2xl border border-[#d9e5d5] bg-[#eef4ea] p-4">
-          <p className="text-xs font-semibold text-[var(--foreground)]/70">Active deliveries</p>
-          <p className="mt-1 text-sm font-bold text-[var(--foreground)]">{deliveryCount}</p>
+          <p className="text-xs font-semibold text-[#163625]/70">Active deliveries</p>
+          <p className="mt-1 text-sm font-bold text-[#163625]">{deliveryCount}</p>
         </div>
         <div className="rounded-2xl border border-[#d9e5d5] bg-[#eef4ea] p-4">
-          <p className="text-xs font-semibold text-[var(--foreground)]/70">Rider status</p>
-          <p className="mt-1 text-sm font-bold text-[var(--foreground)]">{me?.status ?? "UNKNOWN"}</p>
+          <p className="text-xs font-semibold text-[#163625]/70">Rider status</p>
+          <p className="mt-1 text-sm font-bold text-[#163625]">{me?.status ?? "UNKNOWN"}</p>
         </div>
       </div>
       <div className="mb-4 flex items-center justify-between rounded-2xl border border-[#d9e5d5] bg-[#eef4ea] p-3">
-        <p className="text-xs font-semibold text-[var(--foreground)]/80">Direction view</p>
+        <p className="text-xs font-semibold text-[#163625]/80">Direction view</p>
         <select
           value={directionFilter}
           onChange={(e) => setDirectionFilter(e.target.value as "ALL" | "TO_SHOP" | "TO_CUSTOMER")}
-          className="rounded-lg border border-[#d9e5d5] bg-white px-3 py-2 text-xs font-bold text-[var(--foreground)]"
+          className="rounded-lg border border-[#d9e5d5] bg-white px-3 py-2 text-xs font-bold text-[#163625]"
         >
           <option value="ALL">All directions</option>
           <option value="TO_SHOP">To Shop</option>
@@ -469,7 +492,7 @@ export default function MapPage() {
         </select>
       </div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#d9e5d5] bg-[#eef4ea] p-3">
-        <p className="text-xs font-semibold text-[var(--foreground)]/80">
+        <p className="text-xs font-semibold text-[#163625]/80">
           {selectedPoint
             ? `Selected: ${selectedPoint.label} (${selectedPoint.lat.toFixed(5)}, ${selectedPoint.lng.toFixed(5)})`
             : "Select a pickup point marker to draw route"}
@@ -482,7 +505,7 @@ export default function MapPage() {
             const url = `https://www.google.com/maps/dir/?api=1&origin=${riderLat},${riderLng}&destination=${selectedPoint.lat},${selectedPoint.lng}&travelmode=driving`;
             window.open(url, "_blank", "noopener,noreferrer");
           }}
-          className="rounded-lg bg-[var(--foreground)] px-3 py-2 text-xs font-bold text-[#E4FCD5] disabled:opacity-50"
+          className="rounded-lg bg-[#163625] px-3 py-2 text-xs font-bold text-[#E4FCD5] disabled:opacity-50"
         >
           Navigate to selected point
         </button>
@@ -490,10 +513,10 @@ export default function MapPage() {
 
       <div className="relative flex-1 rounded-2xl border border-[#d9e5d5] bg-white p-2">
         <div ref={mapContainerRef} className="h-full min-h-[360px] w-full rounded-xl" />
-        <div className="pointer-events-none absolute right-4 top-4 rounded-lg bg-white/90 px-2 py-1 text-[11px] font-semibold text-[var(--foreground)]">
+        <div className="pointer-events-none absolute right-4 top-4 rounded-lg bg-white/90 px-2 py-1 text-[11px] font-semibold text-[#163625]">
           OpenStreetMap + Leaflet
         </div>
-        <div className="pointer-events-none absolute left-4 top-4 rounded-lg bg-white/90 px-3 py-2 text-[11px] font-semibold text-[var(--foreground)]">
+        <div className="pointer-events-none absolute left-4 top-4 rounded-lg bg-white/90 px-3 py-2 text-[11px] font-semibold text-[#163625]">
           <span className="mr-3 inline-flex items-center gap-1">
             <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#2563eb]" /> Customer pickup
           </span>
@@ -507,7 +530,7 @@ export default function MapPage() {
             <span className="inline-block h-2.5 w-2.5 rounded-[2px] bg-[#1e40af]" /> Customer delivery
           </span>
           <span className="inline-flex items-center gap-1">
-            <span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--foreground)]" /> Rider
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#163625]" /> Rider
           </span>
         </div>
         {error ? (
@@ -519,4 +542,3 @@ export default function MapPage() {
     </div>
   );
 }
-

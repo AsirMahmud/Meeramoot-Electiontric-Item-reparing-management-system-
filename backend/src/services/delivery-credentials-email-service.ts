@@ -1,4 +1,5 @@
 import { env } from "../config/env.js";
+import nodemailer from "nodemailer";
 import { sendGmailApiEmail } from "./gmail-api-service.js";
 
 type CredentialEmailInput = {
@@ -13,9 +14,49 @@ type RegistrationAcknowledgementEmailInput = {
   recipientName: string;
 };
 
-export async function sendDeliveryCredentialsEmail(input: CredentialEmailInput) {
+type DeliveryEmailInput = {
+  toEmail: string;
+  subject: string;
+  html: string;
+};
+
+function hasSmtpConfig() {
+  return Boolean(env.smtpHost && env.smtpPort && env.smtpUser && env.smtpPass && env.smtpFrom);
+}
+
+async function sendDeliveryModuleEmail(input: DeliveryEmailInput) {
   if (!env.enableEmailNotifications) {
     return { ok: false, skipped: true, reason: "email notifications disabled" };
+  }
+
+  if (!hasSmtpConfig()) {
+    return { ok: false, skipped: true, reason: "missing smtp config" };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host: env.smtpHost,
+    port: env.smtpPort,
+    secure: env.smtpSecure,
+    auth: {
+      user: env.smtpUser,
+      pass: env.smtpPass,
+    },
+  });
+
+  await transporter.sendMail({
+    from: env.smtpFrom,
+    to: input.toEmail,
+    subject: input.subject,
+    html: input.html,
+  });
+
+  return { sent: true, provider: "nodemailer" };
+}
+
+export async function sendDeliveryCredentialsEmail(input: CredentialEmailInput) {
+  if (!hasSmtpConfig()) {
+    console.warn("[delivery-email] SMTP config missing. Credentials:", input.username, input.password);
+    return { ok: false, skipped: true, reason: "missing smtp config" };
   }
 
   const subject = "Delivery Partner Approval - Login Credentials";
@@ -27,10 +68,15 @@ export async function sendDeliveryCredentialsEmail(input: CredentialEmailInput) 
       <p>Use the credentials below to sign in to the delivery portal:</p>
       <p>Username: <strong>${input.username}</strong></p>
       <p>Password: <strong>${input.password}</strong></p>
-      <p>Please change your password after your first login.</p>
+     
     </div>
   `;
 
+  return sendDeliveryModuleEmail({
+    toEmail: input.toEmail,
+    subject,
+    html,
+  });
   // 1. Send via Gmail API over HTTPS (Added because Render blocks SMTP ports and Resend free tier is restricted to verified emails only)
   try {
     await sendGmailApiEmail({
@@ -94,6 +140,11 @@ export async function sendDeliveryRegistrationAcknowledgementEmail(
     </div>
   `;
 
+  return sendDeliveryModuleEmail({
+    toEmail: input.toEmail,
+    subject,
+    html,
+  });
   // 1. Send via Gmail API over HTTPS (Added because Render blocks SMTP ports and Resend free tier is restricted to verified emails only)
   try {
     await sendGmailApiEmail({

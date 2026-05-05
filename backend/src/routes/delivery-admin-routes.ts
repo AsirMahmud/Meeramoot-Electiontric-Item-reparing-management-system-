@@ -1,6 +1,8 @@
 import { Router } from "express";
 import {
   assignDeliveryOrder,
+  blockDeliveryPartner,
+  
   getAdminDeliveryChatMessages,
   getDeliveryOrderTimeline,
   approveDeliveryPayoutRequest,
@@ -25,6 +27,7 @@ router.get("/stats", getDeliveryAdminStats);
 router.get("/partners", listDeliveryPartners);
 router.patch("/partners/:id/approve", approveDeliveryPartner);
 router.patch("/partners/:id/reject", rejectDeliveryPartner);
+router.patch("/partners/:id/block", blockDeliveryPartner);
 router.delete("/partners/:id", deleteDeliveryPartner);
 router.get("/payout-requests", listDeliveryPayoutRequests);
 router.patch("/payout-requests/:id/approve", approveDeliveryPayoutRequest);
