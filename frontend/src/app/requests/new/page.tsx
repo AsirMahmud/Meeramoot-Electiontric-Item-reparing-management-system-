@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Navbar from "@/components/home/Navbar";
 import { createRepairRequest } from "@/lib/api";
@@ -36,6 +36,7 @@ const ISSUE_CATEGORIES = [
 ];
 
 export default function NewRequestPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
   const shopSlug = searchParams.get("shop") || "";
@@ -230,6 +231,8 @@ export default function NewRequestPage() {
                   type: "request",
                   href: "/orders",
                 });
+
+                setTimeout(() => router.push("/orders"), 1500);
               } catch (error) {
                 setMessage(error instanceof Error ? error.message : "Failed to submit request.");
               } finally {

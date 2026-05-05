@@ -26,8 +26,8 @@ export async function acceptBid(req: AuthedRequest, res: Response) {
       return res.status(404).json({ message: "Request not found" });
     }
 
-    if (existingRequest.repairJob || existingRequest.status !== RequestStatus.PENDING) {
-      return res.status(400).json({ message: "Request already has an assigned job or is not pending" });
+    if (existingRequest.repairJob || (existingRequest.status !== RequestStatus.PENDING && existingRequest.status !== RequestStatus.BIDDING)) {
+      return res.status(400).json({ message: "Request already has an assigned job or is not in bidding" });
     }
 
     const bidToAccept = await prisma.bid.findFirst({

@@ -205,7 +205,7 @@ async function updateReviewRequest(
 }
 
 function addGuestServiceToCart(shop: ShopDetails, item: { name: string; estimate: number; summary: string }) {
-  const existing = JSON.parse(localStorage.getItem(GUEST_CART_KEY) || "[]");
+  const existing = JSON.parse(localStorage.getItem(GUEST_CART_STORAGE_KEY) || "[]");
   const carts = Array.isArray(existing) ? existing : [];
   const existingCartIndex = carts.findIndex(
     (cart: any) => cart.shop?.slug === shop.slug || cart.shopSlug === shop.slug,

@@ -841,6 +841,80 @@ export async function acceptBid(token: string, requestId: string, bidId: string)
   );
 }
 
+export type RequestBidDetail = {
+  id: string;
+  partsCost: number;
+  laborCost: number;
+  totalCost: number;
+  estimatedDays?: number | null;
+  notes?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  shop: {
+    id: string;
+    name: string;
+    slug: string;
+    ratingAvg: number;
+    reviewCount: number;
+    priceLevel: number;
+    address: string;
+    specialties: string[];
+  };
+};
+
+export type RequestDetail = {
+  id: string;
+  title: string;
+  description?: string | null;
+  deviceType: string;
+  brand?: string | null;
+  model?: string | null;
+  issueCategory?: string | null;
+  problem: string;
+  aiSummary?: string | null;
+  mode: string;
+  status: string;
+  preferredPickup: boolean;
+  deliveryType?: string | null;
+  pickupAddress?: string | null;
+  dropoffAddress?: string | null;
+  quotedFinalAmount?: number | null;
+  createdAt: string;
+  updatedAt: string;
+  requestedShop?: {
+    id: string;
+    name: string;
+    slug: string;
+    address: string;
+    ratingAvg: number;
+    reviewCount: number;
+  } | null;
+  bids: RequestBidDetail[];
+  repairJob?: {
+    id: string;
+    status: string;
+    diagnosisNotes?: string | null;
+    finalQuotedAmount?: number | null;
+    customerApproved?: boolean | null;
+    createdAt: string;
+    updatedAt: string;
+    shop: {
+      id: string;
+      name: string;
+      slug: string;
+      ratingAvg: number;
+    };
+  } | null;
+};
+
+export async function getRequestById(token: string, requestId: string): Promise<RequestDetail> {
+  return authedRequest<RequestDetail>(
+    `/requests/${encodeURIComponent(requestId)}`,
+    token
+  );
+}
+
 export async function declineBid(token: string, requestId: string, bidId: string) {
   return authedRequest(
     `/requests/${encodeURIComponent(requestId)}/bids/${encodeURIComponent(bidId)}/decline`,

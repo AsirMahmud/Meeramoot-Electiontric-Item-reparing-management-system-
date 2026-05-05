@@ -111,20 +111,20 @@ export default function OrdersPage() {
         firstName={session?.user?.name?.split(" ")[0]}
       />
 
-      <div className="mx-auto max-w-6xl px-4 py-8">
-        <div className="mb-6 flex items-center justify-between">
+      <div className="mx-auto max-w-6xl px-3 sm:px-4 py-6 md:py-8">
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-sm uppercase tracking-[0.2em] text-[var(--muted-foreground)]">
+            <p className="text-xs sm:text-sm uppercase tracking-[0.2em] text-[var(--muted-foreground)]">
               Orders
             </p>
-            <h1 className="text-3xl font-bold text-[var(--foreground)]">
+            <h1 className="text-2xl sm:text-3xl font-bold text-[var(--foreground)]">
               Track your requests
             </h1>
           </div>
 
           <Link
             href="/requests/new"
-            className="rounded-full bg-[var(--accent-dark)] px-6 py-3 text-sm font-semibold text-white"
+            className="shrink-0 rounded-full bg-[var(--accent-dark)] px-5 py-2.5 sm:px-6 sm:py-3 text-sm font-semibold text-white"
           >
             New request
           </Link>
@@ -134,42 +134,42 @@ export default function OrdersPage() {
           {orders.map((order) => (
             <article
               key={order.id}
-              className="rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm"
+              className="rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-4 sm:p-6 shadow-sm"
             >
-              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-[var(--foreground)]">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-xl sm:text-2xl font-bold text-[var(--foreground)] leading-tight">
                     {order.title}
                   </h2>
-                  <p className="mt-2 text-[var(--muted-foreground)]">
+                  <p className="mt-1.5 text-sm text-[var(--muted-foreground)]">
                     {order.deviceType} {order.brand || ""} {order.model || ""}
                   </p>
-                  <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+                  <p className="mt-1.5 text-sm text-[var(--muted-foreground)] line-clamp-2">
                     {order.problem}
                   </p>
                 </div>
 
-                <div className="rounded-full bg-[var(--mint-100)] px-4 py-2 text-sm font-semibold text-[var(--accent-dark)]">
+                <div className="self-start rounded-full bg-[var(--mint-100)] px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-[var(--accent-dark)] whitespace-nowrap">
                   {order.status.replaceAll("_", " ")}
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <div className="rounded-2xl border border-[var(--border)] bg-[var(--mint-50)] p-4 text-sm text-[var(--muted-foreground)]">
-                  <p className="font-semibold text-[var(--foreground)]">Flow</p>
-                  <p>{order.mode.replaceAll("_", " ")}</p>
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--mint-50)] p-3 sm:p-4 text-sm text-[var(--muted-foreground)]">
+                  <p className="font-semibold text-[var(--foreground)] text-xs sm:text-sm">Flow</p>
+                  <p className="text-xs sm:text-sm mt-0.5">{order.mode.replaceAll("_", " ")}</p>
                 </div>
 
-                <div className="rounded-2xl border border-[var(--border)] bg-[var(--mint-50)] p-4 text-sm text-[var(--muted-foreground)]">
-                  <p className="font-semibold text-[var(--foreground)]">Shop</p>
-                  <p>{order.repairJob?.shop?.name || "Matching in progress"}</p>
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--mint-50)] p-3 sm:p-4 text-sm text-[var(--muted-foreground)]">
+                  <p className="font-semibold text-[var(--foreground)] text-xs sm:text-sm">Shop</p>
+                  <p className="text-xs sm:text-sm mt-0.5">{order.repairJob?.shop?.name || "Matching in progress"}</p>
                 </div>
 
-                <div className="rounded-2xl border border-[var(--border)] bg-[var(--mint-50)] p-4 text-sm text-[var(--muted-foreground)]">
-                  <p className="font-semibold text-[var(--foreground)]">
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--mint-50)] p-3 sm:p-4 text-sm text-[var(--muted-foreground)]">
+                  <p className="font-semibold text-[var(--foreground)] text-xs sm:text-sm">
                     Latest delivery
                   </p>
-                  <p>
+                  <p className="text-xs sm:text-sm mt-0.5">
                     {order.repairJob?.deliveries?.[0]?.status?.replaceAll(
                       "_",
                       " "
@@ -177,18 +177,27 @@ export default function OrdersPage() {
                   </p>
                 </div>
               </div>
-              
-              <div className="mt-4 flex flex-wrap gap-2">
+
+              <div className="mt-4 flex flex-col xs:flex-row flex-wrap gap-2">
+                {(order.status === "BIDDING" || order.status === "PENDING") && (
+                  <Link
+                    href={`/requests/${order.id}/bid-status`}
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--accent-dark)] px-4 py-2.5 sm:px-5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 w-full xs:w-auto"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                    Check Bidding Status
+                  </Link>
+                )}
                 <button
                   onClick={() => handleCreateSupportTicket(order.id)}
-                  className="rounded-full border border-[var(--border)] bg-[var(--background)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
+                  className="rounded-full border border-[var(--border)] bg-[var(--background)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors w-full xs:w-auto"
                 >
                   Raise Support Ticket
                 </button>
                 {order.status !== "PENDING" && order.status !== "CANCELLED" && (
                   <button
                     onClick={() => handleCreateDispute(order.id)}
-                    className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-100 transition-colors"
+                    className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-100 transition-colors w-full xs:w-auto"
                   >
                     File Dispute
                   </button>
@@ -196,31 +205,40 @@ export default function OrdersPage() {
               </div>
 
               {order.status === "PENDING" && order.bids && order.bids.length > 0 && (
-                <div className="mt-6 border-t border-[var(--border)] pt-6">
-                  <h3 className="font-semibold text-lg text-[var(--foreground)] mb-4">Available Shop Quotes</h3>
-                  <div className="grid gap-4 md:grid-cols-2">
+                <div className="mt-5 border-t border-[var(--border)] pt-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                    <h3 className="font-semibold text-base sm:text-lg text-[var(--foreground)]">Available Shop Quotes</h3>
+                    <Link
+                      href={`/requests/${order.id}/bid-status`}
+                      className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-dark)] px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                      Full Dashboard →
+                    </Link>
+                  </div>
+                  <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
                     {order.bids.map((bid) => (
-                      <div key={bid.id} className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4 flex flex-col">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <p className="font-bold text-[var(--foreground)] text-lg">{bid.shop.name}</p>
-                            <p className="text-xs text-[var(--muted-foreground)]">★ {bid.shop.ratingAvg.toFixed(1)} • {bid.shop.priceLevel || "$$"}</p>
+                      <div key={bid.id} className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-3 sm:p-4 flex flex-col gap-3">
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="min-w-0">
+                            <p className="font-bold text-[var(--foreground)] text-base sm:text-lg truncate">{bid.shop.name}</p>
+                            <p className="text-xs text-[var(--muted-foreground)] mt-0.5">★ {bid.shop.ratingAvg.toFixed(1)} • {bid.shop.priceLevel || "$$"}</p>
                           </div>
-                          <div className="text-right">
-                            <p className="font-bold text-xl text-[var(--accent-dark)]">${bid.totalCost.toFixed(2)}</p>
+                          <div className="text-right shrink-0">
+                            <p className="font-bold text-lg sm:text-xl text-[var(--accent-dark)]">{bid.totalCost.toFixed(2)} ৳</p>
                             {bid.estimatedDays && (
-                              <p className="text-xs text-[var(--muted-foreground)]">{bid.estimatedDays} days est.</p>
+                              <p className="text-xs text-[var(--muted-foreground)]">{bid.estimatedDays}d est.</p>
                             )}
                           </div>
                         </div>
                         {bid.notes && (
-                          <div className="rounded-xl bg-[var(--card)] p-3 text-sm text-[var(--muted-foreground)] mb-4 flex-grow border border-[var(--border)]">
-                            "{bid.notes}"
+                          <div className="rounded-xl bg-[var(--card)] p-3 text-xs sm:text-sm text-[var(--muted-foreground)] border border-[var(--border)] line-clamp-3">
+                            &ldquo;{bid.notes}&rdquo;
                           </div>
                         )}
                         <button
                           onClick={() => handleAcceptBid(order.id, bid.id)}
-                          className="mt-auto w-full rounded-full bg-[var(--accent-dark)] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
+                          className="w-full rounded-full bg-[var(--accent-dark)] px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
                         >
                           Accept Quote
                         </button>

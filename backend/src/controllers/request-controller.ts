@@ -659,3 +659,100 @@ export async function updateRequestStatus(req: AuthedRequest, res: Response) {
     return res.status(500).json({ message: "Server error" });
   }
 }
+
+export async function getRequestById(req: AuthedRequest, res: Response) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const { requestId } = req.params as { requestId: string };
+
+    const repairRequest = await prisma.repairRequest.findFirst({
+      where: { id: requestId, userId },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        deviceType: true,
+        brand: true,
+        model: true,
+        issueCategory: true,
+        problem: true,
+        aiSummary: true,
+        mode: true,
+        status: true,
+        preferredPickup: true,
+        deliveryType: true,
+        pickupAddress: true,
+        dropoffAddress: true,
+        quotedFinalAmount: true,
+        createdAt: true,
+        updatedAt: true,
+        requestedShop: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            address: true,
+            ratingAvg: true,
+            reviewCount: true,
+          },
+        },
+        bids: {
+          orderBy: { totalCost: "asc" },
+          select: {
+            id: true,
+            partsCost: true,
+            laborCost: true,
+            totalCost: true,
+            estimatedDays: true,
+            notes: true,
+            status: true,
+            createdAt: true,
+            updatedAt: true,
+            shop: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                ratingAvg: true,
+                reviewCount: true,
+                priceLevel: true,
+                address: true,
+                specialties: true,
+              },
+            },
+          },
+        },
+        repairJob: {
+          select: {
+            id: true,
+            status: true,
+            diagnosisNotes: true,
+            finalQuotedAmount: true,
+            customerApproved: true,
+            createdAt: true,
+            updatedAt: true,
+            shop: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                ratingAvg: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!repairRequest) {
+      return res.status(404).json({ message: "Request not found" });
+    }
+
+    return res.json(repairRequest);
+  } catch (error) {
+    console.error("getRequestById error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
