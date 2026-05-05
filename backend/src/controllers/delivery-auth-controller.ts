@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Prisma } from "@prisma/client";
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
@@ -6,7 +5,6 @@ import jwt from "jsonwebtoken";
 import prisma from "../models/prisma.js";
 import { env } from "../config/env.js";
 import { sendDeliveryRegistrationAcknowledgementEmail } from "../services/delivery-credentials-email-service.js";
-import { validateEmail } from "../utils/validate-email.js";
 
 function signDeliveryToken(user: { id: string; username: string; email: string }) {
   return jwt.sign(
@@ -51,16 +49,7 @@ export async function deliveryRegister(req: Request, res: Response) {
     }
 
     const cleanEmail = email.trim().toLowerCase();
-<<<<<<< HEAD
     const cleanProfilePictureUrl = profilePictureUrl.trim();
-=======
-
-    const emailError = validateEmail(cleanEmail);
-    if (emailError) {
-      return res.status(400).json({ message: emailError });
-    }
-
->>>>>>> 8e44218a3c09c9d2e79907e507dcbbdc72767d4c
     const cleanNidUrl = nidDocumentUrl.trim();
     const cleanEducationUrl = educationDocumentUrl.trim();
     const cleanCvUrl = cvDocumentUrl.trim();
@@ -77,7 +66,7 @@ export async function deliveryRegister(req: Request, res: Response) {
         message:
           existing.role === "DELIVERY"
             ? "Delivery account already exists for this email"
-            : "Cannot register as a Delivery Partner using an existing Customer/Vendor email. Please use a separate email.",
+            : "This email is already registered",
       });
     }
 

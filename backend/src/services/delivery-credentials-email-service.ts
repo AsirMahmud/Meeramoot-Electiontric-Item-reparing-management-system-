@@ -1,9 +1,6 @@
 import { env } from "../config/env.js";
-<<<<<<< HEAD
 import nodemailer from "nodemailer";
-=======
 import { sendGmailApiEmail } from "./gmail-api-service.js";
->>>>>>> 8e44218a3c09c9d2e79907e507dcbbdc72767d4c
 
 type CredentialEmailInput = {
   toEmail: string;
@@ -32,7 +29,6 @@ async function sendDeliveryModuleEmail(input: DeliveryEmailInput) {
     return { ok: false, skipped: true, reason: "email notifications disabled" };
   }
 
-<<<<<<< HEAD
   if (!hasSmtpConfig()) {
     return { ok: false, skipped: true, reason: "missing smtp config" };
   }
@@ -63,8 +59,6 @@ export async function sendDeliveryCredentialsEmail(input: CredentialEmailInput) 
     return { ok: false, skipped: true, reason: "missing smtp config" };
   }
 
-=======
->>>>>>> 8e44218a3c09c9d2e79907e507dcbbdc72767d4c
   const subject = "Delivery Partner Approval - Login Credentials";
   const html = `
     <div style="font-family: Arial, sans-serif; color: #173626; line-height: 1.6;">
@@ -74,17 +68,15 @@ export async function sendDeliveryCredentialsEmail(input: CredentialEmailInput) 
       <p>Use the credentials below to sign in to the delivery portal:</p>
       <p>Username: <strong>${input.username}</strong></p>
       <p>Password: <strong>${input.password}</strong></p>
-      <p>Please change your password after your first login.</p>
+     
     </div>
   `;
 
-<<<<<<< HEAD
   return sendDeliveryModuleEmail({
     toEmail: input.toEmail,
     subject,
     html,
   });
-=======
   // 1. Send via Gmail API over HTTPS (Added because Render blocks SMTP ports and Resend free tier is restricted to verified emails only)
   try {
     await sendGmailApiEmail({
@@ -126,20 +118,16 @@ export async function sendDeliveryCredentialsEmail(input: CredentialEmailInput) 
   }
 
   return { sent: true };
->>>>>>> 8e44218a3c09c9d2e79907e507dcbbdc72767d4c
 }
 
 export async function sendDeliveryRegistrationAcknowledgementEmail(
   input: RegistrationAcknowledgementEmailInput,
 ) {
-<<<<<<< HEAD
-=======
   if (!env.enableEmailNotifications) {
     return { ok: false, skipped: true };
   }
 
 
->>>>>>> 8e44218a3c09c9d2e79907e507dcbbdc72767d4c
   const subject = "Delivery Registration Received - Under Review";
   const html = `
     <div style="font-family: Arial, sans-serif; color: #173626; line-height: 1.6;">
@@ -152,13 +140,11 @@ export async function sendDeliveryRegistrationAcknowledgementEmail(
     </div>
   `;
 
-<<<<<<< HEAD
   return sendDeliveryModuleEmail({
     toEmail: input.toEmail,
     subject,
     html,
   });
-=======
   // 1. Send via Gmail API over HTTPS (Added because Render blocks SMTP ports and Resend free tier is restricted to verified emails only)
   try {
     await sendGmailApiEmail({
@@ -197,5 +183,4 @@ export async function sendDeliveryRegistrationAcknowledgementEmail(
   }
 
   return { sent: true };
->>>>>>> 8e44218a3c09c9d2e79907e507dcbbdc72767d4c
 }
