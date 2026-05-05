@@ -1,5 +1,4 @@
--- CreateEnum
-CREATE TYPE "CartStatus" AS ENUM ('ACTIVE', 'CHECKED_OUT', 'ABANDONED');
+
 
 -- AlterEnum
 BEGIN;
@@ -63,7 +62,6 @@ ALTER TABLE "Delivery" DROP CONSTRAINT "Delivery_coverageZoneId_fkey";
 ALTER TABLE "Delivery" DROP CONSTRAINT "Delivery_deliveryAgentId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "EscrowLedger" DROP CONSTRAINT "EscrowLedger_vendorUserId_fkey";
 
 -- DropForeignKey
 ALTER TABLE "Invoice" DROP CONSTRAINT "Invoice_repairJobId_fkey";
@@ -359,38 +357,7 @@ ALTER COLUMN "userId" SET NOT NULL;
 -- -- DropEnum
 -- DROP TYPE "VerificationTargetType";
 
--- CreateTable
-CREATE TABLE "Cart" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "shopId" TEXT NOT NULL,
-    "status" "CartStatus" NOT NULL DEFAULT 'ACTIVE',
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "Cart_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "CartItem" (
-    "id" TEXT NOT NULL,
-    "cartId" TEXT NOT NULL,
-    "serviceName" TEXT NOT NULL,
-    "description" TEXT,
-    "price" DECIMAL(10,2) NOT NULL,
-    "quantity" INTEGER NOT NULL DEFAULT 1,
-    "metadata" JSONB,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "CartItem_pkey" PRIMARY KEY ("id")
-);
-
--- CreateIndex
-CREATE INDEX "Cart_userId_status_idx" ON "Cart"("userId", "status");
-
--- CreateIndex
-CREATE INDEX "CartItem_cartId_idx" ON "CartItem"("cartId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "VendorApplication_userId_key" ON "VendorApplication"("userId");
@@ -398,12 +365,6 @@ CREATE UNIQUE INDEX "VendorApplication_userId_key" ON "VendorApplication"("userI
 -- AddForeignKey
 ALTER TABLE "VendorApplication" ADD CONSTRAINT "VendorApplication_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- AddForeignKey
-ALTER TABLE "Cart" ADD CONSTRAINT "Cart_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- AddForeignKey
-ALTER TABLE "Cart" ADD CONSTRAINT "Cart_shopId_fkey" FOREIGN KEY ("shopId") REFERENCES "Shop"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- AddForeignKey
-ALTER TABLE "CartItem" ADD CONSTRAINT "CartItem_cartId_fkey" FOREIGN KEY ("cartId") REFERENCES "Cart"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

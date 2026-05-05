@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 
 import { Settings, Shield, Bell, HelpCircle, LogOut, ChevronRight, User as UserIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useDeliveryAuth } from "@/lib/delivery-auth-context";
+import { signOut } from "next-auth/react";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -52,9 +53,9 @@ export default function ProfilePage() {
 
       <button
         type="button"
-        onClick={() => {
+        onClick={async () => {
           logout();
-          router.push("/delivery/login");
+          await signOut({ callbackUrl: "/" });
         }}
         className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-4 rounded-xl transition-colors text-sm shadow-sm flex justify-center items-center gap-2 active:scale-95 mb-8"
       >

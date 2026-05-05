@@ -33,10 +33,10 @@ async function main() {
   console.log("  🌱 MERAMOT MASTER SEED");
   console.log("═".repeat(60));
 
-  if (!process.env.ADMIN_PASSWORD) {
+ /* if (!process.env.ADMIN_PASSWORD) {
     console.error("❌ ADMIN_PASSWORD environment variable is required");
     process.exit(1);
-  }
+  } */
 
   for (const seed of seeds) {
     const filePath = path.join(__dirname, seed.file);

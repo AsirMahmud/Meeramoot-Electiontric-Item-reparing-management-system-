@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Home, Map, Wallet, User, Menu, X, LogOut, Package2 } from "lucide-react";
 import Link from "next/link";
@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import ThemeToggle from "@/components/theme/ThemeToggle";
 import { useState } from "react";
 import { useDeliveryAuth } from "@/lib/delivery-auth-context";
+import { signOut } from "next-auth/react";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -94,9 +95,9 @@ export function Sidebar() {
           <div className="flex w-full items-center justify-between mt-2 pt-2 border-t border-[var(--border)]">
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 logout();
-                router.push("/delivery/login");
+                await signOut({ callbackUrl: "/" });
               }}
               className="flex flex-1 items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-red-700/80 transition hover:bg-red-50 hover:text-red-700"
             >

@@ -21,6 +21,7 @@ import {
   type DeliveryChatMessage,
 } from "@/lib/api";
 import { useDeliveryAdminAuth } from "@/lib/delivery-admin-auth-context";
+import { signOut } from "next-auth/react";
 
 type LeafletModule = typeof import("leaflet");
 
@@ -385,9 +386,9 @@ export default function DeliveryAdminDashboard() {
             </button>
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 logout();
-                window.location.href = "/delivery-admin/login";
+                await signOut({ callbackUrl: "/" });
               }}
               className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
             >

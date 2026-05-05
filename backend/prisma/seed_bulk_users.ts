@@ -11,7 +11,7 @@ import {
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("≡ƒÜÇ Starting Bulk User Generation (10 Users)...");
+  console.log("Starting Bulk User Generation (10 Users)...");
 
   const passwordHash = await bcrypt.hash("password123", 10);
   
@@ -33,7 +33,7 @@ async function main() {
     const email = `user${i + 1}@example.com`;
     const username = `user_test_${i + 1}`;
 
-    console.log(`≡ƒæñ Creating user: ${name}`);
+    console.log(`≡Creating user: ${name}`);
 
     const user = await prisma.user.upsert({
       where: { email },
@@ -180,7 +180,7 @@ async function main() {
 
     // 3. Complaint (Dispute) for every 3rd user
     if (i % 3 === 0) {
-      console.log(`≡ƒÜ⌐ Creating dispute for: ${name}`);
+      console.log(`Creating dispute for: ${name}`);
       const disputeRequest = await prisma.repairRequest.create({
         data: {
           userId: user.id,
@@ -271,7 +271,7 @@ async function main() {
     }
   }
 
-  console.log("Γ£à Bulk Seeding Completed Successfully!");
+  console.log("Bulk Seeding Completed Successfully!");
 }
 
 main()

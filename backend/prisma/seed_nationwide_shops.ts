@@ -272,7 +272,7 @@ async function main() {
       });
 
       const shop = await prisma.shop.upsert({
-        where: { slug },
+        where: { vendorApplicationId: vendorApp.id },
         update: {
           vendorApplicationId: vendorApp.id,
           lat: shopLat,
@@ -328,7 +328,7 @@ async function main() {
         console.log(`  ✓ ${created}/100 shops created (latest: ${shopName} — ${loc.city})`);
       }
     } catch (err: any) {
-      console.warn(`  ⚠ Skipped ${shopName}: ${err.message?.slice(0, 80)}`);
+      console.warn(`  ⚠ Skipped ${shopName}: ${err.message}`);
     }
   }
   console.log(`\n✅ ${created} shops created. Now generating reviews & transactions...\n`);

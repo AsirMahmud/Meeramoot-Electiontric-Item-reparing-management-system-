@@ -14,7 +14,6 @@ import {
   createAiChatSession,
   getAiChatSessions,
   saveAiChatMessage,
-  deleteAiChatSession,
 } from "@/lib/api";
 
 type Message = {
@@ -82,6 +81,7 @@ function makePreview(messages: Message[], fallback: string): string {
 
 export default function AiChatPage() {
   const { data: session } = useSession();
+  const sessionToken = (session?.user as { accessToken?: string } | undefined)?.accessToken;
 
   const [token, setToken] = useState("");
   const [historyLoaded, setHistoryLoaded] = useState(false);
@@ -94,12 +94,13 @@ export default function AiChatPage() {
   const [activeChatId, setActiveChatId] = useState("draft-chat");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   const isLoggedIn = !!token;
 
   useEffect(() => {
-    setToken(localStorage.getItem("meramot.token") || "");
-  }, []);
+    setToken(sessionToken || "");
+  }, [sessionToken]);
 
   const firstName = useMemo(() => {
     const user = session?.user as
@@ -188,9 +189,7 @@ export default function AiChatPage() {
     }
 
     if (typeof window !== "undefined") {
-      const localToken = localStorage.getItem("meramot.token") || "";
-
-      if (!localToken) {
+      if (!sessionToken) {
         void loadHistory();
       }
     }
@@ -202,6 +201,28 @@ export default function AiChatPage() {
     localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chatSessions));
     localStorage.setItem(ACTIVE_CHAT_STORAGE_KEY, activeChatId);
   }, [chatSessions, activeChatId, historyLoaded, isLoggedIn]);
+
+  useEffect(() => {
+    function handleStorageChange(event: StorageEvent) {
+      if (isLoggedIn) return;
+
+      if (event.key === CHAT_STORAGE_KEY && event.newValue) {
+        try {
+          const parsed = JSON.parse(event.newValue);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setChatSessions(parsed);
+          }
+        } catch {}
+      }
+
+      if (event.key === ACTIVE_CHAT_STORAGE_KEY && event.newValue) {
+        setActiveChatId(event.newValue);
+      }
+    }
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [isLoggedIn]);
 
   function updateMessagesById(chatId: string, nextMessages: Message[]) {
     setChatSessions((prev) =>
@@ -347,46 +368,15 @@ export default function AiChatPage() {
     }
   }
 
-  async function handleDeleteChat(targetChatId?: string) {
-    const idToDelete = targetChatId || activeChat?.id;
-    if (!idToDelete) return;
-
-    if (window.confirm("Are you sure you want to delete this chat?")) {
-      const isDraftOrGuest = idToDelete.startsWith("draft-chat") || idToDelete.startsWith("guest-chat");
-
-      if (isLoggedIn && !isDraftOrGuest) {
-        try {
-          await deleteAiChatSession(idToDelete, token);
-        } catch (error) {
-          console.error("Failed to delete chat", error);
-          setHistoryError("Failed to delete chat on the server.");
-          return;
-        }
-      }
-
-      setChatSessions((prev) => {
-        const remaining = prev.filter((chat) => chat.id !== idToDelete);
-        if (remaining.length === 0) {
-          const defaultChat = createDefaultChat();
-          setActiveChatId(defaultChat.id);
-          return [defaultChat];
-        }
-        if (activeChatId === idToDelete) {
-          setActiveChatId(remaining[0].id);
-        }
-        return remaining;
-      });
-    }
-  }
-
   return (
     <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Navbar isLoggedIn={!!session?.user} firstName={firstName} />
 
-      <div className="mx-auto max-w-7xl px-3 py-4 md:px-6 md:py-8">
-        <div className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--card)] p-3 shadow-[0_20px_50px_rgba(67,100,64,0.12)] md:rounded-[2.5rem] md:p-6 dark:shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
-          <div className="flex flex-col-reverse gap-4 lg:grid lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-6">
-            <aside className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--card)] p-3 shadow-sm md:rounded-[2rem] md:p-4">
+      <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
+        <div className="rounded-[2.5rem] border border-[var(--border)] bg-[var(--card)] p-4 shadow-[0_20px_50px_rgba(67,100,64,0.12)] md:p-6 dark:shadow-[0_20px_50px_rgba(0,0,0,0.35)]">
+          <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] relative">
+            {/* Desktop Sidebar */}
+            <aside className="hidden lg:block rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm">
               <button
                 type="button"
                 onClick={createNewChat}
@@ -397,106 +387,168 @@ export default function AiChatPage() {
                 New Chat
               </button>
 
-              <div className="mt-4 flex max-h-[250px] flex-col gap-2 overflow-y-auto lg:mt-5 lg:max-h-none lg:gap-3">
+              <div className="mt-5 space-y-3">
                 {previews.map((chat) => {
                   const selected = chat.id === activeChatId;
 
                   return (
-                    <div key={chat.id} className="group relative flex w-full items-center">
-                      <button
-                        type="button"
-                        onClick={() => setActiveChatId(chat.id)}
-                        className={`flex w-full items-start gap-3 rounded-[1.4rem] px-3 py-3 text-left transition pr-10 ${
-                          selected
-                            ? "bg-[var(--mint-100)] shadow-sm"
-                            : "hover:bg-[var(--mint-50)]"
-                        }`}
-                      >
-                        <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--mint-200)] text-[var(--accent-dark)]">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            className="h-5 w-5"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M12 8v4l3 2m6-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-                            />
-                          </svg>
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-[var(--foreground)]">
-                            {chat.title}
-                          </p>
-                          <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-                            {chat.subtitle}
-                          </p>
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          void handleDeleteChat(chat.id);
-                        }}
-                        title="Delete chat"
-                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-2 text-[var(--muted-foreground)] opacity-0 transition hover:bg-red-100 hover:text-red-600 group-hover:opacity-100 focus:opacity-100"
-                      >
+                    <button
+                      key={chat.id}
+                      type="button"
+                      onClick={() => setActiveChatId(chat.id)}
+                      className={`flex w-full items-start gap-3 rounded-[1.4rem] px-3 py-3 text-left transition ${
+                        selected
+                          ? "bg-[var(--mint-100)] shadow-sm"
+                          : "hover:bg-[var(--mint-50)]"
+                      }`}
+                    >
+                      <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-[var(--mint-200)] text-[var(--accent-dark)]">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           viewBox="0 0 24 24"
                           fill="none"
                           stroke="currentColor"
                           strokeWidth="1.8"
-                          className="h-4 w-4"
+                          className="h-5 w-5"
                         >
                           <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.158 0c-.36-.05-.72-.09-1.08-.122m-1.08-.122a50.11 50.11 0 00-10.42 0m10.42 0L13.79 3.5a1.5 1.5 0 00-1.42-.9h-1.74a1.5 1.5 0 00-1.42.9L10.21 5.79"
+                            d="M12 8v4l3 2m6-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
                           />
                         </svg>
-                      </button>
-                    </div>
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-[var(--foreground)]">
+                          {chat.title}
+                        </p>
+                        <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                          {chat.subtitle}
+                        </p>
+                      </div>
+                    </button>
                   );
                 })}
               </div>
             </aside>
 
-            <section className="flex min-h-[500px] flex-col rounded-[1.5rem] border border-[var(--border)] bg-[var(--card)] p-3 shadow-sm md:min-h-[620px] md:rounded-[2rem] md:p-6">
-              <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3 md:gap-4 md:pb-4">
+            {/* Mobile Drawer Overlay */}
+            {isHistoryOpen && (
+              <div className="fixed inset-0 z-50 flex lg:hidden">
+                <div 
+                  className="fixed inset-0 bg-black/20 backdrop-blur-sm transition-opacity"
+                  onClick={() => setIsHistoryOpen(false)}
+                />
+                <aside className="relative flex w-[85vw] max-w-[320px] flex-col overflow-y-auto bg-[var(--background)] p-6 shadow-2xl animate-in slide-in-from-left-4 duration-300">
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-bold text-[var(--foreground)]">Chat History</h2>
+                    <button
+                      onClick={() => setIsHistoryOpen(false)}
+                      className="rounded-full bg-[var(--card)] p-2 text-[var(--foreground)] shadow-sm transition hover:bg-[var(--mint-50)]"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      createNewChat();
+                      setIsHistoryOpen(false);
+                    }}
+                    disabled={loading}
+                    className="flex w-full items-center justify-center gap-2 rounded-full bg-[var(--accent-dark)] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-95 disabled:opacity-60"
+                  >
+                    <span className="text-lg leading-none">+</span>
+                    New Chat
+                  </button>
+
+                  <div className="mt-6 flex-1 space-y-3">
+                    {previews.map((chat) => {
+                      const selected = chat.id === activeChatId;
+
+                      return (
+                        <button
+                          key={chat.id}
+                          type="button"
+                          onClick={() => {
+                            setActiveChatId(chat.id);
+                            setIsHistoryOpen(false);
+                          }}
+                          className={`flex w-full items-start gap-3 rounded-[1.4rem] px-3 py-3 text-left transition ${
+                            selected
+                              ? "bg-[var(--mint-100)] shadow-sm"
+                              : "hover:bg-[var(--mint-50)] border border-[var(--border)] bg-[var(--card)]"
+                          }`}
+                        >
+                          <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--mint-200)] text-[var(--accent-dark)]">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              className="h-5 w-5"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M12 8v4l3 2m6-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                              />
+                            </svg>
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-[var(--foreground)]">
+                              {chat.title}
+                            </p>
+                            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                              {chat.subtitle}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </aside>
+              </div>
+            )}
+
+            {/* Mobile Chat History Toggle Button */}
+            <div className="lg:hidden flex">
+              <button
+                onClick={() => setIsHistoryOpen(true)}
+                className="inline-flex items-center gap-3 rounded-full bg-[var(--accent-dark)] px-5 py-3 text-white shadow-sm transition hover:opacity-95"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-5 w-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" />
+                </svg>
+                <span className="font-semibold text-[15px]">View Chat History</span>
+              </button>
+            </div>
+
+            <section className="flex min-h-[620px] flex-col rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm md:p-6">
+              <div className="flex items-center justify-between gap-4 border-b border-[var(--border)] pb-4">
                 <div>
-                  <h1 className="text-xl font-bold text-[var(--foreground)] md:text-2xl">
+                  <h1 className="text-xl md:text-2xl font-bold text-[var(--foreground)]">
                     AI Repair Assistant
                   </h1>
-                  <p className="mt-1 text-xs text-[var(--muted-foreground)] md:text-sm">
+                  <p className="mt-1 text-xs md:text-sm text-[var(--muted-foreground)]">
                     Ask about device issues, repair urgency, and next steps.
                   </p>
-
-                  {historyError && (
-                    <p className="mt-2 text-sm text-red-600">{historyError}</p>
-                  )}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleDeleteChat}
-                  title="Delete Chat"
-                  className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--accent-dark)] transition hover:bg-red-100 hover:text-red-600 sm:flex md:h-12 md:w-12"
-                >
+                <div className="hidden sm:flex h-12 w-12 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--accent-dark)] shrink-0">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="1.8"
-                    className="h-5 w-5 md:h-6 md:w-6"
+                    className="h-6 w-6"
                   >
                     <path
                       strokeLinecap="round"
@@ -504,10 +556,16 @@ export default function AiChatPage() {
                       d="M9.75 3.75h4.5m-7.5 4.5h10.5m-9 4.5h7.5M8.25 21h7.5a2.25 2.25 0 0 0 2.25-2.25V8.121a2.25 2.25 0 0 0-.659-1.591l-1.871-1.871A2.25 2.25 0 0 0 13.879 4H8.25A2.25 2.25 0 0 0 6 6.25v12.5A2.25 2.25 0 0 0 8.25 21Z"
                     />
                   </svg>
-                </button>
+                </div>
               </div>
 
-              <div className="flex-1 space-y-4 overflow-y-auto py-4 md:space-y-5 md:py-6">
+              {historyError && (
+                <div className="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-600">
+                  {historyError}
+                </div>
+              )}
+
+              <div className="flex-1 space-y-5 overflow-y-auto py-6">
                 {activeChat?.messages.map((msg, index) => (
                   <div
                     key={index}
@@ -516,13 +574,13 @@ export default function AiChatPage() {
                     }`}
                   >
                     {msg.role === "assistant" && (
-                      <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--accent-dark)] shadow-sm md:h-10 md:w-10">
-                        <span className="text-xs font-bold md:text-sm">AI</span>
+                      <div className="mt-1 flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--accent-dark)] shadow-sm">
+                        <span className="text-[10px] sm:text-sm font-bold">AI</span>
                       </div>
                     )}
 
                     <div
-                      className={`max-w-[85%] rounded-[1.25rem] px-3 py-2 text-sm leading-relaxed shadow-sm sm:max-w-[78%] md:rounded-[1.4rem] md:px-4 md:py-3 md:leading-7 ${
+                      className={`max-w-[90%] md:max-w-[78%] rounded-[1.4rem] px-4 py-3 text-sm leading-7 shadow-sm ${
                         msg.role === "user"
                           ? "bg-[var(--accent-dark)] text-white"
                           : "bg-[var(--mint-100)] text-[var(--foreground)]"
@@ -534,14 +592,14 @@ export default function AiChatPage() {
                     </div>
 
                     {msg.role === "user" && (
-                      <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--accent-dark)] shadow-sm md:h-10 md:w-10">
+                      <div className="mt-1 flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--accent-dark)] shadow-sm">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           viewBox="0 0 24 24"
                           fill="none"
                           stroke="currentColor"
                           strokeWidth="1.8"
-                          className="h-4 w-4 md:h-5 md:w-5"
+                          className="h-4 w-4 sm:h-5 sm:w-5"
                         >
                           <path
                             strokeLinecap="round"
@@ -556,33 +614,33 @@ export default function AiChatPage() {
 
                 {loading && (
                   <div className="flex items-start gap-3">
-                    <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--accent-dark)] shadow-sm md:h-10 md:w-10">
-                      <span className="text-xs font-bold md:text-sm">AI</span>
+                    <div className="mt-1 flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-[var(--mint-100)] text-[var(--accent-dark)] shadow-sm">
+                      <span className="text-[10px] sm:text-sm font-bold">AI</span>
                     </div>
-                    <div className="rounded-[1.25rem] bg-[var(--mint-100)] px-3 py-2 text-sm leading-relaxed text-[var(--foreground)] shadow-sm md:rounded-[1.4rem] md:px-4 md:py-3 md:leading-7">
+                    <div className="rounded-[1.4rem] bg-[var(--mint-100)] px-4 py-3 text-sm text-[var(--foreground)] shadow-sm">
                       Thinking...
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="border-t border-[var(--border)] pt-3 md:pt-4">
-                <div className="flex flex-col gap-2 rounded-[1.25rem] bg-[var(--mint-100)] p-2 shadow-sm sm:flex-row sm:items-end sm:gap-3 md:rounded-[1.6rem] md:p-3">
+              <div className="border-t border-[var(--border)] pt-4">
+                <div className="flex items-end gap-3 rounded-[1.6rem] bg-[var(--mint-100)] p-3 shadow-sm">
                   <textarea
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleInputKeyDown}
                     rows={2}
-                    placeholder="Type your message..."
+                    placeholder="Type your message here..."
                     disabled={loading}
-                    className="min-h-[48px] flex-1 resize-none rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] disabled:opacity-60 md:min-h-[56px] md:rounded-[1.2rem] md:px-4 md:py-3"
+                    className="min-h-[56px] flex-1 resize-none rounded-[1.2rem] border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] disabled:opacity-60"
                   />
 
                   <button
                     type="button"
                     onClick={handleSend}
                     disabled={loading}
-                    className="w-full rounded-full bg-[var(--accent-dark)] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-95 disabled:opacity-60 sm:w-auto md:px-5 md:py-3"
+                    className="rounded-full bg-[var(--accent-dark)] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-95 disabled:opacity-60"
                   >
                     Send
                   </button>
