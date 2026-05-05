@@ -5,11 +5,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Navbar from "@/components/home/Navbar";
+import AiSummary from "@/components/shared/AiSummary";
 import {
   getVendorDashboard,
   submitVendorBid,
   submitVendorFinalQuote,
   updateVendorJobStatus,
+  updateVendorNotificationPreferences,
+  acceptPendingOrder,
+  rejectPendingOrder,
+  getBiddingRequests,
+  type BiddingRequestsResponse,
   type FinalQuoteItem,
   type VendorDashboardData,
 } from "@/lib/api";
@@ -94,7 +100,7 @@ function getQuoteRows(items?: FinalQuoteItem[] | null): QuoteRowDraft[] {
 
 function buildBidDraft(
   dashboard: VendorDashboardData,
-  requestItem: VendorDashboardData["relevantRequests"][number]
+  requestItem: any
 ): BidDraft {
   const existingParts: PartRow[] =
     typeof requestItem.myBid?.partsCost === "number" && requestItem.myBid.partsCost > 0
@@ -181,6 +187,16 @@ export default function VendorDashboardPage() {
   const [jobStatusDrafts, setJobStatusDrafts] = useState<Record<string, string>>({});
   const [finalQuoteDrafts, setFinalQuoteDrafts] = useState<Record<string, FinalQuoteDraft>>({});
   const [bidConfirm, setBidConfirm] = useState<BidConfirmation | null>(null);
+  
+  const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
+  const [isUpdatingNotifications, setIsUpdatingNotifications] = useState(false);
+
+  const [biddingData, setBiddingData] = useState<BiddingRequestsResponse | null>(null);
+  const [biddingPage, setBiddingPage] = useState(1);
+  const [biddingFilter, setBiddingFilter] = useState("relevant");
+  const [biddingSort, setBiddingSort] = useState("desc");
+  const [loadingBidding, setLoadingBidding] = useState(false);
+  const [activeTab, setActiveTab] = useState<"overview" | "marketplace" | "direct_orders" | "assigned_jobs">("overview");
 
   const loadDashboard = useCallback(async () => {
     if (!token) {
@@ -194,12 +210,6 @@ export default function VendorDashboardPage() {
       const data = await getVendorDashboard(token);
       setDashboard(data);
       setFlash(null);
-
-      const nextBidDrafts: Record<string, BidDraft> = {};
-      for (const requestItem of data.relevantRequests) {
-        nextBidDrafts[requestItem.id] = buildBidDraft(data, requestItem);
-      }
-      setBidDrafts(nextBidDrafts);
 
       const nextJobStatuses: Record<string, string> = {};
       const nextFinalQuoteDrafts: Record<string, FinalQuoteDraft> = {};
@@ -220,6 +230,25 @@ export default function VendorDashboardPage() {
     }
   }, [token]);
 
+  const loadBiddingRequests = useCallback(async (page: number, filter: string, sort: string, currentDashboard: VendorDashboardData | null) => {
+    if (!token || !currentDashboard) return;
+    try {
+      setLoadingBidding(true);
+      const data = await getBiddingRequests(token, page, 5, filter, sort);
+      setBiddingData(data);
+      
+      const nextBidDrafts: Record<string, BidDraft> = {};
+      for (const requestItem of data.data) {
+        nextBidDrafts[requestItem.id] = buildBidDraft(currentDashboard, requestItem);
+      }
+      setBidDrafts((prev) => ({ ...prev, ...nextBidDrafts }));
+    } catch (error) {
+      console.error("Could not load bidding requests:", error);
+    } finally {
+      setLoadingBidding(false);
+    }
+  }, [token]);
+
   useEffect(() => {
     if (status === "loading") return;
 
@@ -236,6 +265,41 @@ export default function VendorDashboardPage() {
     void loadDashboard();
   }, [loadDashboard, role, router, session, status]);
 
+  useEffect(() => {
+    if (dashboard) {
+      void loadBiddingRequests(biddingPage, biddingFilter, biddingSort, dashboard);
+    }
+  }, [dashboard, biddingPage, biddingFilter, biddingSort, loadBiddingRequests]);
+
+  useEffect(() => {
+    if (dashboard && dashboard.shop.setupComplete && dashboard.shop.liveNotificationsPrompted === false) {
+      setShowNotificationPrompt(true);
+    }
+  }, [dashboard]);
+
+  async function handleNotificationPreference(enabled: boolean, fromPrompt = false) {
+    if (!token) return;
+    try {
+      setIsUpdatingNotifications(true);
+      await updateVendorNotificationPreferences(token, {
+        liveNotificationsEnabled: enabled,
+        ...(fromPrompt ? { liveNotificationsPrompted: true } : {})
+      });
+      
+      if (fromPrompt) {
+        setShowNotificationPrompt(false);
+        setFlash({ type: "success", text: "Notification preferences saved." });
+      } else {
+        setFlash({ type: "success", text: enabled ? "Live notifications turned ON." : "Live notifications turned OFF." });
+      }
+      void loadDashboard();
+    } catch (e) {
+      setFlash({ type: "error", text: "Failed to update notification settings." });
+    } finally {
+      setIsUpdatingNotifications(false);
+    }
+  }
+
   const activeRequestCount = dashboard?.stats.relevantRequestCount ?? 0;
   const totalOpenJobs = dashboard?.stats.assignedJobCount ?? 0;
   const waitingApprovalCount = dashboard?.stats.waitingApprovalCount ?? 0;
@@ -248,6 +312,12 @@ export default function VendorDashboardPage() {
         value: String(activeRequestCount),
         description: "Repair requests that match your current skill tags.",
         scrollTo: "relevant-requests",
+      },
+      {
+        label: "Pending direct orders",
+        value: String(dashboard?.stats.pendingOrderCount ?? 0),
+        description: "Direct service requests waiting for your approval.",
+        scrollTo: "pending-orders",
       },
       {
         label: "Active offers",
@@ -268,7 +338,7 @@ export default function VendorDashboardPage() {
         href: "/vendor/jobs",
       },
     ],
-    [activeBidCount, activeRequestCount, totalOpenJobs, waitingApprovalCount]
+    [activeBidCount, activeRequestCount, totalOpenJobs, waitingApprovalCount, dashboard?.stats.pendingOrderCount]
   );
 
   function handleBidClick(requestId: string) {
@@ -308,7 +378,7 @@ export default function VendorDashboardPage() {
     const totalOffer = partsCost + laborCost;
 
     // Build contextual message
-    const requestItem = dashboard?.relevantRequests.find((r) => r.id === requestId);
+    const requestItem = biddingData?.data.find((r) => r.id === requestId);
     const bidCount = requestItem?.bidCount ?? 0;
     const lowestBid = requestItem?.lowestBidAmount ?? null;
 
@@ -355,11 +425,35 @@ export default function VendorDashboardPage() {
       });
       setFlash({ type: "success", text: "Offer saved successfully." });
       await loadDashboard();
+      if (dashboard) void loadBiddingRequests(biddingPage, biddingFilter, biddingSort, dashboard);
     } catch (error) {
       setPendingKey(null);
       setFlash({
         type: "error",
         text: error instanceof Error ? error.message : "Could not save your offer.",
+      });
+    }
+  }
+
+  async function handleDeclineExplicitRequest(requestId: string) {
+    if (!token) return;
+
+    if (!window.confirm("Are you sure you want to decline this request? The customer is explicitly waiting for your answer.")) {
+      return;
+    }
+
+    try {
+      setPendingKey(`decline-explicit:${requestId}`);
+      // Using the dynamically imported declineExplicitRequest API function
+      await (await import("@/lib/api")).declineExplicitRequest(token, requestId);
+      setFlash({ type: "success", text: "Request declined successfully." });
+      await loadDashboard();
+      if (dashboard) void loadBiddingRequests(biddingPage, biddingFilter, biddingSort, dashboard);
+    } catch (error) {
+      setPendingKey(null);
+      setFlash({
+        type: "error",
+        text: error instanceof Error ? error.message : "Could not decline request.",
       });
     }
   }
@@ -376,9 +470,18 @@ export default function VendorDashboardPage() {
       return;
     }
 
+    let reason: string | undefined;
+    if (nextStatus === "CANCELLED") {
+      const input = window.prompt("Please provide a reason for cancelling this job (required for accountability):");
+      if (!input || !input.trim()) {
+        return; // Vendor cancelled the prompt or didn't provide a reason
+      }
+      reason = input.trim();
+    }
+
     try {
       setPendingKey(`job:${jobId}`);
-      await updateVendorJobStatus(token, jobId, nextStatus);
+      await updateVendorJobStatus(token, jobId, nextStatus, reason);
       setFlash({ type: "success", text: "Assigned job status updated." });
       await loadDashboard();
     } catch (error) {
@@ -447,11 +550,57 @@ export default function VendorDashboardPage() {
     }
   }
 
+  async function handleAcceptOrder(orderId: string) {
+    if (!token) {
+      setFlash({ type: "error", text: "Please sign in again to continue." });
+      return;
+    }
+    try {
+      setPendingKey(`accept-order:${orderId}`);
+      await acceptPendingOrder(token, orderId);
+      setFlash({ type: "success", text: "Direct order accepted. The repair job is now active." });
+      await loadDashboard();
+    } catch (error) {
+      setPendingKey(null);
+      setFlash({
+        type: "error",
+        text: error instanceof Error ? error.message : "Could not accept the order.",
+      });
+    }
+  }
+
+  async function handleRejectOrder(orderId: string) {
+    if (!token) {
+      setFlash({ type: "error", text: "Please sign in again to continue." });
+      return;
+    }
+    const reason = window.prompt("Reason for declining this order (optional):");
+    if (reason === null) return; // cancelled
+    
+    try {
+      setPendingKey(`reject-order:${orderId}`);
+      await rejectPendingOrder(token, orderId, reason);
+      setFlash({ type: "success", text: "Order declined. Any upfront payments will be refunded." });
+      await loadDashboard();
+    } catch (error) {
+      setPendingKey(null);
+      setFlash({
+        type: "error",
+        text: error instanceof Error ? error.message : "Could not decline the order.",
+      });
+    }
+  }
+
   if (status === "loading" || loading) {
     return (
       <main className="min-h-screen bg-[#E4FCD5]">
         <Navbar isLoggedIn={!!session?.user} firstName={session?.user?.name?.split(" ")[0]} />
-        <div className="mx-auto max-w-6xl px-4 py-10 text-[#173726]">Loading vendor dashboard...</div>
+        <div className="mx-auto max-w-6xl px-3 py-8 md:px-4 text-[#173726]">
+          <div className="animate-pulse space-y-3">
+            <div className="h-6 w-48 rounded-full bg-[#d3ecc8]" />
+            <div className="h-8 w-64 rounded-full bg-[#d3ecc8]" />
+          </div>
+        </div>
       </main>
     );
   }
@@ -464,17 +613,17 @@ export default function VendorDashboardPage() {
     return (
       <main className="min-h-screen bg-[#E4FCD5]">
         <Navbar isLoggedIn={!!session?.user} firstName={session?.user?.name?.split(" ")[0]} />
-        <div className="mx-auto max-w-4xl px-4 py-10">
-          <div className="rounded-[2rem] bg-white p-8 shadow-sm">
+        <div className="mx-auto max-w-4xl px-3 py-8 md:px-4">
+          <div className="rounded-[1.5rem] bg-white p-5 shadow-sm md:rounded-[2rem] md:p-8">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#58725f]">Vendor</p>
-            <h1 className="mt-2 text-3xl font-bold text-[#173726]">Vendor dashboard unavailable</h1>
+            <h1 className="mt-2 text-2xl font-bold text-[#173726] md:text-3xl">Vendor dashboard unavailable</h1>
             <p className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {flash?.text || "We could not load your vendor workspace right now."}
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
                 href="/vendor/setup-shop"
-                className="rounded-full bg-[#214c34] px-6 py-3 text-sm font-semibold text-white"
+                className="w-full rounded-full bg-[#214c34] px-6 py-3 text-center text-sm font-semibold text-white md:w-auto"
               >
                 Complete shop setup
               </Link>
@@ -489,28 +638,34 @@ export default function VendorDashboardPage() {
     <main className="min-h-screen bg-[#E4FCD5]">
       <Navbar isLoggedIn={!!session?.user} firstName={session?.user?.name?.split(" ")[0]} />
 
-      <div className="mx-auto max-w-7xl px-4 py-8">
+      <div className="mx-auto max-w-7xl px-3 py-4 md:px-4 md:py-8">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#58725f]">Vendor dashboard</p>
-            <h1 className="mt-2 text-3xl font-bold text-[#173726]">{dashboard.shop.name}</h1>
-            <p className="mt-2 text-sm text-[#5b7262]">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#58725f]">Vendor dashboard</p>
+            <h1 className="mt-1 text-xl font-bold text-[#173726] md:mt-2 md:text-3xl">{dashboard.shop.name}</h1>
+            <p className="mt-1 text-xs text-[#5b7262] md:mt-2 md:text-sm">
               Review relevant requests, manage bids, handle assigned repair jobs, and send final diagnosis and quote.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2 md:gap-3">
             <Link
               href="/vendor/analytics"
-              className="rounded-full border border-[#214c34] bg-white px-5 py-3 text-sm font-semibold text-[#214c34]"
+              className="flex-1 rounded-full border border-[#214c34] bg-white px-4 py-2.5 text-center text-sm font-semibold text-[#214c34] md:flex-none md:px-5 md:py-3"
             >
               View analytics
             </Link>
             <Link
               href="/vendor/setup-shop"
-              className="rounded-full border border-[#214c34] bg-white px-5 py-3 text-sm font-semibold text-[#214c34]"
+              className="flex-1 rounded-full border border-[#214c34] bg-white px-4 py-2.5 text-center text-sm font-semibold text-[#214c34] md:flex-none md:px-5 md:py-3"
             >
               Edit shop setup
+            </Link>
+            <Link
+              href="/vendor/shop-profile"
+              className="flex-1 rounded-full border border-[#214c34] bg-[#214c34] px-4 py-2.5 text-center text-sm font-semibold text-white md:flex-none md:px-5 md:py-3"
+            >
+              Manage Services & Parts
             </Link>
           </div>
         </div>
@@ -527,13 +682,41 @@ export default function VendorDashboardPage() {
           </div>
         ) : null}
 
-        <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {/* Dashboard Tabs */}
+        <div className="mt-6 flex overflow-x-auto whitespace-nowrap gap-2 border-b border-[#cfe0c6] pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          {[
+            { id: "overview", label: "Overview" },
+            { id: "marketplace", label: "Marketplace" },
+            { id: "direct_orders", label: "Direct Orders", count: dashboard.pendingOrders?.length || 0 },
+            { id: "assigned_jobs", label: "My Repair Jobs", count: dashboard.assignedJobs?.length || 0 },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`relative rounded-t-2xl px-5 py-3 text-sm font-semibold transition-colors ${
+                activeTab === tab.id
+                  ? "bg-white text-[#173726] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] border-t border-x border-[#cfe0c6]"
+                  : "bg-transparent text-[#5b7262] hover:bg-[#dff0dc]/50"
+              }`}
+            >
+              {tab.label}
+              {tab.count ? (
+                <span className="ml-2 rounded-full bg-[#214c34] px-2 py-0.5 text-xs text-white">
+                  {tab.count}
+                </span>
+              ) : null}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'overview' && (
+        <section className="mt-4 grid gap-3 grid-cols-2 md:mt-6 md:gap-4 xl:grid-cols-4">
           {summaryCards.map((card) => {
             const inner = (
               <>
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#6b8270]">{card.label}</p>
-                <p className="mt-3 text-4xl font-bold text-[#173726]">{card.value}</p>
-                <p className="mt-2 text-sm text-[#5b7262]">{card.description}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6b8270] md:text-xs">{card.label}</p>
+                <p className="mt-2 text-2xl font-bold text-[#173726] md:mt-3 md:text-4xl">{card.value}</p>
+                <p className="mt-1 text-[10px] text-[#5b7262] md:mt-2 md:text-sm">{card.description}</p>
                 <p className="mt-3 text-xs font-semibold text-[#214c34]">
                   {card.scrollTo ? "Scroll to section ↓" : "View details →"}
                 </p>
@@ -541,7 +724,7 @@ export default function VendorDashboardPage() {
             );
 
             const cardStyle =
-              "block rounded-[2rem] bg-white p-6 shadow-sm cursor-pointer " +
+              "block rounded-[1.25rem] bg-white p-4 shadow-sm cursor-pointer md:rounded-[2rem] md:p-6 " +
               "transition-all duration-300 ease-out " +
               "hover:shadow-lg hover:shadow-[#214c34]/10 hover:-translate-y-1 " +
               "hover:ring-2 hover:ring-[#cfe0c6] " +
@@ -571,10 +754,12 @@ export default function VendorDashboardPage() {
             );
           })}
         </section>
+      )}
 
+        {activeTab === 'overview' && (
         <section className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-          <article className="rounded-[2rem] bg-white p-6 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
+          <article className="rounded-[1.5rem] bg-white p-4 shadow-sm md:rounded-[2rem] md:p-6">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-4">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#58725f]">Shop setup</p>
                 <h2 className="mt-2 text-2xl font-bold text-[#173726]">Your vendor profile</h2>
@@ -611,7 +796,7 @@ export default function VendorDashboardPage() {
             </div>
           </article>
 
-          <article className="rounded-[2rem] bg-white p-6 shadow-sm">
+          <article className="rounded-[1.5rem] bg-white p-4 shadow-sm md:rounded-[2rem] md:p-6">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#58725f]">Skill tags</p>
             <h2 className="mt-2 text-2xl font-bold text-[#173726]">Request matching</h2>
             <div className="mt-5 flex flex-wrap gap-2">
@@ -630,45 +815,193 @@ export default function VendorDashboardPage() {
             </div>
           </article>
         </section>
+      )}
 
-        <section id="relevant-requests" className="mt-8 scroll-mt-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-2xl font-bold text-[#173726]">Relevant repair requests</h2>
+        {activeTab === 'direct_orders' && dashboard.pendingOrders?.length > 0 && (
+          <section id="pending-orders" className="mt-6 scroll-mt-6 md:mt-8">
+            <div className="mb-3 md:mb-4">
+              <h2 className="text-xl font-bold text-[#173726] md:text-2xl">Pending direct orders</h2>
+              <p className="text-sm text-[#5b7262]">Customers have directly chosen your shop and paid upfront. Accept to begin work, or decline to refund them.</p>
             </div>
-            <button
-              type="button"
-              onClick={() => void loadDashboard()}
-              className="rounded-full border border-[#214c34] bg-white px-5 py-3 text-sm font-semibold text-[#214c34]"
-            >
-              Refresh
-            </button>
+            <div className="space-y-4">
+              {dashboard.pendingOrders.map(order => {
+                const isAccepting = pendingKey === `accept-order:${order.id}`;
+                const isRejecting = pendingKey === `reject-order:${order.id}`;
+                
+                return (
+                  <article key={order.id} className="rounded-[1.5rem] bg-white p-4 shadow-sm border border-purple-100 md:rounded-[2rem] md:p-6">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="max-w-2xl">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <h3 className="text-lg font-bold text-[#173726] md:text-xl">{order.title}</h3>
+                          <span className="rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-800">
+                            Action required
+                          </span>
+                        </div>
+                        <p className="mt-2 text-sm text-[#355541]">
+                          {order.deviceType} {order.brand ? `• ${order.brand}` : ""} {order.model ? `• ${order.model}` : ""}
+                        </p>
+                        <p className="mt-2 text-sm text-[#5b7262]">{order.problem}</p>
+                        
+                        <AiSummary 
+                          orderId={order.id}
+                          deviceType={order.deviceType}
+                          brand={order.brand}
+                          model={order.model}
+                          issueCategory={order.issueCategory}
+                          problem={order.problem}
+                          initialSummary={order.aiSummary}
+                        />
+                        
+                        <div className="mt-4 flex flex-wrap gap-3">
+                          <button
+                            type="button"
+                            onClick={() => handleAcceptOrder(order.id)}
+                            disabled={isAccepting || isRejecting}
+                            className="rounded-full bg-[#214c34] px-6 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                          >
+                            {isAccepting ? "Accepting..." : "Accept order"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRejectOrder(order.id)}
+                            disabled={isAccepting || isRejecting}
+                            className="rounded-full border border-red-200 bg-red-50 text-red-700 px-6 py-2 text-sm font-semibold disabled:opacity-50"
+                          >
+                            {isRejecting ? "Declining..." : "Decline order"}
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="grid gap-3 rounded-2xl bg-purple-50 p-4 text-sm text-[#355541] lg:min-w-[280px]">
+                        <div>
+                          <p className="font-semibold text-[#173726]">Customer details</p>
+                          <p className="mt-1">{order.user.name}</p>
+                          <p>{order.user.phone}</p>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-[#173726]">Payment info</p>
+                          <p className="mt-1">Initial total: {formatMoney(order.quotedFinalAmount)}</p>
+                          <p>Status: {formatStatus(order.payments?.[0]?.status || "PENDING")}</p>
+                          <p>Method: {order.payments?.[0]?.method || "N/A"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'marketplace' && (
+        <section id="relevant-requests" className="mt-6 scroll-mt-6 md:mt-8">
+          <div className="mb-3 flex flex-col gap-2 md:mb-4 md:flex-row md:items-center md:justify-between md:gap-3">
+            <div>
+              <h2 className="text-xl font-bold text-[#173726] md:text-2xl">Repair requests</h2>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <select
+                  value={biddingFilter}
+                  onChange={(e) => {
+                    setBiddingPage(1);
+                    setBiddingFilter(e.target.value);
+                  }}
+                  className="rounded-full border border-[#cfe0c6] bg-white px-3 py-1 text-sm outline-none font-medium text-[#214c34]"
+                >
+                  <option value="all">All Requests</option>
+                  <option value="relevant">Relevant to My Skills</option>
+                </select>
+                <select
+                  value={biddingSort}
+                  onChange={(e) => {
+                    setBiddingPage(1);
+                    setBiddingSort(e.target.value);
+                  }}
+                  className="rounded-full border border-[#cfe0c6] bg-white px-3 py-1 text-sm outline-none font-medium text-[#214c34]"
+                >
+                  <option value="desc">Newest First</option>
+                  <option value="asc">Oldest First</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+              <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-full border border-[#cfe0c6]">
+                <div className="relative inline-block w-10 h-6 align-middle select-none transition duration-200 ease-in">
+                  <input 
+                    type="checkbox" 
+                    className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                    style={{
+                      top: "2px",
+                      left: dashboard.shop.liveNotificationsEnabled ? "18px" : "2px",
+                      transition: "all 0.3s",
+                      borderColor: dashboard.shop.liveNotificationsEnabled ? "#214c34" : "#cbd5e1"
+                    }}
+                    checked={!!dashboard.shop.liveNotificationsEnabled}
+                    onChange={(e) => handleNotificationPreference(e.target.checked)}
+                    disabled={isUpdatingNotifications}
+                  />
+                  <div 
+                    className="toggle-label block overflow-hidden h-6 rounded-full cursor-pointer"
+                    style={{
+                      backgroundColor: dashboard.shop.liveNotificationsEnabled ? "#dff0dc" : "#e2e8f0",
+                      transition: "all 0.3s"
+                    }}
+                  />
+                </div>
+                <span className="text-sm font-semibold text-[#173726] whitespace-nowrap">
+                  Live Notifications
+                </span>
+              </label>
+              <button
+                type="button"
+                onClick={() => void loadBiddingRequests(biddingPage, biddingFilter, biddingSort, dashboard)}
+                disabled={loadingBidding}
+                className="w-full rounded-full border border-[#214c34] bg-white px-5 py-2.5 text-sm font-semibold text-[#214c34] sm:w-auto md:py-3 disabled:opacity-50"
+              >
+                {loadingBidding ? "Loading..." : "Refresh"}
+              </button>
+            </div>
           </div>
 
-          <div className="space-y-5">
-            {dashboard.relevantRequests.map((requestItem) => {
+          <div className="space-y-5 relative">
+            {loadingBidding && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50 backdrop-blur-sm rounded-[2rem]">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#214c34] border-t-transparent" />
+              </div>
+            )}
+            {biddingData?.data.map((requestItem) => {
               const draft = bidDrafts[requestItem.id] || buildBidDraft(dashboard, requestItem);
               const isSubmitting = pendingKey === `bid:${requestItem.id}`;
               const partsTotal = draft.parts.reduce((sum, p) => sum + (Number(p.cost) || 0), 0);
               const totalPreview = partsTotal + (Number(draft.laborCost) || 0);
 
               return (
-                <article key={requestItem.id} className="rounded-[2rem] bg-white p-6 shadow-sm">
+                <article key={requestItem.id} className="rounded-[1.5rem] bg-white p-4 shadow-sm md:rounded-[2rem] md:p-6">
                   <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                     <div className="max-w-3xl">
                       <div className="flex flex-wrap items-center gap-3">
-                        <h3 className="text-2xl font-bold text-[#173726]">{requestItem.title}</h3>
+                        <h3 className="text-base font-bold text-[#173726] md:text-2xl">{requestItem.title}</h3>
                         <span className="rounded-full bg-[#dff0dc] px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-[#214c34]">
                           {formatStatus(requestItem.status)}
                         </span>
                       </div>
-                      <p className="mt-2 text-[#355541]">
+                      <p className="mt-2 text-sm text-[#355541]">
                         {requestItem.deviceType}
                         {requestItem.brand ? ` • ${requestItem.brand}` : ""}
                         {requestItem.model ? ` • ${requestItem.model}` : ""}
                         {requestItem.issueCategory ? ` • ${requestItem.issueCategory}` : ""}
                       </p>
                       <p className="mt-3 text-sm text-[#5b7262]">{requestItem.problem}</p>
+                      
+                      <AiSummary 
+                        orderId={requestItem.id}
+                        deviceType={requestItem.deviceType}
+                        brand={requestItem.brand}
+                        model={requestItem.model}
+                        issueCategory={requestItem.issueCategory}
+                        problem={requestItem.problem}
+                        initialSummary={requestItem.aiSummary}
+                      />
 
                       <div className="mt-4 flex flex-wrap gap-2">
                         {requestItem.matchReasons.map((reason) => (
@@ -725,7 +1058,7 @@ export default function VendorDashboardPage() {
 
                         <div className="space-y-2">
                           {draft.parts.map((part, partIndex) => (
-                            <div key={partIndex} className="flex items-center gap-2">
+                            <div key={partIndex} className="flex flex-wrap items-center gap-2">
                               {/* + button to insert row below */}
                               <button
                                 type="button"
@@ -805,7 +1138,7 @@ export default function VendorDashboardPage() {
                       </div>
 
                       {/* Labor + Estimated days + Total row */}
-                      <div className="grid gap-4 lg:grid-cols-3">
+                      <div className="grid gap-3 md:gap-4 lg:grid-cols-3">
                         <label className="block">
                           <span className="mb-2 block text-sm font-medium text-[#355541]">Labor cost</span>
                           <input
@@ -880,35 +1213,73 @@ export default function VendorDashboardPage() {
                           ? `Last updated ${formatDate(requestItem.myBid.updatedAt)}`
                           : "You can revise your bid anytime while the request stays in bidding."}
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => handleBidClick(requestItem.id)}
-                        disabled={isSubmitting}
-                        className="rounded-full bg-[#214c34] px-6 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {isSubmitting
-                          ? "Saving..."
-                          : requestItem.myBid
-                            ? "Update offer"
-                            : "Make offer"}
-                      </button>
+                      <div className="flex flex-wrap items-center gap-3">
+                        {requestItem.isExplicitlyRequested && !requestItem.myBid && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeclineExplicitRequest(requestItem.id)}
+                            disabled={isSubmitting || pendingKey === `decline-explicit:${requestItem.id}`}
+                            className="rounded-full border border-red-200 bg-white px-6 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {pendingKey === `decline-explicit:${requestItem.id}` ? "Declining..." : "Decline request"}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleBidClick(requestItem.id)}
+                          disabled={isSubmitting}
+                          className="rounded-full bg-[#214c34] px-6 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {isSubmitting
+                            ? "Saving..."
+                            : requestItem.myBid
+                              ? "Update offer"
+                              : "Make offer"}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </article>
               );
             })}
 
-            {!dashboard.relevantRequests.length ? (
-              <div className="rounded-[2rem] bg-white p-8 text-[#355541] shadow-sm">
-                No repair requests currently match your configured skill tags. Update your specialties if you want to broaden what you see.
+            {(!biddingData?.data || !biddingData.data.length) ? (
+              <div className="rounded-[1.5rem] bg-white p-5 text-sm text-[#355541] shadow-sm md:rounded-[2rem] md:p-8">
+                No repair requests currently match your filters.
               </div>
             ) : null}
+
+            {biddingData && biddingData.totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  disabled={biddingPage === 1 || loadingBidding}
+                  onClick={() => setBiddingPage(biddingPage - 1)}
+                  className="rounded-full border border-[#cfe0c6] bg-white px-4 py-2 text-sm font-semibold text-[#214c34] disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <span className="text-sm font-medium text-[#355541]">
+                  Page {biddingPage} of {biddingData.totalPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={biddingPage === biddingData.totalPages || loadingBidding}
+                  onClick={() => setBiddingPage(biddingPage + 1)}
+                  className="rounded-full border border-[#cfe0c6] bg-white px-4 py-2 text-sm font-semibold text-[#214c34] disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         </section>
+        )}
 
+        {activeTab === 'assigned_jobs' && (
         <section className="mt-8">
           <div className="mb-4">
-            <h2 className="text-2xl font-bold text-[#173726]">Assigned jobs and final quote</h2>
+            <h2 className="text-xl font-bold text-[#173726] md:text-2xl">Assigned jobs and final quote</h2>
           </div>
 
           <div className="space-y-5">
@@ -924,11 +1295,11 @@ export default function VendorDashboardPage() {
               const waitingForApproval = job.status === "WAITING_APPROVAL";
 
               return (
-                <article key={job.id} className="rounded-[2rem] bg-white p-6 shadow-sm">
+                <article key={job.id} className="rounded-[1.5rem] bg-white p-4 shadow-sm md:rounded-[2rem] md:p-6">
                   <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                     <div className="max-w-3xl">
                       <div className="flex flex-wrap items-center gap-3">
-                        <h3 className="text-2xl font-bold text-[#173726]">{job.repairRequest.title}</h3>
+                        <h3 className="text-base font-bold text-[#173726] md:text-2xl">{job.repairRequest.title}</h3>
                         <span className="rounded-full bg-[#dff0dc] px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-[#214c34]">
                           {formatStatus(job.status)}
                         </span>
@@ -940,6 +1311,16 @@ export default function VendorDashboardPage() {
                         {job.repairRequest.issueCategory ? ` • ${job.repairRequest.issueCategory}` : ""}
                       </p>
                       <p className="mt-3 text-sm text-[#5b7262]">{job.repairRequest.problem}</p>
+                      
+                      <AiSummary 
+                        orderId={job.repairRequest.id}
+                        deviceType={job.repairRequest.deviceType}
+                        brand={job.repairRequest.brand}
+                        model={job.repairRequest.model}
+                        issueCategory={job.repairRequest.issueCategory}
+                        problem={job.repairRequest.problem}
+                        initialSummary={job.repairRequest.aiSummary}
+                      />
                     </div>
 
                     <div className="grid gap-3 rounded-3xl bg-[#f6faf4] p-5 text-sm text-[#355541] xl:min-w-[280px]">
@@ -1172,12 +1553,13 @@ export default function VendorDashboardPage() {
             })}
 
             {!dashboard.assignedJobs.length ? (
-              <div className="rounded-[2rem] bg-white p-8 text-[#355541] shadow-sm">
+              <div className="rounded-[1.5rem] bg-white p-5 text-sm text-[#355541] shadow-sm md:rounded-[2rem] md:p-8">
                 No assigned jobs yet. Once a customer accepts one of your bids, the job will appear here for inspection, diagnosis, and final quote handling.
               </div>
             ) : null}
           </div>
         </section>
+        )}
       </div>
       {/* ── Bid Confirmation Modal ─────────────────────────────── */}
       {bidConfirm ? (
@@ -1221,6 +1603,47 @@ export default function VendorDashboardPage() {
                 className="flex-1 rounded-full bg-[#214c34] px-5 py-3 text-sm font-semibold text-white hover:bg-[#173726] transition-colors"
               >
                 Confirm offer
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* ── Notification Prompt Modal ─────────────────────────────── */}
+      {showNotificationPrompt ? (
+        <div
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 p-0 backdrop-blur-sm sm:items-center sm:p-4 transition-opacity"
+          onClick={() => setShowNotificationPrompt(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-t-[2rem] bg-white p-6 shadow-2xl sm:rounded-[2rem] md:p-8 animate-in slide-in-from-bottom-full sm:slide-in-from-bottom-0 sm:zoom-in-95 duration-300"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-6 h-1.5 w-12 rounded-full bg-gray-200 sm:hidden" />
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#dff0dc] text-3xl">
+              🔔
+            </div>
+            <h3 className="text-xl font-bold text-[#173726] md:text-2xl">Enable live notifications?</h3>
+            <p className="mt-3 text-sm leading-relaxed text-[#5b7262]">
+              Do you want to receive instant emails and SMS alerts when a new repair request matches your skills? You can change this later.
+            </p>
+
+            <div className="mt-8 flex flex-col gap-3">
+              <button
+                type="button"
+                disabled={isUpdatingNotifications}
+                onClick={() => handleNotificationPreference(true, true)}
+                className="w-full rounded-full bg-[#214c34] px-5 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-[#173726] disabled:opacity-50"
+              >
+                {isUpdatingNotifications ? "Saving..." : "Yes, turn them on"}
+              </button>
+              <button
+                type="button"
+                disabled={isUpdatingNotifications}
+                onClick={() => handleNotificationPreference(false, true)}
+                className="w-full rounded-full border border-[#cfe0c6] bg-transparent px-5 py-3.5 text-sm font-semibold text-[#355541] transition-colors hover:bg-[#f6faf4] disabled:opacity-50"
+              >
+                Maybe later
               </button>
             </div>
           </div>

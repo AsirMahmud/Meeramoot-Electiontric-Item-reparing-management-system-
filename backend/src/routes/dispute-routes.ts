@@ -30,9 +30,16 @@ router.get("/disputes", async (req: Request, res: Response) => {
       },
     });
 
+    const enriched = disputes.map((d: any) => ({
+      ...d,
+      reason: d.repairRequest?.title || `Dispute #${d.id.slice(-6)}`,
+      description: d.resolution || null,
+      filedByType: d.openedBy?.role || "CUSTOMER",
+    }));
+
     return res.json({
       success: true,
-      data: disputes,
+      data: enriched,
     });
   } catch (error) {
     console.error("GET /disputes error:", error);
@@ -55,7 +62,6 @@ router.get("/disputes/:id", async (req: Request, res: Response) => {
         assignedAdmin: true,
         payment: true,
         repairRequest: true,
-        supportTicket: true,
         notes: {
           orderBy: { createdAt: "asc" },
           include: {
@@ -80,9 +86,16 @@ router.get("/disputes/:id", async (req: Request, res: Response) => {
       });
     }
 
+    const enriched = {
+      ...dispute,
+      reason: (dispute as any).repairRequest?.title || `Dispute #${dispute.id.slice(-6)}`,
+      description: dispute.resolution || null,
+      filedByType: (dispute as any).openedBy?.role || "CUSTOMER",
+    };
+
     return res.json({
       success: true,
-      data: dispute,
+      data: enriched,
     });
   } catch (error) {
     console.error("GET /disputes/:id error:", error);
@@ -111,6 +124,16 @@ router.post("/disputes/:id/note", async (req: Request & { user?: any }, res: Res
         authorId: req.user.id,
         note: String(note).trim(),
         isInternal,
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+          },
+        },
       },
     });
 
@@ -207,6 +230,38 @@ router.patch("/disputes/:id/hold", async (req: Request & { user?: any }, res: Re
     return res.status(500).json({
       success: false,
       message: "Failed to update dispute",
+    });
+  }
+});
+
+router.delete("/disputes/:id/notes/:noteId", async (req: Request & { user?: any }, res: Response) => {
+  try {
+    const noteId = String(req.params.noteId);
+
+    const note = await prisma.disputeNote.findUnique({
+      where: { id: noteId },
+    });
+
+    if (!note) {
+      return res.status(404).json({
+        success: false,
+        message: "Note not found",
+      });
+    }
+
+    await prisma.disputeNote.delete({
+      where: { id: noteId },
+    });
+
+    return res.json({
+      success: true,
+      message: "Note deleted successfully",
+    });
+  } catch (error) {
+    console.error("DELETE /disputes/:id/notes/:noteId error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete note",
     });
   }
 });

@@ -17,15 +17,23 @@ router.get("/dashboard", async (_req: Request, res: Response) => {
       pendingVendorApplications,
       openTickets,
       totalPayments,
+      activeDisputes,
+      pendingRefunds,
     ] = await Promise.all([
       prisma.user.count(),
-      prisma.user.count({ where: { role: "VENDOR" } }),
-      prisma.user.count({ where: { role: "DELIVERY" } }),
+      prisma.vendorApplication.count({ where: { status: "APPROVED" } }),
+      prisma.riderProfile.count({ where: { registrationStatus: "APPROVED" } }),
       prisma.vendorApplication.count({ where: { status: "PENDING" } }),
       prisma.supportTicket.count({
         where: { status: { in: ["OPEN", "IN_PROGRESS"] } },
       }),
       prisma.payment.count(),
+      prisma.disputeCase.count({
+        where: { status: { in: ["OPEN", "INVESTIGATING", "WAITING_EVIDENCE"] } },
+      }),
+      prisma.refund.count({
+        where: { status: "PENDING" },
+      }),
     ]);
 
     return res.json({
@@ -37,6 +45,8 @@ router.get("/dashboard", async (_req: Request, res: Response) => {
         pendingVendorApplications,
         openTickets,
         totalPayments,
+        activeDisputes,
+        pendingRefunds,
       },
     });
   } catch (error) {
@@ -198,15 +208,19 @@ router.get("/reviews", async (req: Request, res: Response) => {
   try {
     const shopId = String(req.query.shopId || "").trim();
     const userId = String(req.query.userId || "").trim();
+    const hasText = req.query.hasText === "true";
     const minScore = req.query.minScore ? Number(req.query.minScore) : undefined;
     const maxScore = req.query.maxScore ? Number(req.query.maxScore) : undefined;
-    const take = Math.min(100, Math.max(1, Number(req.query.take || 25)));
+    const take = Math.min(1000, Math.max(1, Number(req.query.take || 1000)));
     const page = Math.max(1, Number(req.query.page || 1));
     const skip = (page - 1) * take;
 
     const where: Record<string, unknown> = {};
     if (shopId) where.shopId = shopId;
     if (userId) where.userId = userId;
+    if (hasText) {
+      where.review = { not: null, notIn: [""] };
+    }
     if (minScore !== undefined || maxScore !== undefined) {
       where.score = {
         ...(minScore !== undefined ? { gte: minScore } : {}),
@@ -340,6 +354,148 @@ router.patch("/shops/:id/active", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("PATCH /admin/shops/:id/active error:", error);
     return res.status(500).json({ success: false, message: "Failed to update shop status" });
+  }
+});
+
+// ─── Shop Featured Status ────────────────────────────────────────────────────────
+// PATCH /api/admin/shops/:id/featured
+// Body: { isFeatured: boolean }
+// Toggles whether a shop is featured on the homepage.
+router.patch("/shops/:id/featured", async (req: Request, res: Response) => {
+  try {
+    const shopId = String(req.params.id);
+    const { isFeatured } = req.body as { isFeatured?: unknown };
+
+    if (typeof isFeatured !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: "isFeatured must be a boolean",
+      });
+    }
+
+    const existing = await prisma.shop.findUnique({
+      where: { id: shopId },
+      select: { id: true, name: true, isFeatured: true },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ success: false, message: "Shop not found" });
+    }
+
+    const updated = await prisma.shop.update({
+      where: { id: shopId },
+      data: { isFeatured },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        isFeatured: true,
+        updatedAt: true,
+      },
+    });
+
+    return res.json({
+      success: true,
+      message: `Shop ${isFeatured ? "marked as featured" : "removed from featured list"}`,
+      data: updated,
+    });
+  } catch (error) {
+    console.error("PATCH /admin/shops/:id/featured error:", error);
+    return res.status(500).json({ success: false, message: "Failed to update shop featured status" });
+  }
+});
+
+// ─── Repair Requests Monitoring ───────────────────────────────────────────────
+// GET /api/admin/repair-requests
+// Returns all repair requests with status, user, jobs, bids, and vendor info.
+router.get("/repair-requests", async (req: Request, res: Response) => {
+  try {
+    const search = String(req.query.search || "").trim();
+
+    const where: Record<string, unknown> = {};
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { deviceType: { contains: search, mode: "insensitive" } },
+        { user: { name: { contains: search, mode: "insensitive" } } },
+        { user: { email: { contains: search, mode: "insensitive" } } },
+      ];
+    }
+
+    const requests = await prisma.repairRequest.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        title: true,
+        deviceType: true,
+        problem: true,
+        mode: true,
+        status: true,
+        quotedFinalAmount: true,
+        createdAt: true,
+        updatedAt: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            username: true,
+            email: true,
+          },
+        },
+        repairJob: {
+          select: {
+            id: true,
+            status: true,
+            finalQuotedAmount: true,
+            startedAt: true,
+            completedAt: true,
+            createdAt: true,
+            shop: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                area: true,
+                city: true,
+              },
+            },
+          },
+        },
+        bids: {
+          select: {
+            id: true,
+            totalCost: true,
+            partsCost: true,
+            laborCost: true,
+            notes: true,
+            status: true,
+            createdAt: true,
+            shop: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+                area: true,
+                city: true,
+              },
+            },
+          },
+          orderBy: { createdAt: "desc" },
+        },
+      },
+    });
+
+    return res.json({
+      success: true,
+      data: requests,
+    });
+  } catch (error) {
+    console.error("GET /admin/repair-requests error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load repair requests",
+    });
   }
 });
 

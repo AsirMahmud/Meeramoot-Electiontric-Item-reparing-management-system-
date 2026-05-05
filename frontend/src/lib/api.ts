@@ -113,10 +113,13 @@ export type VendorApplicationPayload = {
   password: string;
   confirmPassword: string;
   shopName: string;
+  logoUrl?: string;
   tradeLicenseNo?: string;
-  address: string;
+  address?: string;
   city?: string;
   area?: string;
+  lat?: number | null;
+  lng?: number | null;
   specialties?: string[] | string;
   courierPickup?: boolean;
   inShopRepair?: boolean;
@@ -141,6 +144,13 @@ export function createVendorApplication(data: VendorApplicationPayload, token?: 
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     body: JSON.stringify(data),
   });
+}
+
+export function checkEmailAvailability(email: string) {
+  return request<{ available: boolean; message?: string }>(
+    `/vendor/applications/check-email?email=${encodeURIComponent(email)}`,
+    { method: "GET" }
+  );
 }
 
 export function vendorLogin(data: { identifier: string; password: string }) {
@@ -172,7 +182,8 @@ export type VendorApplicationStatusResponse = {
     ownerName?: string;
     businessEmail?: string;
     phone?: string;
-    shopName?: string;
+    shopName: string;
+    logoUrl?: string | null;
     tradeLicenseNo?: string | null;
     address?: string;
     city?: string | null;
@@ -191,6 +202,7 @@ export type VendorApplicationStatusResponse = {
 
 export type VendorSetupShopPayload = {
   shopName: string;
+  logoUrl?: string;
   description?: string;
   phone: string;
   address: string;
@@ -248,6 +260,7 @@ export function updateVendorApplication(
     businessEmail: string;
     phone: string;
     shopName: string;
+    logoUrl?: string;
     tradeLicenseNo?: string;
     address: string;
     city?: string;
@@ -468,8 +481,17 @@ export function getFeaturedShops() {
   return request<Shop[]>("/shops/featured");
 }
 
-export function getShopBySlug(slug: string) {
-  return request<Shop>(`/shops/${encodeURIComponent(slug)}`);
+export async function getShopBySlug(slug: string) {
+  try {
+    return await request<Shop>(`/shops/${encodeURIComponent(slug)}`);
+  } catch (error) {
+    const { fallbackShops } = await import("./mock-data");
+    const mock = fallbackShops.find((s) => s.slug === slug);
+    if (mock) {
+      return mock as unknown as Shop;
+    }
+    throw error;
+  }
 }
 
 /* =========================================================
@@ -523,6 +545,43 @@ export type DeliverySummary = {
   scheduledAt?: string | null;
 };
 
+export type RefundItem = {
+  id: string;
+  amount: number;
+  reason?: string | null;
+  status: string;
+  processedAt?: string | null;
+  createdAt: string;
+};
+
+export type PaymentItem = {
+  id: string;
+  amount: number;
+  currency: string;
+  method?: string | null;
+  status: string;
+  transactionRef?: string | null;
+  paidAt?: string | null;
+  createdAt: string;
+  refunds: RefundItem[];
+};
+
+export type DisputeItem = {
+  id: string;
+  status: string;
+  resolution?: string | null;
+  resolvedAt?: string | null;
+  createdAt: string;
+};
+
+export type TicketItem = {
+  id: string;
+  subject: string;
+  status: string;
+  priority?: string | null;
+  createdAt: string;
+};
+
 export type OrderItem = {
   id: string;
   title: string;
@@ -532,7 +591,9 @@ export type OrderItem = {
   model?: string | null;
   issueCategory?: string | null;
   problem: string;
+  aiSummary?: string | null;
   mode: string;
+  source?: string;
   status: string;
   preferredPickup: boolean;
   deliveryType?: string | null;
@@ -542,6 +603,9 @@ export type OrderItem = {
   createdAt: string;
   updatedAt?: string;
   bids: BidItem[];
+  payments: PaymentItem[];
+  disputeCases: DisputeItem[];
+  supportTickets: TicketItem[];
   repairJob?: {
     id: string;
     status: string;
@@ -549,6 +613,8 @@ export type OrderItem = {
     finalQuotedAmount?: number | null;
     finalQuoteItems?: FinalQuoteItem[] | null;
     customerApproved?: boolean | null;
+    startedAt?: string | null;
+    completedAt?: string | null;
     acceptedBid?: BidItem | null;
     shop: {
       id: string;
@@ -607,6 +673,8 @@ export type VendorDashboardData = {
     expressFee?: number | null;
     categories: string[];
     specialties: string[];
+    liveNotificationsEnabled?: boolean;
+    liveNotificationsPrompted?: boolean;
   };
   stats: {
     relevantRequestCount: number;
@@ -614,8 +682,9 @@ export type VendorDashboardData = {
     assignedJobCount: number;
     waitingApprovalCount: number;
     completedJobCount: number;
+    pendingOrderCount: number;
   };
-  relevantRequests: Array<{
+  pendingOrders: Array<{
     id: string;
     title: string;
     description?: string | null;
@@ -624,6 +693,24 @@ export type VendorDashboardData = {
     model?: string | null;
     issueCategory?: string | null;
     problem: string;
+    aiSummary?: string | null;
+    mode: string;
+    source?: string;
+    quotedFinalAmount?: number | null;
+    createdAt: string;
+    user: { name?: string | null; email?: string | null; phone?: string | null };
+    payments: Array<{ method?: string | null; status: string; amount: number }>;
+  }>;
+  relevantRequests?: Array<{
+    id: string;
+    title: string;
+    description?: string | null;
+    deviceType: string;
+    brand?: string | null;
+    model?: string | null;
+    issueCategory?: string | null;
+    problem: string;
+    aiSummary?: string | null;
     mode: string;
     preferredPickup: boolean;
     deliveryType?: string | null;
@@ -634,6 +721,7 @@ export type VendorDashboardData = {
     relevanceScore: number;
     matchReasons: string[];
     myBid?: BidItem | null;
+    isExplicitlyRequested?: boolean;
   }>;
   myBids: BidItem[];
   assignedJobs: Array<{
@@ -655,6 +743,7 @@ export type VendorDashboardData = {
       model?: string | null;
       issueCategory?: string | null;
       problem: string;
+      aiSummary?: string | null;
       mode: string;
       preferredPickup: boolean;
       deliveryType?: string | null;
@@ -758,6 +847,26 @@ export async function declineBid(token: string, requestId: string, bidId: string
   );
 }
 
+export async function cancelRequest(token: string, requestId: string) {
+  return authedRequest(
+    `/requests/${encodeURIComponent(requestId)}/cancel`,
+    token,
+    {
+      method: "PATCH",
+    }
+  );
+}
+
+export async function deleteRequest(token: string, requestId: string) {
+  return authedRequest(
+    `/requests/${encodeURIComponent(requestId)}`,
+    token,
+    {
+      method: "DELETE",
+    }
+  );
+}
+
 export async function respondToFinalQuote(
   token: string,
   requestId: string,
@@ -777,8 +886,73 @@ export function getVendorDashboard(token: string) {
   return authedRequest<VendorDashboardData>("/vendor/requests/dashboard", token);
 }
 
+export type BiddingRequestsResponse = {
+  data: Array<{
+    id: string;
+    title: string;
+    description?: string | null;
+    deviceType: string;
+    brand?: string | null;
+    model?: string | null;
+    issueCategory?: string | null;
+    problem: string;
+    aiSummary?: string | null;
+    mode: string;
+    preferredPickup: boolean;
+    deliveryType?: string | null;
+    status: string;
+    createdAt: string;
+    bidCount: number;
+    lowestBidAmount?: number | null;
+    relevanceScore: number;
+    matchReasons: string[];
+    myBid?: BidItem | null;
+    isExplicitlyRequested?: boolean;
+  }>;
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+};
+
+export function getBiddingRequests(token: string, page = 1, limit = 20, filter = "relevant", sort = "desc") {
+  return authedRequest<BiddingRequestsResponse>(
+    `/vendor/requests/bidding-requests?page=${page}&limit=${limit}&filter=${filter}&sort=${sort}`,
+    token
+  );
+}
+
 export function getVendorAnalytics(token: string) {
   return authedRequest<VendorAnalyticsData>("/vendor/requests/analytics", token);
+}
+
+export function acceptPendingOrder(token: string, requestId: string) {
+  return authedRequest(
+    `/vendor/requests/${encodeURIComponent(requestId)}/accept`,
+    token,
+    { method: "PATCH" }
+  );
+}
+
+export function rejectPendingOrder(token: string, requestId: string, reason?: string) {
+  return authedRequest(
+    `/vendor/requests/${encodeURIComponent(requestId)}/reject`,
+    token,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ reason }),
+    }
+  );
+}
+
+export function declineExplicitRequest(token: string, requestId: string) {
+  return authedRequest(
+    `/vendor/requests/${encodeURIComponent(requestId)}/decline-explicit`,
+    token,
+    {
+      method: "PATCH",
+    }
+  );
 }
 
 export function submitVendorBid(
@@ -801,13 +975,13 @@ export function submitVendorBid(
   );
 }
 
-export function updateVendorJobStatus(token: string, jobId: string, status: string) {
+export function updateVendorJobStatus(token: string, jobId: string, status: string, reason?: string) {
   return authedRequest(
     `/vendor/requests/jobs/${encodeURIComponent(jobId)}/status`,
     token,
     {
       method: "PATCH",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, reason }),
     }
   );
 }
@@ -822,6 +996,20 @@ export function submitVendorFinalQuote(
 ) {
   return authedRequest(
     `/vendor/requests/jobs/${encodeURIComponent(jobId)}/final-quote`,
+    token,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function updateVendorNotificationPreferences(
+  token: string,
+  payload: { liveNotificationsEnabled?: boolean; liveNotificationsPrompted?: boolean }
+) {
+  return authedRequest<{ message: string; liveNotificationsEnabled: boolean; liveNotificationsPrompted: boolean }>(
+    "/vendor-status/notifications",
     token,
     {
       method: "PATCH",
@@ -877,6 +1065,12 @@ export async function createReview(
   return authedRequest(`/shops/${slug}/reviews`, token, {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteReview(slug: string, reviewId: string, token?: string) {
+  return authedRequest(`/shops/${slug}/reviews/${reviewId}`, token, {
+    method: "DELETE",
   });
 }
 
@@ -1666,6 +1860,7 @@ export type Cart = {
     address: string;
     ratingAvg: number;
     reviewCount: number;
+    categories?: string[];
   };
   items: CartItem[];
 };
@@ -1790,5 +1985,161 @@ export async function saveAiChatMessage(
   return authedRequest(`/ai-chat/sessions/${sessionId}/messages`, token, {
     method: "POST",
     body: JSON.stringify({ role, text }),
+  });
+}
+
+export async function deleteAiChatSession(sessionId: string, token?: string) {
+  return authedRequest(`/ai-chat/sessions/${sessionId}`, token, {
+    method: "DELETE",
+  });
+}
+
+// ─── Vendor Shop Profile ────────────────────────────────────────────────
+
+export type ShopServiceItem = {
+  id: string;
+  name: string;
+  shortDescription?: string | null;
+  deviceType?: string | null;
+  issueCategory?: string | null;
+  pricingType?: string | null;
+  basePrice?: number | null;
+  estimatedDaysMin?: number | null;
+  estimatedDaysMax?: number | null;
+};
+
+export type SparePartItem = {
+  id: string;
+  name: string;
+  description?: string | null;
+  deviceType?: string | null;
+  brand?: string | null;
+  basePrice?: number | null;
+};
+
+export type AiServiceSuggestionItem = {
+  id: string;
+  name: string;
+  shortDescription?: string | null;
+  deviceType?: string | null;
+  issueCategory?: string | null;
+  pricingType?: string | null;
+  basePrice?: number | null;
+  estimatedDaysMin?: number | null;
+  estimatedDaysMax?: number | null;
+  status?: string;
+};
+
+export type VendorShopProfileData = {
+  shop: {
+    id: string;
+    name: string;
+    slug: string;
+    description?: string | null;
+    logoUrl?: string | null;
+    bannerUrl?: string | null;
+    address: string;
+    city?: string | null;
+    area?: string | null;
+    lat?: number | null;
+    lng?: number | null;
+    phone?: string | null;
+    email?: string | null;
+    ratingAvg: number;
+    reviewCount: number;
+    isPublic: boolean;
+    setupComplete: boolean;
+    inspectionFee?: number | null;
+    baseLaborFee?: number | null;
+    pickupFee?: number | null;
+    expressFee?: number | null;
+    specialties: string[];
+    aiSuggestionsEnabled: boolean;
+    services: ShopServiceItem[];
+    spareParts?: SparePartItem[];
+    aiSuggestions?: AiServiceSuggestionItem[];
+  };
+};
+
+export async function getVendorShopProfile(token: string): Promise<VendorShopProfileData> {
+  return authedRequest<VendorShopProfileData>("/vendor/shop-profile", token);
+}
+
+export async function addVendorService(token: string, data: {
+  name: string;
+  shortDescription?: string;
+  deviceType?: string;
+  issueCategory?: string;
+  pricingType?: string;
+  basePrice?: number | null;
+  estimatedDaysMin?: number | null;
+  estimatedDaysMax?: number | null;
+}) {
+  return authedRequest("/vendor/shop-profile/services", token, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function removeVendorService(token: string, serviceId: string) {
+  return authedRequest(`/vendor/shop-profile/services/${serviceId}`, token, {
+    method: "DELETE",
+  });
+}
+
+export async function addVendorSparePart(token: string, data: {
+  name: string;
+  description?: string;
+  deviceType?: string;
+  brand?: string;
+  basePrice?: number | null;
+}) {
+  return authedRequest("/vendor/shop-profile/spare-parts", token, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateVendorSparePart(token: string, sparePartId: string, data: {
+  name?: string;
+  description?: string;
+  deviceType?: string;
+  brand?: string;
+  basePrice?: number | null;
+}) {
+  return authedRequest(`/vendor/shop-profile/spare-parts/${sparePartId}`, token, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function removeVendorSparePart(token: string, sparePartId: string) {
+  return authedRequest(`/vendor/shop-profile/spare-parts/${sparePartId}`, token, {
+    method: "DELETE",
+  });
+}
+
+export async function generateAiServiceSuggestions(token: string) {
+  return authedRequest<{ message: string }>("/vendor/shop-profile/ai-suggestions/generate", token, {
+    method: "POST",
+  });
+}
+
+export async function updateAiPreferences(token: string, data: { aiSuggestionsEnabled: boolean }) {
+  return authedRequest("/vendor/shop-profile/ai-suggestions/preferences", token, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function acceptAiServiceSuggestion(token: string, suggestionId: string) {
+  return authedRequest(`/vendor/shop-profile/ai-suggestions/${suggestionId}/accept`, token, {
+    method: "POST",
+  });
+}
+
+export async function rejectAiServiceSuggestion(token: string, suggestionId: string) {
+  return authedRequest(`/vendor/shop-profile/ai-suggestions/${suggestionId}/reject`, token, {
+    method: "POST",
   });
 }

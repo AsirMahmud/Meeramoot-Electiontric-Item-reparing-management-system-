@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Navbar from "@/components/home/Navbar";
@@ -8,15 +8,38 @@ import { createRepairRequest, uploadImages } from "@/lib/api";
 import { LOCATION_STORAGE_KEY, type StoredLocation } from "@/components/location/types";
 import { buildLocationLabel, parseStoredLocation } from "@/components/location/location-utils";
 import { pushLocalNotification } from "@/lib/notifications";
+import DeviceAiMatch from "@/components/requests/DeviceAiMatch";
+import { Sparkles, Loader2 } from "lucide-react";
 
 const DEVICE_TYPES = [
   "Laptop",
   "Desktop",
   "Mobile Phone",
   "Tablet",
+  "Smartwatch",
+  "Fitness Tracker",
+  "Headphones/Earbuds",
+  "Smart TV",
+  "Monitor",
+  "Speaker",
   "Printer",
+  "Scanner",
   "Camera",
+  "Action Camera",
   "Game Console",
+  "VR Headset",
+  "Router/Modem",
+  "Drone",
+  "Projector",
+  "Power Bank",
+  "UPS",
+  "E-Reader",
+  "External Storage",
+  "Keyboard",
+  "Streaming Device",
+  "Dash Cam",
+  "GPS Device",
+  "Smart Home Device",
   "Other",
 ];
 
@@ -52,12 +75,27 @@ function NewRequestPageInner() {
   const [toast, setToast] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [modelSuggestions, setModelSuggestions] = useState<{brand: string; model: string; specs: string}[]>([]);
+  const [checkingModel, setCheckingModel] = useState(false);
+  const [deeperSearch, setDeeperSearch] = useState(false);
+  const [isAppliance, setIsAppliance] = useState(false);
+  const [isRubbish, setIsRubbish] = useState(false);
+  const [activeField, setActiveField] = useState<"brand" | "model" | null>(null);
+  const suggestAbortController = useRef<AbortController | null>(null);
+  const skipNextSuggest = useRef(false);
+  const issueClassified = useRef(false);
+  const [classifyingIssue, setClassifyingIssue] = useState(false);
+  const [issueCategories, setIssueCategories] = useState<string[]>(ISSUE_CATEGORIES);
+  const [deviceTypes, setDeviceTypes] = useState<string[]>(DEVICE_TYPES);
 
   const [form, setForm] = useState({
     title: "",
     deviceType: "Laptop",
     brand: "",
     model: "",
+    displaySize: "",
+    chipset: "",
+    year: "",
     issueCategory: "Checkup and diagnosis",
     problem: "",
     mode: shopSlug ? "DIRECT_REPAIR" : "CHECKUP_AND_REPAIR",
@@ -73,6 +111,8 @@ function NewRequestPageInner() {
     pickupLng: "",
     contactPhone: "",
   });
+
+  const YEAR_DEVICE_TYPES = ["Laptop", "Desktop", "Tablet", "Smart TV", "Monitor", "Game Console", "Smartwatch", "E-Reader", "VR Headset"];
 
   const token = (session?.user as { accessToken?: string } | undefined)?.accessToken;
 
@@ -138,6 +178,117 @@ function NewRequestPageInner() {
     return () => clearTimeout(timeout);
   }, [toast]);
 
+  useEffect(() => {
+    const handler = setTimeout(async () => {
+      const brand = form.brand.trim();
+      const model = form.model.trim();
+      
+      if (brand.length > 2 || model.length > 2) {
+        // Skip if this was triggered by selecting a suggestion
+        if (skipNextSuggest.current) {
+          skipNextSuggest.current = false;
+          return;
+        }
+        setCheckingModel(true);
+        // Reset flags when searching again
+        setIsAppliance(false);
+        setIsRubbish(false);
+
+        // Cancel previous request if still pending
+        if (suggestAbortController.current) {
+          suggestAbortController.current.abort();
+        }
+        suggestAbortController.current = new AbortController();
+
+        try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/ai/suggest-model`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ brand, model, deeperSearch }),
+            signal: suggestAbortController.current.signal
+          });
+          const data = await res.json();
+          if (data.ok) {
+            setIsAppliance(!!data.isAppliance);
+            setIsRubbish(!!data.isRubbish);
+            
+            if (data.isAppliance || data.isRubbish) {
+              setModelSuggestions([]);
+              return;
+            }
+            
+            if (data.suggestions && data.suggestions.length > 0) {
+              // Check if first suggestion is literally what they typed for both brand and model
+              const first = data.suggestions[0];
+              const lowerSugModel = first.model.toLowerCase();
+              const lowerMod = model.toLowerCase();
+              const lowerSugBrand = first.brand.toLowerCase();
+              const lowerBrand = brand.toLowerCase();
+              
+              if (lowerSugModel === lowerMod && lowerSugBrand === lowerBrand && data.suggestions.length === 1 && !deeperSearch) {
+                setModelSuggestions([]);
+              } else {
+                setModelSuggestions(data.suggestions);
+              }
+            } else {
+              setModelSuggestions([]);
+            }
+          } else {
+            setModelSuggestions([]);
+          }
+        } catch (err: any) {
+          if (err.name === 'AbortError') {
+            return; // Ignore aborted requests
+          }
+          setModelSuggestions([]);
+        } finally {
+          setCheckingModel(false);
+        }
+      } else {
+        setModelSuggestions([]);
+        setIsAppliance(false);
+        setIsRubbish(false);
+      }
+    }, 1200);
+
+    return () => clearTimeout(handler);
+  }, [form.brand, form.model, deeperSearch]);
+
+  // Auto-classify issue category from problem description (6s debounce)
+  useEffect(() => {
+    const problem = form.problem.trim();
+    if (problem.length < 10) return;
+    issueClassified.current = false;
+
+    const handler = setTimeout(async () => {
+      try {
+        setClassifyingIssue(true);
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/ai/classify-issue`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ problem })
+        });
+        const data = await res.json();
+        if (data.ok && data.issueCategory) {
+          // If AI created a new category, add it to the dropdown
+          if (data.isNew && !issueCategories.includes(data.issueCategory)) {
+            setIssueCategories(prev => {
+              const otherIdx = prev.indexOf("Other");
+              const newList = [...prev];
+              newList.splice(otherIdx >= 0 ? otherIdx : newList.length, 0, data.issueCategory);
+              return newList;
+            });
+          }
+          setForm(prev => ({ ...prev, issueCategory: data.issueCategory }));
+          issueClassified.current = true;
+        }
+      } catch { /* ignore */ }
+      finally { setClassifyingIssue(false); }
+    }, 6000);
+
+    return () => clearTimeout(handler);
+  }, [form.problem]);
+
   return (
     <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Navbar isLoggedIn={!!session?.user} firstName={session?.user?.name?.split(" ")[0]} />
@@ -187,6 +338,9 @@ function NewRequestPageInner() {
               try {
                 setIsSubmitting(true);
 
+                // If AI didn't classify yet, fire it in background
+                const shouldClassifyAfter = !issueClassified.current && form.problem.trim().length >= 10;
+
                 type CreateRepairRequestResult = {
                   matchedShop?: {
                     name?: string;
@@ -206,7 +360,12 @@ function NewRequestPageInner() {
                     description: "",
                     deviceType: form.deviceType,
                     brand: form.brand,
-                    model: form.model,
+                    model: [
+                      form.model,
+                      form.deviceType === "Laptop" && form.displaySize.trim() ? `(${form.displaySize})` : "",
+                      form.deviceType === "Mobile Phone" && form.brand.toLowerCase() === "samsung" && form.chipset.trim() ? `(${form.chipset})` : "",
+                      YEAR_DEVICE_TYPES.includes(form.deviceType) && form.year.trim() ? `(${form.year.trim()})` : ""
+                    ].filter(Boolean).join(" "),
                     issueCategory: form.issueCategory,
                     problem: form.problem,
                     mode: form.mode,
@@ -243,6 +402,24 @@ function NewRequestPageInner() {
                   type: "request",
                   href: "/orders",
                 });
+
+                // Fire-and-forget: classify issue in background if AI didn't get to it
+                if (shouldClassifyAfter) {
+                  fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/ai/classify-issue`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ problem: form.problem.trim() })
+                  }).then(r => r.json()).then(data => {
+                    if (data.ok && data.issueCategory) {
+                      // Update the request's issue category on the server
+                      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/repair-requests/update-category`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ problem: form.problem.trim(), issueCategory: data.issueCategory })
+                      }).catch(() => {});
+                    }
+                  }).catch(() => {});
+                }
               } catch (error) {
                 setMessage(error instanceof Error ? error.message : "Failed to submit request.");
               } finally {
@@ -264,39 +441,143 @@ function NewRequestPageInner() {
               onChange={(e) => setForm((prev) => ({ ...prev, deviceType: e.target.value }))}
               className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3"
             >
-              {DEVICE_TYPES.map((device) => (
+              {deviceTypes.map((device) => (
                 <option key={device} value={device}>
                   {device}
                 </option>
               ))}
             </select>
 
-            <input
-              value={form.brand}
-              onChange={(e) => setForm((prev) => ({ ...prev, brand: e.target.value }))}
-              className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3"
-              placeholder="Brand"
-            />
+            <div className="md:col-span-2 grid gap-4 md:grid-cols-2">
+              <div className="relative">
+                <input
+                  value={form.brand}
+                  onFocus={() => setActiveField("brand")}
+                  onChange={(e) => {
+                    setForm((prev) => ({ ...prev, brand: e.target.value }));
+                    setDeeperSearch(false);
+                    setActiveField("brand");
+                  }}
+                  className={`w-full rounded-2xl border ${modelSuggestions.length > 0 && activeField === "brand" ? 'border-[var(--accent-dark)]' : 'border-[var(--border)]'} bg-[var(--card)] px-4 py-3 outline-none focus:border-[var(--accent-dark)]`}
+                  placeholder="Brand"
+                />
+                {checkingModel && activeField === "brand" && (
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-[var(--muted-foreground)]">
+                    checking...
+                  </span>
+                )}
+              </div>
 
-            <input
-              value={form.model}
-              onChange={(e) => setForm((prev) => ({ ...prev, model: e.target.value }))}
-              className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3"
-              placeholder="Model"
-            />
+              <div className="relative">
+                <input
+                  value={form.model}
+                  onFocus={() => setActiveField("model")}
+                  onChange={(e) => {
+                    setForm((prev) => ({ ...prev, model: e.target.value }));
+                    setDeeperSearch(false);
+                    setActiveField("model");
+                  }}
+                  className={`w-full rounded-2xl border ${modelSuggestions.length > 0 && activeField === "model" ? 'border-[var(--accent-dark)]' : 'border-[var(--border)]'} bg-[var(--card)] px-4 py-3 outline-none focus:border-[var(--accent-dark)]`}
+                  placeholder="Model"
+                />
+                {checkingModel && activeField === "model" && (
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-[var(--muted-foreground)]">
+                    checking...
+                  </span>
+                )}
+              </div>
 
-            <select
-              required
-              value={form.issueCategory}
-              onChange={(e) => setForm((prev) => ({ ...prev, issueCategory: e.target.value }))}
-              className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3"
-            >
-              {ISSUE_CATEGORIES.map((issue) => (
-                <option key={issue} value={issue}>
-                  {issue}
-                </option>
-              ))}
-            </select>
+              {form.deviceType === "Laptop" && (
+                <div className="relative md:col-span-2">
+                  <input
+                    value={form.displaySize}
+                    onChange={(e) => setForm((prev) => ({ ...prev, displaySize: e.target.value }))}
+                    className="w-full rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 outline-none focus:border-[var(--accent-dark)]"
+                    placeholder="Display Size (e.g. 15.6&quot;)"
+                  />
+                </div>
+              )}
+
+              {form.deviceType === "Mobile Phone" && form.brand.toLowerCase() === "samsung" && (
+                <div className="relative md:col-span-2">
+                  <input
+                    value={form.chipset}
+                    onChange={(e) => setForm((prev) => ({ ...prev, chipset: e.target.value }))}
+                    className="w-full rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 outline-none focus:border-[var(--accent-dark)]"
+                    placeholder="Chipset (e.g. Snapdragon, Exynos)"
+                  />
+                </div>
+              )}
+
+              {YEAR_DEVICE_TYPES.includes(form.deviceType) && (
+                <div className={`relative ${form.deviceType === "Laptop" ? "" : "md:col-span-2"}`}>
+                  <input
+                    value={form.year}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, "").slice(0, 4);
+                      setForm((prev) => ({ ...prev, year: val }));
+                    }}
+                    inputMode="numeric"
+                    maxLength={4}
+                    className="w-full rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 outline-none focus:border-[var(--accent-dark)]"
+                    placeholder="Year (e.g. 2024)"
+                  />
+                </div>
+              )}
+
+              {/* AI Assistant Suggestions spanning both columns */}
+              <div className="md:col-span-2">
+                <DeviceAiMatch 
+                  checkingModel={checkingModel}
+                  activeField={activeField}
+                  isAppliance={isAppliance}
+                  isRubbish={isRubbish}
+                  modelSuggestions={modelSuggestions}
+                  deeperSearch={deeperSearch}
+                  onSelectSuggestion={(brand, model, deviceType) => {
+                    skipNextSuggest.current = true;
+                    // If AI returned a new device type not in the list, add it dynamically
+                    if (deviceType && !deviceTypes.includes(deviceType)) {
+                      setDeviceTypes(prev => {
+                        const otherIdx = prev.indexOf("Other");
+                        const newList = [...prev];
+                        newList.splice(otherIdx >= 0 ? otherIdx : newList.length, 0, deviceType);
+                        return newList;
+                      });
+                    }
+                    setForm(prev => ({
+                      ...prev, 
+                      brand, 
+                      model,
+                      ...(deviceType ? { deviceType } : {})
+                    }));
+                    setModelSuggestions([]);
+                    setCheckingModel(false);
+                  }}
+                  onSearchDeeper={() => setDeeperSearch(true)}
+                />
+              </div>
+            </div>
+
+            <div className="relative">
+              <select
+                required
+                value={form.issueCategory}
+                onChange={(e) => { setForm((prev) => ({ ...prev, issueCategory: e.target.value })); issueClassified.current = true; }}
+                className="w-full rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3"
+              >
+                {issueCategories.map((issue) => (
+                  <option key={issue} value={issue}>
+                    {issue}
+                  </option>
+                ))}
+              </select>
+              {classifyingIssue && (
+                <span className="absolute right-10 top-1/2 -translate-y-1/2 text-xs font-semibold text-[var(--accent-dark)] animate-pulse">
+                  AI selecting...
+                </span>
+              )}
+            </div>
 
             <select
               value={form.mode}

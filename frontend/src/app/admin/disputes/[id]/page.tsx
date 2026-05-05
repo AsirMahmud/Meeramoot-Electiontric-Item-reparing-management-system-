@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import { getAuthHeaders } from "@/lib/api";
+import { useAdminToken } from "@/hooks/useAdminToken";
 
 type Note = {
   id: string;
@@ -56,8 +56,7 @@ type Dispute = {
 export default function AdminDisputeDetailPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
-  const { data: session } = useSession();
-  const token = (session?.user as any)?.accessToken;
+  const token = useAdminToken();
 
   const [dispute, setDispute] = useState<Dispute | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,6 +67,8 @@ export default function AdminDisputeDetailPage() {
   const [resolutionText, setResolutionText] = useState("");
   const [isResolving, setIsResolving] = useState(false);
   const [statusToResolve, setStatusToResolve] = useState("RESOLVED");
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
+  const [confirmDeleteNoteId, setConfirmDeleteNoteId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchDispute = async () => {
@@ -127,6 +128,32 @@ export default function AdminDisputeDetailPage() {
     }
   };
 
+  const handleDeleteNote = async (noteId: string) => {
+    try {
+      setDeletingNoteId(noteId);
+      setConfirmDeleteNoteId(null);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/disputes/${id}/notes/${noteId}`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: getAuthHeaders(token),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setDispute((prev) => {
+          if (!prev) return prev;
+          return { ...prev, notes: prev.notes.filter((n) => n.id !== noteId) };
+        });
+      } else {
+        alert(data.message || "Failed to delete note");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Error deleting note.");
+    } finally {
+      setDeletingNoteId(null);
+    }
+  };
+
   const handleResolve = async () => {
     if (!resolutionText.trim()) {
         alert("Please provide a resolution note before resolving.");
@@ -182,17 +209,23 @@ export default function AdminDisputeDetailPage() {
   const isClosed = ["RESOLVED", "REFUNDED", "PARTIALLY_REFUNDED", "REJECTED", "CLOSED"].includes(dispute.status);
 
   return (
+    <>
     <section>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6">
         <div>
-          <Link href="/admin/disputes" className="mb-2 inline-block text-sm font-semibold text-[var(--muted-foreground)] hover:underline">
-            &larr; Back to Disputes
+          <Link 
+            href="/admin/disputes" 
+            className="mb-4 -ml-3 inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-white dark:bg-[#1C251F] px-4 py-2 text-xs font-bold uppercase tracking-wider text-[var(--muted-foreground)] shadow-sm transition-all hover:bg-[var(--mint-50)] hover:text-[var(--accent-dark)] hover:shadow-md active:scale-95"
+          >
+            <span>←</span> Back to Disputes
           </Link>
-          <h2 className="text-3xl font-bold text-[var(--accent-dark)]">Dispute Case</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-3xl font-bold text-[var(--accent-dark)]">Dispute Case</h2>
+            <span className="rounded-full bg-[var(--mint-100)] px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-[var(--accent-dark)]">
+              {dispute.status}
+            </span>
+          </div>
           <p className="mt-1 text-[var(--muted-foreground)]">ID: {dispute.id}</p>
-        </div>
-        <div className="rounded-full bg-[var(--mint-100)] px-4 py-2 font-semibold tracking-wide text-[var(--accent-dark)]">
-          {dispute.status}
         </div>
       </div>
 
@@ -258,17 +291,29 @@ export default function AdminDisputeDetailPage() {
                     <p className="text-[var(--muted-foreground)]">No notes added yet.</p>
                 ) : (
                     dispute.notes.map((note) => (
-                        <div key={note.id} className={`rounded-2xl p-5 shadow-sm ${note.isInternal ? "bg-[#FFF9E6] border border-[#FDE68A]" : "bg-white dark:bg-[#1C251F] border border-[var(--border)]"}`}>
+                        <div key={note.id} className={`rounded-2xl p-5 shadow-sm ${note.isInternal ? "bg-[#FFF9E6] dark:bg-[#FFF9E6] border border-[#FDE68A]" : "bg-white dark:bg-[#1C251F] border border-[var(--border)]"}`}>
                             <div className="flex items-start justify-between">
                                 <div>
-                                    <p className="font-semibold text-[var(--accent-dark)]">{note.author?.name || note.author?.email || "System"}</p>
-                                    <p className="text-xs text-[var(--muted-foreground)]">{new Date(note.createdAt).toLocaleString()}</p>
+                                    <p className={`font-semibold ${note.isInternal ? "text-[#244229]" : "text-[var(--accent-dark)]"}`}>{note.author?.name || note.author?.email || "System"}</p>
+                                    <p className={`text-xs ${note.isInternal ? "text-[#6B7280]" : "text-[var(--muted-foreground)]"}`}>{new Date(note.createdAt).toLocaleString()}</p>
                                 </div>
-                                {note.isInternal && (
-                                    <span className="rounded-full bg-[#FEF3C7] px-3 py-1 text-xs font-semibold text-[#92400E]">Internal Note</span>
-                                )}
+                                <div className="flex items-center gap-2">
+                                    {note.isInternal && (
+                                        <span className="rounded-full bg-[#FEF3C7] px-3 py-1 text-xs font-semibold text-[#92400E]">Internal Note</span>
+                                    )}
+                                    <button
+                                        onClick={() => setConfirmDeleteNoteId(note.id)}
+                                        disabled={deletingNoteId === note.id}
+                                        title="Delete note"
+                                        className={`rounded-lg p-1.5 transition hover:bg-red-100 dark:hover:bg-red-900/30 disabled:opacity-50 ${note.isInternal ? "text-[#92400E] hover:text-red-600" : "text-[var(--muted-foreground)] hover:text-red-500"}`}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
-                            <p className="mt-3 text-[var(--foreground)]">{note.note}</p>
+                            <p className={`mt-3 ${note.isInternal ? "text-[#1F2937]" : "text-[var(--foreground)]"}`}>{note.note}</p>
                         </div>
                     ))
                 )}
@@ -290,7 +335,7 @@ export default function AdminDisputeDetailPage() {
                                 value={newNote}
                                 onChange={(e) => setNewNote(e.target.value)}
                                 rows={3}
-                                className="mt-1 w-full rounded-2xl border border-[var(--border)] bg-[#F9FBF8] px-4 py-3 text-sm text-[var(--foreground)] focus:border-[var(--accent-dark)] focus:outline-none"
+                                className="mt-1 w-full rounded-2xl border border-[var(--border)] bg-[var(--mint-50)] px-4 py-3 text-sm text-[var(--foreground)] focus:border-[var(--accent-dark)] focus:outline-none"
                                 placeholder="Write your findings..."
                             />
                         </div>
@@ -322,7 +367,7 @@ export default function AdminDisputeDetailPage() {
                                 value={resolutionText}
                                 onChange={(e) => setResolutionText(e.target.value)}
                                 rows={3}
-                                className="mt-1 w-full rounded-2xl border border-[var(--border)] bg-[#F9FBF8] px-4 py-3 text-sm text-[var(--foreground)] focus:border-[var(--accent-dark)] focus:outline-none"
+                                className="mt-1 w-full rounded-2xl border border-[var(--border)] bg-[var(--mint-50)] px-4 py-3 text-sm text-[var(--foreground)] focus:border-[var(--accent-dark)] focus:outline-none"
                                 placeholder="Explain how this was resolved..."
                             />
                         </div>
@@ -351,5 +396,42 @@ export default function AdminDisputeDetailPage() {
         </div>
       </div>
     </section>
+
+      {confirmDeleteNoteId && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+            onClick={() => setConfirmDeleteNoteId(null)}
+          />
+          <div className="relative z-[101] w-[90%] max-w-sm rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-8 shadow-2xl">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <h2 className="text-center text-xl font-bold text-[var(--accent-dark)]">
+              Delete this note?
+            </h2>
+            <p className="mt-2 text-center text-sm text-[var(--muted-foreground)]">
+              This action cannot be undone. The note will be permanently removed.
+            </p>
+            <div className="mt-6 flex items-center justify-center gap-4">
+              <button
+                onClick={() => setConfirmDeleteNoteId(null)}
+                className="rounded-full border border-[var(--border)] bg-[var(--card)] px-6 py-2.5 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--mint-50)]"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteNote(confirmDeleteNoteId)}
+                className="rounded-full bg-red-500 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-red-600"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

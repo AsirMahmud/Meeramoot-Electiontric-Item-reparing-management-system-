@@ -7,14 +7,19 @@ import { useMemo, useState } from "react";
 
 const navItems = [
   { href: "/admin", label: "Dashboard" },
-  { href: "/admin/finance", label: "Finance Ledger" },
+  { href: "/admin/users", label: "Users" },
+  { href: "/admin/vendors", label: "Vendors" },
+  { href: "/admin/repair-requests", label: "Repair Requests" },
+  { href: "/admin/delivery", label: "Delivery Riders" },
   { href: "/admin/tickets", label: "Support Tickets" },
   { href: "/admin/disputes", label: "Disputes" },
-  { href: "/admin/vendors", label: "Vendors" },
-  { href: "/admin/delivery", label: "Delivery Riders" },
+  { href: "/admin/payments", label: "Payments" },
+  { href: "/admin/reviews", label: "Reviews" },
+  { href: "/admin/finance", label: "Finance Ledger" },
+  { href: "/delivery-admin", label: "Live Delivery Dispatch" },
 ];
 
-export default function AdminSidebarNav() {
+export default function AdminSidebarNav({ onNavClick }: { onNavClick?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();
@@ -58,6 +63,7 @@ export default function AdminSidebarNav() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavClick}
               className={`block rounded-2xl px-4 py-3 text-sm font-medium transition ${
                 isActive
                   ? "bg-[#DCEAD7] dark:bg-[#233027] text-[var(--accent-dark)] dark:text-[#5BD881]"

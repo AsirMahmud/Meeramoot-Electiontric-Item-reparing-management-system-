@@ -6,7 +6,7 @@ import FeaturedShops from "@/components/home/FeaturedShops";
 import Navbar from "@/components/home/Navbar";
 import PopularCategories from "@/components/home/PopularCategories";
 import RecentlyViewed from "@/components/home/RecentlyViewed";
-import SidebarFilters from "@/components/home/SidebarFilters";
+
 import OfferCarousel from "@/components/home/OfferCarousel";
 
 type SessionUser = {
@@ -18,7 +18,6 @@ type SessionUser = {
 export default function HomePage() {
   const { data: session, status } = useSession();
   const [language, setLanguage] = useState<"en" | "bn">("en");
-
   const sessionUser = session?.user as SessionUser | undefined;
   const isLoggedIn = status === "authenticated" && !!sessionUser;
 
@@ -41,10 +40,8 @@ export default function HomePage() {
         onLanguageChange={setLanguage}
       />
 
-      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 md:px-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-      <SidebarFilters targetPath="/shops" />
-
-        <div className="space-y-8">
+      <div className="mx-auto max-w-7xl px-4 py-4 md:px-6 md:py-6">
+        <div className="space-y-6 md:space-y-8">
           <OfferCarousel />
           <FeaturedShops />
           <PopularCategories />

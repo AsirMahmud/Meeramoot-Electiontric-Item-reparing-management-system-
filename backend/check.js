@@ -1,6 +1,12 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
-prisma.payment.findMany({ orderBy: { createdAt: 'desc' }, take: 2 })
-  .then(console.log)
-  .catch(console.error)
-  .finally(() => prisma.$disconnect());
+
+async function main() {
+  await prisma.shop.updateMany({
+    where: { isActive: true, isPublic: true },
+    data: { isFeatured: true }
+  });
+  console.log("Updated active shops to be featured.");
+}
+
+main().finally(() => prisma.$disconnect());

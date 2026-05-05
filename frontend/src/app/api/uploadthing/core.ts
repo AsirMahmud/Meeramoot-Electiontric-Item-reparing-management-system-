@@ -19,6 +19,13 @@ export const uploadRouter = {
   }).onUploadComplete(async ({ file }) => {
     return { fileUrl: file.url, fileName: file.name };
   }),
+  shopLogoUploader: f({
+    "image/jpeg": { maxFileSize: "4MB", maxFileCount: 1 },
+    "image/png": { maxFileSize: "4MB", maxFileCount: 1 },
+    "image/webp": { maxFileSize: "4MB", maxFileCount: 1 },
+  }).onUploadComplete(async ({ file }) => {
+    return { fileUrl: file.url, fileName: file.name };
+  }),
   deliveryNidUploader: f({
     "application/pdf": {
       maxFileSize: "8MB",

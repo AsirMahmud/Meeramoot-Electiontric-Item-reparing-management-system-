@@ -133,9 +133,11 @@ export async function getShops(req: Request, res: Response) {
           ...shop,
           distanceKm,
           etaMinutes,
-          offerSummary: shop.baseLaborFee 
-            ? `Starting from ৳${shop.baseLaborFee.toLocaleString("en-BD")}` 
-            : `Inspection ৳${(shop.inspectionFee ?? 0).toLocaleString("en-BD")}`,
+          offerSummary: shop.inspectionFee != null
+            ? `Inspection ৳${shop.inspectionFee.toLocaleString("en-BD")}`
+            : shop.baseLaborFee
+            ? `Starting from ৳${shop.baseLaborFee.toLocaleString("en-BD")}`
+            : `Starting from ৳${(shop.priceLevel || 1) * 150}`,
           resultTag: resultTag({
             priceLevel: shop.priceLevel,
             distanceKm,
@@ -149,17 +151,24 @@ export async function getShops(req: Request, res: Response) {
 
     const sorted = enriched.sort((a, b) => {
       if (sort === "price") {
-        const getPrice = (s: any) => s.baseLaborFee ? s.baseLaborFee : (s.inspectionFee ?? ((s.priceLevel || 1) * 1000));
+        const getPrice = (s: any) => s.inspectionFee ?? ((s.priceLevel || 1) * 150);
         const priceA = getPrice(a);
         const priceB = getPrice(b);
         
         if (priceA !== priceB) return priceA - priceB;
+
+        const laborA = a.baseLaborFee ?? Number.MAX_SAFE_INTEGER;
+        const laborB = b.baseLaborFee ?? Number.MAX_SAFE_INTEGER;
+        if (laborA !== laborB) return laborA - laborB;
+
         if ((a.priceLevel || 1) !== (b.priceLevel || 1)) return (a.priceLevel || 1) - (b.priceLevel || 1);
         return (b.ratingAvg || 0) - (a.ratingAvg || 0);
       }
 
       if (sort === "distance") {
-        return (a.distanceKm ?? Number.MAX_SAFE_INTEGER) - (b.distanceKm ?? Number.MAX_SAFE_INTEGER);
+        const distDiff = (a.distanceKm ?? Number.MAX_SAFE_INTEGER) - (b.distanceKm ?? Number.MAX_SAFE_INTEGER);
+        if (distDiff !== 0) return distDiff;
+        return (a.etaMinutes ?? Number.MAX_SAFE_INTEGER) - (b.etaMinutes ?? Number.MAX_SAFE_INTEGER);
       }
 
       if (sort === "relevance") {
@@ -215,9 +224,11 @@ export async function getFeaturedShops(_req: Request, res: Response) {
 
     const enriched = shops.map((shop) => ({
       ...shop,
-      offerSummary: shop.baseLaborFee 
-        ? `Starting from ৳${shop.baseLaborFee.toLocaleString("en-BD")}` 
-        : `Inspection ৳${(shop.inspectionFee ?? 0).toLocaleString("en-BD")}`,
+      offerSummary: shop.inspectionFee != null
+        ? `Inspection ৳${shop.inspectionFee.toLocaleString("en-BD")}`
+        : shop.baseLaborFee
+        ? `Starting from ৳${shop.baseLaborFee.toLocaleString("en-BD")}`
+        : `Starting from ৳${(shop.priceLevel || 1) * 150}`,
     }));
 
     return res.json(enriched);
@@ -261,6 +272,31 @@ export async function getShopBySlug(req: Request, res: Response) {
       categories: true,
       specialties: true,
       createdAt: true,
+      services: {
+        where: { isActive: true },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          shortDescription: true,
+          deviceType: true,
+          issueCategory: true,
+          pricingType: true,
+          basePrice: true,
+        }
+      },
+      spareParts: {
+        where: { isActive: true },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          deviceType: true,
+          brand: true,
+          basePrice: true,
+          inStock: true,
+        }
+      }
     },
   });
 

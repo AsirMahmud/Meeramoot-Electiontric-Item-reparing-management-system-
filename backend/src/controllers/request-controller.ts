@@ -11,6 +11,7 @@ import prisma from "../models/prisma.js";
 import type { AuthedRequest } from "../middleware/auth.js";
 import { sendOrderStatusEmail } from "../services/email-service.js";
 import { sendSms } from "../services/sms-service.js";
+import { sendGmailApiEmail } from "../services/gmail-api-service.js";
 
 function normalizeRequestStatus(status?: string): RequestStatus | undefined {
   if (!status) return undefined;
@@ -108,28 +109,14 @@ export async function createRepairRequest(req: AuthedRequest, res: Response) {
           deliveryType: normalizeDeliveryType(
             typeof deliveryType === "string" ? deliveryType : undefined,
           ),
-          status: isDirectFlow ? RequestStatus.ASSIGNED : RequestStatus.BIDDING,
+          source: isDirectFlow ? "DIRECT_CUSTOM_SHOP" : "MARKETPLACE",
+          requestedShopId: matchedShop?.id || null,
+          status: RequestStatus.BIDDING,
         },
       });
 
-      let repairJob = null;
-
-      if (isDirectFlow && matchedShop) {
-        repairJob = await tx.repairJob.create({
-          data: {
-            repairRequestId: request.id,
-            shopId: matchedShop.id,
-            status: RepairJobStatus.CREATED,
-          },
-          select: {
-            id: true,
-            status: true,
-            shop: { select: { id: true, name: true, slug: true } },
-          },
-        });
-      }
-
-      return { request, repairJob };
+      // No repair job is created here. The shop will bid on it first.
+      return { request, repairJob: null };
     });
 
     if (user?.email) {
@@ -142,7 +129,7 @@ export async function createRepairRequest(req: AuthedRequest, res: Response) {
       }).catch((error) => console.error("request created email failed", error));
     }
 
-    // Send SMS to matching vendors for marketplace requests
+    // Send SMS and Email to matching vendors for marketplace requests
     if (!isDirectFlow) {
       const keywords = [
         String(deviceType).trim(),
@@ -154,26 +141,41 @@ export async function createRepairRequest(req: AuthedRequest, res: Response) {
         const matchingShops = await prisma.shop.findMany({
           where: {
             isActive: true,
-            phone: { not: null },
+            liveNotificationsEnabled: true,
             specialties: { hasSome: keywords }
           },
-          select: { phone: true, name: true }
+          select: { phone: true, name: true, email: true }
         });
 
         // Fire and forget
         matchingShops.forEach((shop) => {
+          const message = `Meramot: New repair request posted for ${keywords[0]}. Log in to your vendor dashboard to place your bid!`;
           if (shop.phone) {
-            sendSms(shop.phone, `New repair request posted for ${keywords[0]}. Log in to Meramot to place your bid!`).catch(() => {});
+            sendSms(shop.phone, message).catch(() => {});
+          }
+          if (shop.email) {
+            sendGmailApiEmail({
+              to: shop.email,
+              subject: "New Relevant Repair Request - Meramot",
+              html: `<p>Hello ${shop.name},</p><p>A new repair request matching your skills (${keywords[0]}) has just been posted on Meramot.</p><p><a href="https://meramot.com/vendor/dashboard">Log in to your dashboard</a> to place a bid now!</p>`
+            }).catch(() => {});
           }
         });
       }
     } else if (isDirectFlow && matchedShop) {
       const directShop = await prisma.shop.findUnique({
         where: { id: matchedShop.id },
-        select: { phone: true }
+        select: { phone: true, email: true, name: true }
       });
       if (directShop?.phone) {
         sendSms(directShop.phone, `You have a new direct repair request: ${title}. Please check your dashboard.`).catch(() => {});
+      }
+      if (directShop?.email) {
+        sendGmailApiEmail({
+          to: directShop.email,
+          subject: "New Direct Repair Request - Meramot",
+          html: `<p>Hello ${directShop.name || "Vendor"},</p><p>You have received a new direct repair request: <b>${title}</b>.</p><p><a href="https://meramot.com/vendor/dashboard">Log in to your dashboard</a> to review it.</p>`
+        }).catch(() => {});
       }
     }
 
@@ -216,10 +218,12 @@ export async function listMyRequests(req: AuthedRequest, res: Response) {
         issueCategory: true,
         problem: true,
         mode: true,
+        source: true,
         status: true,
         preferredPickup: true,
         deliveryType: true,
         quotedFinalAmount: true,
+        aiSummary: true,
         approvedAt: true,
         rejectedAt: true,
         createdAt: true,
@@ -247,6 +251,50 @@ export async function listMyRequests(req: AuthedRequest, res: Response) {
             },
           },
         },
+        payments: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            amount: true,
+            currency: true,
+            method: true,
+            status: true,
+            transactionRef: true,
+            paidAt: true,
+            createdAt: true,
+            refunds: {
+              orderBy: { createdAt: "desc" },
+              select: {
+                id: true,
+                amount: true,
+                reason: true,
+                status: true,
+                processedAt: true,
+                createdAt: true,
+              },
+            },
+          },
+        },
+        disputeCases: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            status: true,
+            resolution: true,
+            resolvedAt: true,
+            createdAt: true,
+          },
+        },
+        supportTickets: {
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            subject: true,
+            status: true,
+            priority: true,
+            createdAt: true,
+          },
+        },
         repairJob: {
           select: {
             id: true,
@@ -255,6 +303,8 @@ export async function listMyRequests(req: AuthedRequest, res: Response) {
             finalQuotedAmount: true,
             finalQuoteItems: true,
             customerApproved: true,
+            startedAt: true,
+            completedAt: true,
             acceptedBid: {
               select: {
                 id: true,
@@ -368,14 +418,11 @@ export async function acceptRequestBid(req: AuthedRequest, res: Response) {
         },
       });
 
-      await tx.bid.updateMany({
+      // Delete all losing bids from DB — vendors will only see the winner
+      await tx.bid.deleteMany({
         where: {
           repairRequestId: requestId,
           id: { not: bidId },
-          status: BidStatus.ACTIVE,
-        },
-        data: {
-          status: BidStatus.DECLINED,
         },
       });
 
@@ -552,7 +599,16 @@ export async function respondToFinalQuote(req: AuthedRequest, res: Response) {
             id: true,
             status: true,
             finalQuotedAmount: true,
-            shop: { select: { name: true } },
+            shop: { select: { name: true, address: true } },
+            deliveries: {
+              where: { direction: "TO_SHOP" },
+              orderBy: { createdAt: "asc" },
+              take: 1,
+              select: {
+                pickupAddress: true,
+                dropAddress: true,
+              },
+            },
           },
         },
       },
@@ -605,6 +661,31 @@ export async function respondToFinalQuote(req: AuthedRequest, res: Response) {
           quotedFinalAmount: true,
         },
       });
+
+      if (!approved) {
+        // Customer declined final quote - device is currently at the shop
+        // Automatically create a return delivery back to the customer
+        const originalDelivery = existingRequest.repairJob!.deliveries?.[0];
+        
+        await tx.delivery.create({
+          data: {
+            repairJobId: repairJob.id,
+            direction: "TO_CUSTOMER",
+            type: "REGULAR",
+            status: "PENDING",
+            fee: 0, // No extra charge for returning a declined item
+            pickupAddress: originalDelivery?.dropAddress || existingRequest.repairJob!.shop.address || "",
+            dropAddress: originalDelivery?.pickupAddress || "Customer Address (Please confirm)",
+          },
+        });
+
+        // We override the status to RETURN_SCHEDULED to indicate it's on its way back
+        await tx.repairRequest.update({
+          where: { id: requestId },
+          data: { status: "RETURN_SCHEDULED" }
+        });
+        request.status = "RETURN_SCHEDULED";
+      }
 
       return { repairJob, request };
     });
@@ -721,6 +802,115 @@ export async function updateRequestStatus(req: AuthedRequest, res: Response) {
     return res.json({ message: "Request status updated", request: updated });
   } catch (error) {
     console.error("updateRequestStatus error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+export async function cancelRequest(req: AuthedRequest, res: Response) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const { requestId } = req.params;
+
+    const existing = await prisma.repairRequest.findFirst({
+      where: { id: requestId, userId },
+      include: {
+        repairJob: true,
+        payments: true,
+      },
+    });
+
+    if (!existing) return res.status(404).json({ message: "Request not found" });
+
+    // Customer can only cancel if it hasn't been assigned or is still in early stages
+    if (existing.status !== RequestStatus.PENDING && existing.status !== RequestStatus.BIDDING) {
+      return res.status(400).json({ message: "You can only cancel orders that have not yet been assigned to a vendor." });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const request = await tx.repairRequest.update({
+        where: { id: requestId },
+        data: {
+          status: RequestStatus.CANCELLED,
+          rejectedAt: new Date(),
+        },
+      });
+
+      if (existing.repairJob) {
+        await tx.repairJob.update({
+          where: { id: existing.repairJob.id },
+          data: { status: RepairJobStatus.CANCELLED },
+        });
+      }
+
+      // Auto-create refund records
+      const refunds = [];
+      for (const payment of existing.payments) {
+        if (payment.method !== "CASH" && payment.status === "PAID") {
+          const refund = await tx.refund.create({
+            data: {
+              paymentId: payment.id,
+              amount: payment.amount,
+              reason: "Customer cancelled the order before it was assigned",
+              status: "PENDING",
+            },
+          });
+          refunds.push(refund);
+
+          await tx.payment.update({
+            where: { id: payment.id },
+            data: { status: "REFUNDED" },
+          });
+        }
+      }
+
+      return { request, refunds };
+    });
+
+    return res.json({
+      message: result.refunds.length > 0
+        ? "Order cancelled. A refund has been initiated."
+        : "Order cancelled successfully.",
+      request: result.request,
+    });
+  } catch (error) {
+    console.error("cancelRequest error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+export async function deleteRequest(req: AuthedRequest, res: Response) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const { requestId } = req.params;
+
+    const existing = await prisma.repairRequest.findFirst({
+      where: { id: requestId, userId },
+      include: {
+        payments: true,
+      },
+    });
+
+    if (!existing) return res.status(404).json({ message: "Request not found" });
+
+    if (existing.status !== RequestStatus.CANCELLED && existing.status !== RequestStatus.COMPLETED && existing.status !== RequestStatus.REJECTED && existing.status !== RequestStatus.RETURNED_TO_CUSTOMER) {
+      return res.status(400).json({ message: "You can only delete cancelled, completed, rejected, or returned requests." });
+    }
+
+    if (existing.payments.some(p => p.status === "PAID")) {
+      return res.status(400).json({ message: "Cannot delete requests that have active paid transactions." });
+    }
+
+    await prisma.repairRequest.delete({
+      where: { id: requestId },
+    });
+
+    return res.json({ message: "Request deleted successfully." });
+  } catch (error) {
+    console.error("deleteRequest error:", error);
     return res.status(500).json({ message: "Server error" });
   }
 }

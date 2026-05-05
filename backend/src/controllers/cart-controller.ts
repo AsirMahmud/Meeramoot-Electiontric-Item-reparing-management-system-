@@ -53,6 +53,7 @@ export async function getMyActiveCarts(req: AuthedRequest, res: Response) {
             address: true,
             ratingAvg: true,
             reviewCount: true,
+            categories: true,
           },
         },
         items: {
@@ -85,6 +86,12 @@ export async function addItemToCart(req: AuthedRequest, res: Response) {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
+    // Guard against stale JWT tokens referencing deleted users (e.g. after a re-seed)
+    const userExists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!userExists) {
+      return res.status(401).json({ message: "Your session has expired. Please log out and log back in." });
+    }
+
     const {
       shopSlug,
       serviceName,
@@ -107,8 +114,12 @@ export async function addItemToCart(req: AuthedRequest, res: Response) {
       });
     }
 
-    const shop = await prisma.shop.findUnique({
-      where: { slug: shopSlug.trim() },
+    const shop = await prisma.shop.findFirst({
+      where: { 
+        slug: shopSlug.trim(),
+        isActive: true,
+        isPublic: true,
+      },
       select: { id: true, slug: true, name: true },
     });
 
@@ -201,6 +212,7 @@ export async function addItemToCart(req: AuthedRequest, res: Response) {
             address: true,
             ratingAvg: true,
             reviewCount: true,
+            categories: true,
           },
         },
         items: true,
@@ -322,6 +334,7 @@ export async function checkoutCart(req: AuthedRequest, res: Response) {
       area,
       lat,
       lng,
+      preferredPickup = true,
       deliveryType,
       problemNote,
     } = req.body as {
@@ -334,6 +347,7 @@ export async function checkoutCart(req: AuthedRequest, res: Response) {
       area?: string;
       lat?: number;
       lng?: number;
+      preferredPickup?: boolean;
       deliveryType?: "REGULAR" | "EXPRESS";
       problemNote?: string;
     };
@@ -379,7 +393,7 @@ export async function checkoutCart(req: AuthedRequest, res: Response) {
     );
     const selectedDeliveryType = deliveryType === "EXPRESS" ? DeliveryType.EXPRESS : DeliveryType.REGULAR;
     const serviceCharge = calculateServiceCharge(subtotal);
-    const deliveryFee = calculateDeliveryFee(deliveryType);
+    const deliveryFee = preferredPickup ? calculateDeliveryFee(selectedDeliveryType) : 0;
     const totalAmount = subtotal + serviceCharge + deliveryFee;
 
     const serviceLines = cart.items
@@ -431,11 +445,11 @@ export async function checkoutCart(req: AuthedRequest, res: Response) {
           problem: problemNote?.trim() || `Direct order services:\n${serviceLines}`,
           imageUrls: [],
           mode: RequestMode.DIRECT_REPAIR,
-          preferredPickup: true,
-          deliveryType: selectedDeliveryType,
+          preferredPickup: preferredPickup,
+          deliveryType: preferredPickup ? selectedDeliveryType : null,
           checkupFee: serviceCharge,
           quotedFinalAmount: totalAmount,
-          status: RequestStatus.ASSIGNED,
+          status: RequestStatus.PENDING,
         },
       });
 
@@ -447,7 +461,7 @@ export async function checkoutCart(req: AuthedRequest, res: Response) {
         },
       });
 
-      const delivery = await tx.delivery.create({
+      const delivery = preferredPickup ? await tx.delivery.create({
         data: {
           repairJobId: repairJob.id,
           direction: DeliveryDirection.TO_SHOP,
@@ -458,7 +472,7 @@ export async function checkoutCart(req: AuthedRequest, res: Response) {
           dropAddress: cart.shop.address,
           scheduledAt: pickupTime,
         },
-      });
+      }) : null;
       const payment =
         paymentMethod === "SSLCOMMERZ"
           ? null

@@ -43,6 +43,7 @@ export default function DeliveryAdminDashboard() {
   const [actionId, setActionId] = useState<string | null>(null);
   const [focusedPartnerId, setFocusedPartnerId] = useState<string | null>(null);
   const [orders, setOrders] = useState<DeliveryAdminOrder[]>([]);
+  const [hasNewData, setHasNewData] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string>("");
   const [timeline, setTimeline] = useState<Array<{ code: string; title: string; at: string | null }>>([]);
   const [chatMessages, setChatMessages] = useState<DeliveryChatMessage[]>([]);
@@ -160,6 +161,33 @@ export default function DeliveryAdminDashboard() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    if (!token || loading) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const [s, p, a, payoutData, ordersData] = await Promise.all([
+          fetchDeliveryAdminStats(token),
+          fetchDeliveryAdminPartners(token, "PENDING"),
+          fetchDeliveryAdminPartners(token),
+          fetchDeliveryAdminPayoutRequests(token, "PENDING"),
+          fetchDeliveryAdminOrders(token),
+        ]);
+
+        const currentHash = `${stats?.pendingRegistrations}-${stats?.activeApprovedPartners}-${pending.length}-${allPartners.length}-${payoutRequests.length}-${orders.length}`;
+        const newHash = `${s.stats.pendingRegistrations}-${s.stats.activeApprovedPartners}-${p.partners.length}-${a.partners.length}-${payoutData.payouts?.length || 0}-${ordersData.deliveries?.length || 0}`;
+
+        if (currentHash !== newHash && stats !== null) {
+          setHasNewData(true);
+        }
+      } catch (error) {
+        // silently fail
+      }
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [token, loading, stats, pending.length, allPartners.length, payoutRequests.length, orders.length]);
+
   const mappablePartners = useMemo(
     () =>
       allPartners.filter(
@@ -178,6 +206,7 @@ export default function DeliveryAdminDashboard() {
     let isDisposed = false;
 
     async function setupMap() {
+      await import("leaflet/dist/leaflet.css");
       const leafletModule = await import("leaflet");
       if (isDisposed || !mapContainerRef.current) return;
 

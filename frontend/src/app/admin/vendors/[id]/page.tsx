@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import { getAuthHeaders } from "@/lib/api";
+import { useAdminToken } from "@/hooks/useAdminToken";
 
 type VendorApplication = {
   id: string;
@@ -51,8 +51,7 @@ type VendorApplication = {
 export default function AdminVendorDetailPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
-  const { data: session } = useSession();
-  const token = (session?.user as any)?.accessToken;
+  const token = useAdminToken();
 
   const [application, setApplication] = useState<VendorApplication | null>(null);
   const [loading, setLoading] = useState(true);
@@ -69,7 +68,15 @@ export default function AdminVendorDetailPage() {
         });
         const data = await res.json();
         if (res.ok) {
-          setApplication(data.data);
+          const app = data.application || data.data;
+          // API returns `user` but frontend type expects `applicant`
+          if (app && app.user && !app.applicant) {
+            app.applicant = app.user;
+          }
+          if (app && app.createdAt && !app.submittedAt) {
+            app.submittedAt = app.createdAt;
+          }
+          setApplication(app);
         } else {
           alert(data.message || "Failed to load vendor application");
         }
@@ -126,7 +133,7 @@ export default function AdminVendorDetailPage() {
       return;
     }
 
-    const passkey = window.prompt("SECURITY CHECK:\nPlease enter your 10-minute Admin Passkey (sent to your email) to confirm this deletion:");
+    const passkey = window.prompt("SECURITY CHECK:\nPlease enter your 1-hour Admin Passkey (sent to your email) to confirm this deletion:");
     if (!passkey) {
       alert("Deletion cancelled. Passkey is required.");
       return;
@@ -160,7 +167,7 @@ export default function AdminVendorDetailPage() {
 
   const handleShopSuspendToggle = async (isActive: boolean) => {
       if (!application?.shop) return;
-      if (!window.confirm(`Are you sure you want to ${isActive ? 'reinstate' : 'suspend'} this shop?`)) {
+      if (!window.confirm(`Are you sure you want to ${isActive ? 'restore' : 'suspend'} this shop?`)) {
           return;
       }
 
@@ -200,6 +207,48 @@ export default function AdminVendorDetailPage() {
       }
   };
 
+  const handleShopFeaturedToggle = async (isFeatured: boolean) => {
+      if (!application?.shop) return;
+      if (!window.confirm(`Are you sure you want to ${isFeatured ? 'feature' : 'un-feature'} this shop?`)) {
+          return;
+      }
+
+      try {
+          setIsProcessing(true);
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/shops/${application.shop.id}/featured`, {
+              method: "PATCH",
+              credentials: "include",
+              headers: {
+                  "Content-Type": "application/json",
+                  ...getAuthHeaders(token),
+              },
+              body: JSON.stringify({ isFeatured }),
+          });
+
+          const data = await res.json();
+          if (res.ok) {
+              setApplication(prev => {
+                  if (!prev || !prev.shop) return prev;
+                  return {
+                      ...prev,
+                      shop: {
+                          ...prev.shop,
+                          isFeatured: data.data.isFeatured
+                      }
+                  }
+              });
+              alert(data.message || "Shop featured status updated.");
+          } else {
+              alert(data.message || "Failed to update shop featured status.");
+          }
+      } catch (error) {
+          console.error(error);
+          alert("Error updating shop featured status.");
+      } finally {
+          setIsProcessing(false);
+      }
+  };
+
   if (loading) {
     return <div className="p-8 text-[var(--muted-foreground)]">Loading vendor details...</div>;
   }
@@ -214,16 +263,21 @@ export default function AdminVendorDetailPage() {
 
   return (
     <section>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <Link href="/admin/vendors" className="mb-2 inline-block text-sm font-semibold text-[var(--muted-foreground)] hover:underline">
-            &larr; Back to Vendors
+      <div className="mb-4 flex flex-col items-start gap-4 shrink-0 md:mb-6 md:flex-row md:items-center md:justify-between">
+        <div className="w-full md:w-auto">
+          <Link 
+            href="/admin/vendors" 
+            className="mb-3 -ml-2 inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-white dark:bg-[#1C251F] px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--muted-foreground)] shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] transition-all hover:bg-[var(--mint-50)] hover:text-[var(--accent-dark)] hover:shadow-md active:scale-95 md:mb-4 md:-ml-3 md:px-4 md:py-2 md:text-xs"
+          >
+            <span>←</span> Back to Vendors
           </Link>
-          <h2 className="text-3xl font-bold text-[var(--accent-dark)]">{application.shopName}</h2>
-          <p className="mt-1 text-[var(--muted-foreground)]">Application ID: {application.id}</p>
+          <h2 className="text-xl font-bold text-[var(--accent-dark)] break-words md:text-3xl">{application.shopName}</h2>
+          <p className="mt-1 text-xs text-[var(--muted-foreground)] md:text-sm">Application ID: {application.id}</p>
         </div>
-        <div className="rounded-full bg-[var(--mint-100)] px-4 py-2 font-semibold tracking-wide text-[var(--accent-dark)]">
-          {application.status}
+        <div className="flex flex-wrap gap-2 md:gap-3">
+          <span className="rounded-full bg-[var(--mint-100)] px-3 py-1.5 text-xs font-semibold tracking-wide text-[var(--accent-dark)] md:px-4 md:py-2 md:text-sm">
+            {application.status}
+          </span>
         </div>
       </div>
 
@@ -365,11 +419,33 @@ export default function AdminVendorDetailPage() {
                                 disabled={isProcessing}
                                 className="w-full rounded-xl bg-[var(--accent-dark)] px-4 py-3 font-semibold text-[var(--accent-foreground)] transition hover:opacity-90 disabled:opacity-50"
                             >
-                                Reinstate Shop
+                                Restore Shop
                             </button>
-                            <p className="mt-2 text-xs text-[var(--muted-foreground)]">Reinstating the shop makes it active for customers again.</p>
+                            <p className="mt-2 text-xs text-[var(--muted-foreground)]">Restoring the shop makes it active for customers again.</p>
                         </div>
                     )}
+
+                    <div className="mt-6 border-t border-[var(--border)] pt-6">
+                        <div className="flex items-center justify-between mb-3">
+                            <div>
+                                <p className="font-semibold text-[var(--accent-dark)]">Featured Shop</p>
+                                <p className="text-xs text-[var(--muted-foreground)]">Highlight this shop on the homepage</p>
+                            </div>
+                            <button
+                                onClick={() => handleShopFeaturedToggle(!application.shop?.isFeatured)}
+                                disabled={isProcessing}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                    application.shop?.isFeatured ? "bg-[var(--accent-dark)]" : "bg-gray-300 dark:bg-gray-700"
+                                }`}
+                            >
+                                <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                        application.shop?.isFeatured ? "translate-x-6" : "translate-x-1"
+                                    }`}
+                                />
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 

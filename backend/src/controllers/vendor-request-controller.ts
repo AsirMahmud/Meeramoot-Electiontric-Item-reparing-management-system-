@@ -226,6 +226,8 @@ async function getVendorContext(userId: string) {
       specialties: true,
       ratingAvg: true,
       reviewCount: true,
+      liveNotificationsEnabled: true,
+      liveNotificationsPrompted: true,
     },
   });
 
@@ -382,97 +384,21 @@ export async function getVendorDashboard(req: AuthedRequest, res: Response) {
           }
         : {};
 
-    const biddingRequests = await prisma.repairRequest.findMany({
+    const relevantRequestCount = await prisma.repairRequest.count({
       where: {
         status: RequestStatus.BIDDING,
         bids: { none: { shopId: shop.id } },
-        ...specialtyFilter,
-      },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-      select: {
-        id: true,
-        title: true,
-        description: true,
-        deviceType: true,
-        brand: true,
-        model: true,
-        issueCategory: true,
-        problem: true,
-        mode: true,
-        preferredPickup: true,
-        deliveryType: true,
-        status: true,
-        createdAt: true,
-        _count: { select: { bids: true } },
-        bids: {
-          where: { shopId: shop.id },
-          take: 1,
-          select: {
-            id: true,
-            partsCost: true,
-            laborCost: true,
-            totalCost: true,
-            estimatedDays: true,
-            notes: true,
-            status: true,
-            createdAt: true,
-            updatedAt: true,
+        OR: [
+          {
+            requestedShopId: null,
+            ...(Object.keys(specialtyFilter).length > 0 ? specialtyFilter : {}),
           },
-        },
+          {
+            requestedShopId: shop.id,
+          },
+        ],
       },
     });
-
-    // Build a map of lowest bid per request for competitive context
-    const requestIds = biddingRequests.map((r) => r.id);
-    const lowestBids = await prisma.bid.groupBy({
-      by: ["repairRequestId"],
-      where: { repairRequestId: { in: requestIds }, status: BidStatus.ACTIVE },
-      _min: { totalCost: true },
-    });
-    const lowestBidMap = new Map(
-      lowestBids.map((lb) => [lb.repairRequestId, lb._min.totalCost])
-    );
-
-    const relevantRequests = biddingRequests
-      .map((request) => {
-        const relevance = buildRelevance(request, shop.specialties);
-        const myBid = request.bids[0] ?? null;
-
-        if (!relevance.isRelevant && !myBid) {
-          return null;
-        }
-
-        return {
-          id: request.id,
-          title: request.title,
-          description: request.description,
-          deviceType: request.deviceType,
-          brand: request.brand,
-          model: request.model,
-          issueCategory: request.issueCategory,
-          problem: request.problem,
-          mode: request.mode,
-          preferredPickup: request.preferredPickup,
-          deliveryType: request.deliveryType,
-          status: request.status,
-          createdAt: request.createdAt,
-          bidCount: request._count.bids,
-          lowestBidAmount: lowestBidMap.get(request.id) ?? null,
-          myBid,
-          relevanceScore: relevance.score,
-          matchReasons: relevance.reasons,
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => {
-        const left = a as NonNullable<typeof a>;
-        const right = b as NonNullable<typeof b>;
-        if (right.relevanceScore !== left.relevanceScore) {
-          return right.relevanceScore - left.relevanceScore;
-        }
-        return right.createdAt.getTime() - left.createdAt.getTime();
-      });
 
     const myBids = await prisma.bid.findMany({
       where: { shopId: shop.id },
@@ -563,19 +489,53 @@ export async function getVendorDashboard(req: AuthedRequest, res: Response) {
       },
     });
 
+    // Fetch pending direct orders waiting for this vendor's acceptance
+    const pendingOrders = await prisma.repairRequest.findMany({
+      where: {
+        status: RequestStatus.PENDING,
+        repairJob: { shopId: shop.id },
+      },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        deviceType: true,
+        brand: true,
+        model: true,
+        issueCategory: true,
+        problem: true,
+        mode: true,
+        source: true,
+        preferredPickup: true,
+        deliveryType: true,
+        quotedFinalAmount: true,
+        aiSummary: true,
+        createdAt: true,
+        user: {
+          select: { name: true, email: true, phone: true },
+        },
+        payments: {
+          take: 1,
+          select: { method: true, status: true, amount: true },
+        },
+      },
+    });
+
     return res.json({
       application,
       shop,
       stats: {
-        relevantRequestCount: relevantRequests.length,
+        relevantRequestCount,
         activeBidCount: myBids.filter((bid) => bid.status === BidStatus.ACTIVE).length,
         assignedJobCount: assignedJobs.length,
         waitingApprovalCount: assignedJobs.filter(
           (job) => job.status === RepairJobStatus.WAITING_APPROVAL,
         ).length,
         completedJobCount,
+        pendingOrderCount: pendingOrders.length,
       },
-      relevantRequests,
+      pendingOrders,
       myBids,
       assignedJobs,
     });
@@ -633,6 +593,18 @@ export async function getVendorAnalytics(req: AuthedRequest, res: Response) {
       },
     });
 
+    const ledgerEntries = await prisma.escrowLedger.findMany({
+      where: {
+        shopId: shop.id,
+        action: "VENDOR_EARNING_RELEASED",
+        createdAt: { gte: historyStart },
+      },
+      select: {
+        amount: true,
+        createdAt: true,
+      },
+    });
+
     for (const job of jobs) {
       if (job.acceptedBidId) {
         const wonIndex = findBucketIndex(job.createdAt, buckets);
@@ -644,11 +616,17 @@ export async function getVendorAnalytics(req: AuthedRequest, res: Response) {
       if (job.status === RepairJobStatus.COMPLETED && job.completedAt) {
         const earningsIndex = findBucketIndex(job.completedAt, buckets);
         if (earningsIndex >= 0) {
-          buckets[earningsIndex].earnings = roundMoney(
-            buckets[earningsIndex].earnings + getJobEarnings(job),
-          );
           buckets[earningsIndex].completedJobs += 1;
         }
+      }
+    }
+
+    for (const entry of ledgerEntries) {
+      const earningsIndex = findBucketIndex(entry.createdAt, buckets);
+      if (earningsIndex >= 0) {
+        buckets[earningsIndex].earnings = roundMoney(
+          buckets[earningsIndex].earnings + Number(entry.amount),
+        );
       }
     }
 
@@ -757,11 +735,16 @@ export async function upsertVendorBid(req: AuthedRequest, res: Response) {
         issueCategory: true,
         problem: true,
         status: true,
+        requestedShopId: true,
       },
     });
 
     if (!repairRequest) {
       return res.status(404).json({ message: "Repair request not found" });
+    }
+
+    if (repairRequest.requestedShopId && repairRequest.requestedShopId !== shop.id) {
+      return res.status(403).json({ message: "This request is restricted to a different shop" });
     }
 
     if (repairRequest.status !== RequestStatus.BIDDING) {
@@ -836,6 +819,29 @@ export async function upsertVendorBid(req: AuthedRequest, res: Response) {
       },
     });
 
+    // Auto-learn skills from bid participation
+    const request = await prisma.repairRequest.findUnique({
+      where: { id: requestId },
+      select: { deviceType: true, issueCategory: true }
+    });
+
+    if (request) {
+      const newSkills: string[] = [];
+      if (request.deviceType && !shop.specialties.includes(request.deviceType)) {
+        newSkills.push(request.deviceType);
+      }
+      if (request.issueCategory && !shop.specialties.includes(request.issueCategory)) {
+        newSkills.push(request.issueCategory);
+      }
+
+      if (newSkills.length > 0) {
+        await prisma.shop.update({
+          where: { id: shop.id },
+          data: { specialties: { push: newSkills } }
+        });
+      }
+    }
+
     return res.status(existingBid ? 200 : 201).json({
       message: existingBid ? "Bid updated successfully" : "Bid placed successfully",
       bid,
@@ -892,6 +898,22 @@ export async function updateVendorAssignedJobStatus(req: AuthedRequest, res: Res
             id: true,
             title: true,
             user: { select: { email: true, name: true } },
+            payments: {
+              select: {
+                id: true,
+                amount: true,
+                method: true,
+              },
+            },
+          },
+        },
+        deliveries: {
+          where: { direction: "TO_SHOP" },
+          orderBy: { createdAt: "asc" },
+          take: 1,
+          select: {
+            pickupAddress: true,
+            dropAddress: true,
           },
         },
       },
@@ -947,6 +969,7 @@ export async function updateVendorAssignedJobStatus(req: AuthedRequest, res: Res
         where: { id: existing.repairRequestId },
         data: {
           status: toRequestStatus(nextStatus),
+          ...(nextStatus === RepairJobStatus.CANCELLED ? { rejectedAt: new Date() } : {})
         },
         select: {
           id: true,
@@ -954,7 +977,56 @@ export async function updateVendorAssignedJobStatus(req: AuthedRequest, res: Res
         },
       });
 
-      return { repairJob, request };
+      // Handle post-pickup cancellation (device is at shop but vendor cancels)
+      const isPostPickup = ["AT_SHOP", "DIAGNOSING", "WAITING_APPROVAL", "REPAIRING"].includes(existing.status);
+      if (nextStatus === RepairJobStatus.CANCELLED && isPostPickup) {
+        // Automatically create a return delivery back to the customer
+        const originalDelivery = existing.deliveries[0];
+        
+        await tx.delivery.create({
+          data: {
+            repairJobId: repairJob.id,
+            direction: "TO_CUSTOMER",
+            type: "REGULAR",
+            status: "PENDING",
+            fee: 0, // No extra charge for returning a cancelled item (or could be policy-dependent)
+            pickupAddress: originalDelivery?.dropAddress || shop.address || "",
+            dropAddress: originalDelivery?.pickupAddress || "Customer Address (Please confirm)",
+          },
+        });
+
+        // We override the status to RETURN_SCHEDULED to indicate it's on its way back
+        await tx.repairRequest.update({
+          where: { id: existing.repairRequestId },
+          data: { status: "RETURN_SCHEDULED" }
+        });
+        request.status = "RETURN_SCHEDULED";
+      }
+
+      // Auto-create refund records if the vendor cancels the job
+      const refunds = [];
+      if (nextStatus === RepairJobStatus.CANCELLED) {
+        for (const payment of existing.repairRequest.payments) {
+          if (payment.method !== "CASH") {
+            const refund = await tx.refund.create({
+              data: {
+                paymentId: payment.id,
+                amount: payment.amount,
+                reason: reason?.trim() || "Vendor cancelled the job",
+                status: "PENDING",
+              },
+            });
+            refunds.push(refund);
+
+            await tx.payment.update({
+              where: { id: payment.id },
+              data: { status: "REFUNDED" },
+            });
+          }
+        }
+      }
+
+      return { repairJob, request, refunds };
     });
 
     if (existing.repairRequest.user.email) {
@@ -1145,6 +1217,7 @@ export async function getVendorMyBids(req: AuthedRequest, res: Response) {
         problem: true,
         mode: true,
         status: true,
+        aiSummary: true,
         createdAt: true,
         bids: {
           orderBy: { totalCost: "asc" },
@@ -1213,6 +1286,361 @@ export async function getVendorMyBids(req: AuthedRequest, res: Response) {
       return res.status(error.statusCode).json({ message: error.message });
     }
 
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+/* ── Vendor Accept / Reject Pending Direct Orders ──────────── */
+
+export async function acceptPendingRequest(req: AuthedRequest, res: Response) {
+  try {
+    const userId = req.user?.id;
+    const role = req.user?.role;
+    const requestId = req.params.requestId as string;
+
+    if (!userId) return res.status(401).json({ message: "Authentication required" });
+    if (role !== "VENDOR") return res.status(403).json({ message: "Vendor access only" });
+
+    const { shop } = await getVendorContext(userId);
+
+    const existing = await prisma.repairRequest.findFirst({
+      where: {
+        id: requestId,
+        status: RequestStatus.PENDING,
+        repairJob: { shopId: shop.id },
+      },
+      select: {
+        id: true,
+        title: true,
+        user: { select: { email: true, name: true } },
+        repairJob: { select: { id: true } },
+      },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ message: "Pending request not found for your shop" });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const request = await tx.repairRequest.update({
+        where: { id: requestId },
+        data: {
+          status: RequestStatus.ASSIGNED,
+          approvedAt: new Date(),
+        },
+      });
+
+      if (existing.repairJob?.id) {
+        await tx.repairJob.update({
+          where: { id: existing.repairJob.id },
+          data: { status: RepairJobStatus.CREATED },
+        });
+      }
+
+      return request;
+    });
+
+    if (existing.user.email) {
+      await sendOrderStatusEmail({
+        to: existing.user.email,
+        customerName: existing.user.name,
+        orderRef: existing.title,
+        status: result.status,
+        shopName: shop.name,
+      }).catch((err) => console.error("accept pending email failed:", err));
+    }
+
+    return res.json({
+      message: "Order accepted successfully",
+      request: { id: result.id, status: result.status },
+    });
+  } catch (error) {
+    console.error("acceptPendingRequest error:", error);
+    if (isHttpError(error)) return res.status(error.statusCode).json({ message: error.message });
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+export async function rejectPendingRequest(req: AuthedRequest, res: Response) {
+  try {
+    const userId = req.user?.id;
+    const role = req.user?.role;
+    const requestId = req.params.requestId as string;
+
+    if (!userId) return res.status(401).json({ message: "Authentication required" });
+    if (role !== "VENDOR") return res.status(403).json({ message: "Vendor access only" });
+
+    const { shop } = await getVendorContext(userId);
+
+    const existing = await prisma.repairRequest.findFirst({
+      where: {
+        id: requestId,
+        status: RequestStatus.PENDING,
+        repairJob: { shopId: shop.id },
+      },
+      select: {
+        id: true,
+        title: true,
+        user: { select: { email: true, name: true } },
+        repairJob: { select: { id: true } },
+        payments: {
+          where: { status: "PAID" },
+          select: { id: true, amount: true, method: true },
+        },
+      },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ message: "Pending request not found for your shop" });
+    }
+
+    const { reason } = req.body as { reason?: string };
+
+    const result = await prisma.$transaction(async (tx) => {
+      const request = await tx.repairRequest.update({
+        where: { id: requestId },
+        data: {
+          status: RequestStatus.REJECTED,
+          rejectedAt: new Date(),
+        },
+      });
+
+      if (existing.repairJob?.id) {
+        await tx.repairJob.update({
+          where: { id: existing.repairJob.id },
+          data: { status: RepairJobStatus.CANCELLED },
+        });
+      }
+
+      // Auto-create refund records for any online payments that were already paid
+      const refunds = [];
+      for (const payment of existing.payments) {
+        if (payment.method !== "CASH") {
+          const refund = await tx.refund.create({
+            data: {
+              paymentId: payment.id,
+              amount: payment.amount,
+              reason: reason?.trim() || "Vendor declined the order",
+              status: "PENDING",
+            },
+          });
+          refunds.push(refund);
+
+          // Mark payment as refunded
+          await tx.payment.update({
+            where: { id: payment.id },
+            data: { status: "REFUNDED" },
+          });
+        }
+      }
+
+      return { request, refunds };
+    });
+
+    if (existing.user.email) {
+      await sendOrderStatusEmail({
+        to: existing.user.email,
+        customerName: existing.user.name,
+        orderRef: existing.title,
+        status: result.request.status,
+        shopName: shop.name,
+      }).catch((err) => console.error("reject pending email failed:", err));
+    }
+
+    return res.json({
+      message: result.refunds.length > 0
+        ? "Order rejected. Refund has been initiated for online payment."
+        : "Order rejected.",
+      request: { id: result.request.id, status: result.request.status },
+      refunds: result.refunds,
+    });
+  } catch (error) {
+    console.error("rejectPendingRequest error:", error);
+    if (isHttpError(error)) return res.status(error.statusCode).json({ message: error.message });
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+export async function declineExplicitRequest(req: AuthedRequest, res: Response) {
+  try {
+    const userId = req.user?.id;
+    const role = req.user?.role;
+    const requestId = req.params.requestId as string;
+
+    if (!userId) return res.status(401).json({ message: "Authentication required" });
+    if (role !== "VENDOR") return res.status(403).json({ message: "Vendor access only" });
+
+    const { shop } = await getVendorContext(userId);
+
+    const existing = await prisma.repairRequest.findFirst({
+      where: {
+        id: requestId,
+        status: RequestStatus.BIDDING,
+        requestedShopId: shop.id,
+      },
+    });
+
+    if (!existing) {
+      return res.status(404).json({ message: "Explicit request not found or no longer in bidding" });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Just mark the request as REJECTED. There is no repairJob yet and no payment to refund.
+      const request = await tx.repairRequest.update({
+        where: { id: requestId },
+        data: {
+          status: RequestStatus.REJECTED,
+          rejectedAt: new Date(),
+        },
+      });
+      return { request };
+    });
+
+    return res.json({
+      message: "Direct request declined successfully.",
+      request: { id: result.request.id, status: result.request.status },
+    });
+  } catch (error) {
+    console.error("declineExplicitRequest error:", error);
+    if (isHttpError(error)) return res.status(error.statusCode).json({ message: error.message });
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+export async function getBiddingRequests(req: AuthedRequest, res: Response) {
+  try {
+    const userId = req.user?.id;
+    const role = req.user?.role;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+    const filter = (req.query.filter as string) === "all" ? "all" : "relevant";
+    const sort = (req.query.sort as string) === "oldest" ? "asc" : "desc";
+
+    if (!userId) return res.status(401).json({ message: "Authentication required" });
+    if (role !== "VENDOR") return res.status(403).json({ message: "Vendor access only" });
+
+    const { shop } = await getVendorContext(userId);
+
+    let whereClause: any = {
+      status: RequestStatus.BIDDING,
+      bids: { none: { shopId: shop.id } },
+      OR: [
+        { requestedShopId: null },
+        { requestedShopId: shop.id },
+      ],
+    };
+
+    if (filter === "relevant") {
+      if (!shop.specialties || shop.specialties.length === 0) {
+        return res.json({ data: [], total: 0, page, limit, totalPages: 0 });
+      }
+
+      const specialtyTokens = shop.specialties
+        .flatMap((s: string) =>
+          s.toLowerCase().replace(/[^a-z0-9]+/g, " ").split(" ").filter((t: string) => t.length > 1),
+        );
+      const uniqueTokens = Array.from(new Set(specialtyTokens));
+
+      const specialtyFilter = uniqueTokens.length > 0
+        ? {
+            OR: uniqueTokens.flatMap((token: string) => [
+              { deviceType: { contains: token, mode: "insensitive" as const } },
+              { brand: { contains: token, mode: "insensitive" as const } },
+              { issueCategory: { contains: token, mode: "insensitive" as const } },
+              { title: { contains: token, mode: "insensitive" as const } },
+              { problem: { contains: token, mode: "insensitive" as const } },
+            ]),
+          }
+        : {};
+
+      whereClause = {
+        ...whereClause,
+        OR: [
+          {
+            requestedShopId: null,
+            ...(Object.keys(specialtyFilter).length > 0 ? specialtyFilter : {}),
+          },
+          {
+            requestedShopId: shop.id,
+          },
+        ],
+      };
+    }
+
+    const total = await prisma.repairRequest.count({ where: whereClause });
+    const requests = await prisma.repairRequest.findMany({
+      where: whereClause,
+      orderBy: { createdAt: sort },
+      skip: (page - 1) * limit,
+      take: limit,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        deviceType: true,
+        brand: true,
+        model: true,
+        issueCategory: true,
+        problem: true,
+        mode: true,
+        preferredPickup: true,
+        deliveryType: true,
+        status: true,
+        aiSummary: true,
+        createdAt: true,
+        requestedShopId: true,
+        _count: { select: { bids: true } },
+      },
+    });
+
+    const requestIds = requests.map((r) => r.id);
+    const lowestBids = await prisma.bid.groupBy({
+      by: ["repairRequestId"],
+      where: { repairRequestId: { in: requestIds }, status: BidStatus.ACTIVE },
+      _min: { totalCost: true },
+    });
+    const lowestBidMap = new Map(
+      lowestBids.map((lb) => [lb.repairRequestId, lb._min.totalCost])
+    );
+
+    const data = requests.map((reqItem) => {
+      const isExplicitlyRequested = reqItem.requestedShopId === shop.id;
+      const relevance = isExplicitlyRequested 
+        ? { score: 100, reasons: ["Customer directly requested your shop"] }
+        : buildRelevance(reqItem, shop.specialties);
+
+      return {
+        id: reqItem.id,
+        title: reqItem.title,
+        description: reqItem.description,
+        deviceType: reqItem.deviceType,
+        brand: reqItem.brand,
+        model: reqItem.model,
+        issueCategory: reqItem.issueCategory,
+        problem: reqItem.problem,
+        mode: reqItem.mode,
+        preferredPickup: reqItem.preferredPickup,
+        deliveryType: reqItem.deliveryType,
+        status: reqItem.status,
+        createdAt: reqItem.createdAt,
+        bidCount: reqItem._count.bids,
+        lowestBidAmount: lowestBidMap.get(reqItem.id) ?? null,
+        relevanceScore: relevance.score,
+        matchReasons: relevance.reasons,
+        isExplicitlyRequested,
+      };
+    });
+
+    return res.json({
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    });
+  } catch (error) {
+    console.error("getBiddingRequests error:", error);
+    if (isHttpError(error)) return res.status(error.statusCode).json({ message: error.message });
     return res.status(500).json({ message: "Server error" });
   }
 }

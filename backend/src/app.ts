@@ -17,6 +17,10 @@ import { apiRateLimiter } from "./middleware/rate-limit.js";
 
 export function createApp() {
   const app = express();
+  
+  // Trust proxy is required when running behind a reverse proxy (e.g., Render)
+  // This prevents express-rate-limit ValidationError: 'X-Forwarded-For' header is set but 'trust proxy' is false.
+  app.set("trust proxy", 1);
 
   app.use(
     cors({
@@ -44,6 +48,11 @@ export function createApp() {
   app.use("/api/delivery", deliveryRoutes);
   app.use("/api/delivery-admin/auth", deliveryAdminAuthRoutes);
   app.use("/api/delivery-admin", deliveryAdminRoutes);
+
+  // Health check for UptimeRobot / monitoring
+  app.get("/health", (_req, res) => {
+    res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+  });
 
   app.use("/uploads", express.static("uploads"));
 
