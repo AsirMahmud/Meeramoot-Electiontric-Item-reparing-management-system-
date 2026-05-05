@@ -382,6 +382,8 @@ export async function listVendorApplications(req: Request, res: Response) {
               id: true,
               isActive: true,
               isFeatured: true,
+              ratingAvg: true,
+              reviewCount: true,
             }
           }
         },
