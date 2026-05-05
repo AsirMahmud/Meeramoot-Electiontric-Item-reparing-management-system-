@@ -478,7 +478,7 @@ export function NavbarInner({
               <Link
                 href="/cart"
                 onClick={() => setMobileMenuOpen(false)}
-                className="ml-auto flex items-center justify-center rounded-full bg-[var(--mint-100)] p-3 transition active:bg-[var(--mint-300)]"
+                className="ml-auto shrink-0 flex items-center justify-center rounded-full bg-[var(--mint-100)] p-3 transition active:bg-[var(--mint-300)]"
               >
                 <Image src="/images/cart.svg" alt="Cart" width={48} height={48} className="h-12 w-12" />
               </Link>

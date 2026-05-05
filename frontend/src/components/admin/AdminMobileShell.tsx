@@ -78,7 +78,7 @@ export default function AdminMobileShell({
               <button
                 type="button"
                 onClick={() => setSidebarOpen((prev) => !prev)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--mint-100)] text-lg text-[var(--foreground)] shadow-sm"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--mint-100)] text-lg text-[var(--foreground)] shadow-sm"
                 aria-label="Toggle admin menu"
               >
                 {sidebarOpen ? "✕" : "☰"}
