@@ -27,17 +27,20 @@ export default function AdminMobileShell({
           style={{ width: "260px", minWidth: "260px" }}
           className="hidden md:flex flex-col min-h-screen sticky top-0 border-r border-[var(--border)] bg-[var(--card)] overflow-y-auto p-6"
         >
-          {/* Logo */}
-          <Link href="/" className="inline-block transition-transform hover:scale-105 mb-6">
-            <Image
-              src="/images/meramot.svg"
-              alt="Meramot"
-              width={200}
-              height={70}
-              className="h-[4rem] w-auto object-contain"
-              priority
-            />
-          </Link>
+          {/* Header Row: Logo & Theme Toggle */}
+          <div className="flex items-center justify-between gap-3 mb-6">
+            <Link href="/" className="inline-block transition-transform hover:scale-105">
+              <Image
+                src="/images/meramot.svg"
+                alt="Meramot"
+                width={200}
+                height={70}
+                className="h-[4rem] w-auto object-contain"
+                priority
+              />
+            </Link>
+            <ThemeToggle />
+          </div>
 
           {/* Title */}
           <div className="mb-8">
