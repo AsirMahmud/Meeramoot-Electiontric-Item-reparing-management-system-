@@ -15,28 +15,67 @@ export default function AdminMobileShell({
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <div className="mx-auto grid min-h-screen max-w-7xl grid-cols-1 grid-rows-[auto_1fr] gap-3 px-3 py-3 md:grid-rows-1 md:gap-6 md:px-4 md:py-6 md:grid-cols-[260px_1fr]">
-        {/* ── Sidebar column ── */}
-        <div className="relative flex flex-col md:gap-6">
-          <div className="flex items-center justify-between gap-3">
-            <Link href="/" className="inline-block transition-transform hover:scale-105">
+      {/*
+       * Outer flex row — fills the full viewport height.
+       * On desktop (md+): sidebar + main side by side.
+       * On mobile: sidebar is a hidden overlay, only main is shown.
+       */}
+      <div className="flex min-h-screen max-w-7xl mx-auto">
+
+        {/* ── Desktop sidebar — always visible, full height ─────── */}
+        <aside
+          style={{ width: "260px", minWidth: "260px" }}
+          className="hidden md:flex flex-col min-h-screen sticky top-0 border-r border-[var(--border)] bg-[var(--card)] overflow-y-auto p-6"
+        >
+          {/* Logo */}
+          <Link href="/" className="inline-block transition-transform hover:scale-105 mb-6">
+            <Image
+              src="/images/meramot.svg"
+              alt="Meramot"
+              width={200}
+              height={70}
+              className="h-[4rem] w-auto object-contain"
+              priority
+            />
+          </Link>
+
+          {/* Title */}
+          <div className="mb-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--muted-foreground)]">
+              Meramot
+            </p>
+            <h1 className="mt-2 text-2xl font-bold text-[var(--accent-dark)]">
+              Admin Panel
+            </h1>
+            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+              Verify vendors, support users, and mediate disputes.
+            </p>
+          </div>
+
+          <AdminSidebarNav />
+        </aside>
+
+        {/* ── Right side: mobile header + content ──────────────── */}
+        <div className="flex flex-col flex-1 min-w-0">
+
+          {/* Mobile top bar */}
+          <div className="md:hidden flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--border)] bg-[var(--card)]">
+            <Link href="/" className="inline-block">
               <Image
                 src="/images/meramot.svg"
                 alt="Meramot"
-                width={240}
-                height={80}
-                className="h-[3.5rem] w-auto object-contain md:h-[4.5rem] lg:h-[5rem]"
+                width={140}
+                height={48}
+                className="h-[2.8rem] w-auto object-contain"
                 priority
               />
             </Link>
-
             <div className="flex items-center gap-2">
               <ThemeToggle />
-              {/* Hamburger — mobile only */}
               <button
                 type="button"
                 onClick={() => setSidebarOpen((prev) => !prev)}
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--card)] text-lg text-[var(--foreground)] shadow-sm md:hidden"
+                className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--mint-100)] text-lg text-[var(--foreground)] shadow-sm"
                 aria-label="Toggle admin menu"
               >
                 {sidebarOpen ? "✕" : "☰"}
@@ -44,27 +83,25 @@ export default function AdminMobileShell({
             </div>
           </div>
 
-          {/* Sidebar panel — collapsible overlay on mobile, static on md+ */}
-          <aside className={`absolute left-0 right-0 top-full z-50 mt-0 rounded-[1.5rem] border border-[var(--border)] bg-[var(--card)] p-4 shadow-2xl md:static md:rounded-[2rem] md:p-6 md:shadow-sm ${sidebarOpen ? "block mobile-collapse-enter" : "hidden"} md:block`}>
-            <div className="mb-4 md:mb-8">
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[var(--muted-foreground)] md:text-sm">
-                Meramot
-              </p>
-              <h1 className="mt-2 text-xl font-bold text-[var(--accent-dark)] md:mt-3 md:text-3xl">
-                Admin Panel
-              </h1>
-              <p className="mt-1 text-xs text-[var(--muted-foreground)] md:mt-2 md:text-sm">
-                Verify vendors, support users, and mediate disputes.
-              </p>
+          {/* Mobile dropdown nav */}
+          {sidebarOpen && (
+            <div className="md:hidden border-b border-[var(--border)] bg-[var(--card)] px-4 py-4 shadow-lg">
+              <AdminSidebarNav onNavClick={() => setSidebarOpen(false)} />
             </div>
+          )}
 
-            <AdminSidebarNav onNavClick={() => setSidebarOpen(false)} />
-          </aside>
+          {/* Desktop top bar (theme toggle only — logo/nav are in sidebar) */}
+          <div className="hidden md:flex items-center justify-end px-6 py-4 border-b border-[var(--border)]">
+            <ThemeToggle />
+          </div>
+
+          {/* Page content */}
+          <main className="flex-1 p-4 md:p-6 lg:p-8 overflow-auto">
+            <div className="rounded-[1.5rem] md:rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-4 md:p-6 lg:p-8 shadow-sm min-h-full">
+              {children}
+            </div>
+          </main>
         </div>
-
-        <main className="min-w-0 overflow-hidden rounded-[1.5rem] border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm md:rounded-[2rem] md:p-6 lg:p-8">
-          {children}
-        </main>
       </div>
     </div>
   );
