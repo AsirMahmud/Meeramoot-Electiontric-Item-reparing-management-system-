@@ -10,7 +10,6 @@ const navItems = [
   { href: "/admin/users", label: "Users" },
   { href: "/admin/vendors", label: "Vendors" },
   { href: "/admin/repair-requests", label: "Repair Requests" },
-  { href: "/admin/delivery", label: "Delivery Riders" },
   { href: "/admin/tickets", label: "Support Tickets" },
   { href: "/admin/disputes", label: "Disputes" },
   { href: "/admin/payments", label: "Payments" },
