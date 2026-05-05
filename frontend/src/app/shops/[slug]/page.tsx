@@ -293,6 +293,11 @@ export default function ShopDetailsPage({ params }: { params: Promise<{ slug: st
   const [addingService, setAddingService] = useState<string | null>(null);
   const [submittingReview, setSubmittingReview] = useState(false);
   const [locationModalOpen, setLocationModalOpen] = useState(false);
+  const [reviewPage, setReviewPage] = useState(1);
+  const [reviewStarFilter, setReviewStarFilter] = useState(0); // 0 = all
+  const [reviewSortOrder, setReviewSortOrder] = useState<"newest" | "oldest">("newest");
+  const [mobileTab, setMobileTab] = useState<"services" | "reviews">("services");
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
   const [pendingCartItem, setPendingCartItem] = useState<PendingCartItem | null>(
     null
   );
@@ -413,6 +418,7 @@ export default function ShopDetailsPage({ params }: { params: Promise<{ slug: st
       }
 
       await refreshReviewsAndEligibility();
+      setReviewModalOpen(false);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save review.");
     } finally {
@@ -659,15 +665,15 @@ export default function ShopDetailsPage({ params }: { params: Promise<{ slug: st
             <span className="text-[var(--accent-dark)]">{shop.name}</span>
           </div>
 
-          <div className="mt-5 grid gap-5 lg:grid-cols-[140px_minmax(0,1fr)_220px] lg:items-start">
-            <div className="h-[120px] w-[120px] rounded-[1.5rem] border border-[var(--border)] bg-[var(--mint-100)]" />
+          <div className="mt-5 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[140px_minmax(0,1fr)_220px] lg:items-start">
+            <div className="hidden lg:block h-[120px] w-[120px] rounded-[1.5rem] border border-[var(--border)] bg-[var(--mint-100)]" />
 
             <div>
               <p className="text-sm text-[var(--muted-foreground)]">
                 {(shop.specialties?.slice(0, 4) || []).join(" · ") || "Repair services"}
               </p>
 
-              <h1 className="mt-2 text-4xl font-bold tracking-tight text-[var(--foreground)]">
+              <h1 className="mt-2 text-2xl lg:text-4xl font-bold tracking-tight text-[var(--foreground)]">
                 {shop.name}
               </h1>
 
@@ -696,12 +702,207 @@ export default function ShopDetailsPage({ params }: { params: Promise<{ slug: st
         </div>
       </div>
 
-      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 md:px-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <section className="min-w-0">
-          <div className="mb-4 flex gap-5 overflow-x-auto border-b border-[var(--border)] bg-[var(--card)] px-4 py-3 text-sm font-medium text-[var(--muted-foreground)]">
-            <span className="border-b-4 border-[var(--accent-dark)] pb-2 text-[var(--foreground)]">Services</span>
-            <span className="pb-2">Reviews</span>
+      {/* ── MOBILE TAB LAYOUT (lg:hidden) ── */}
+      <div className="lg:hidden">
+        {/* Sticky tab bar */}
+        <div className="sticky top-0 z-10 flex border-b border-[var(--border)] bg-[var(--card)]">
+          <button
+            type="button"
+            onClick={() => setMobileTab("services")}
+            className={`flex-1 py-3 text-sm font-semibold transition-colors ${
+              mobileTab === "services"
+                ? "border-b-2 border-[var(--accent-dark)] text-[var(--accent-dark)]"
+                : "text-[var(--muted-foreground)]"
+            }`}
+          >
+            Services
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileTab("reviews")}
+            className={`flex-1 py-3 text-sm font-semibold transition-colors ${
+              mobileTab === "reviews"
+                ? "border-b-2 border-[var(--accent-dark)] text-[var(--accent-dark)]"
+                : "text-[var(--muted-foreground)]"
+            }`}
+          >
+            Reviews
+          </button>
+        </div>
+
+        {/* Services tab */}
+        {mobileTab === "services" && (
+          <div className="px-4 py-4">
+            <div className="grid grid-cols-2 gap-3">
+              {serviceItems.map((item) => (
+                <article key={item.name} className="flex flex-col rounded-[1.5rem] border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm">
+                  <h3 className="text-sm font-semibold leading-snug text-[var(--foreground)]">{item.name}</h3>
+                  <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)] line-clamp-2">{item.summary}</p>
+                  <div className="mt-2">
+                    <span className="text-sm font-bold text-[var(--foreground)]">৳{item.estimate.toLocaleString("en-BD")}</span>
+                    <span className="ml-1 text-[10px] text-[var(--muted-foreground)]">est.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleAddService(item)}
+                    className="mt-3 w-full rounded-full bg-[var(--accent-dark)] py-2 text-xs font-semibold text-white"
+                  >
+                    {addingService === item.name ? "Adding..." : "Add to cart"}
+                  </button>
+                </article>
+              ))}
+            </div>
           </div>
+        )}
+
+        {/* Reviews tab */}
+        {mobileTab === "reviews" && (
+          <div className="px-4 py-4">
+            {/* Sort + filter row */}
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-[var(--muted-foreground)]">
+                {reviewStarFilter === 0
+                  ? `${reviews.length} review${reviews.length !== 1 ? "s" : ""}`
+                  : `${reviews.filter(r => r.score === reviewStarFilter).length} ★${reviewStarFilter} review${reviews.filter(r => r.score === reviewStarFilter).length !== 1 ? "s" : ""}`}
+              </p>
+              {reviews.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={reviewSortOrder}
+                    onChange={(e) => { setReviewSortOrder(e.target.value as "newest" | "oldest"); setReviewPage(1); }}
+                    className="rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] outline-none"
+                  >
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                  </select>
+                  <select
+                    value={reviewStarFilter}
+                    onChange={(e) => { setReviewStarFilter(Number(e.target.value)); setReviewPage(1); }}
+                    className="rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] outline-none"
+                  >
+                    <option value={0}>All ratings</option>
+                    {[5, 4, 3, 2, 1].map(s => (
+                      <option key={s} value={s}>{"★".repeat(s)} ({reviews.filter(r => r.score === s).length})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Paginated review list */}
+            {(() => {
+              const filtered = (reviewStarFilter === 0 ? reviews : reviews.filter(r => r.score === reviewStarFilter))
+                .slice()
+                .sort((a, b) => reviewSortOrder === "newest"
+                  ? new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+                  : new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime()
+                );
+              const totalPages = Math.ceil(filtered.length / 4);
+              const page = Math.min(reviewPage, totalPages || 1);
+              const visible = filtered.slice((page - 1) * 4, page * 4);
+
+              if (reviews.length === 0) return (
+                <p className="rounded-2xl border border-dashed border-[var(--border)] p-5 text-sm text-[var(--muted-foreground)]">No reviews yet.</p>
+              );
+              if (filtered.length === 0) return (
+                <p className="rounded-2xl border border-dashed border-[var(--border)] p-5 text-sm text-[var(--muted-foreground)]">No {reviewStarFilter}★ reviews yet.</p>
+              );
+
+              return (
+                <>
+                  <div className="space-y-3">
+                    {visible.map((item) => {
+                      const isMine = existingReview?.id === item.id;
+                      return (
+                        <article key={item.id} className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <p className="text-sm font-bold text-[var(--foreground)]">{item.user?.name || item.user?.username || "Customer"}</p>
+                                {isMine && <span className="rounded-full bg-[var(--mint-100)] px-2 py-0.5 text-[10px] font-semibold text-[var(--accent-dark)]">You</span>}
+                              </div>
+                              <p className="mt-0.5 text-[10px] text-[var(--muted-foreground)]">{formatDate(item.createdAt)}{item.updatedAt && item.updatedAt !== item.createdAt ? " · edited" : ""}</p>
+                            </div>
+                            <StarDisplay value={item.score} />
+                          </div>
+                          {item.review && <p className="mt-3 text-sm leading-6 text-[var(--muted-foreground)]">{item.review}</p>}
+                        </article>
+                      );
+                    })}
+                  </div>
+                  {totalPages > 1 && (
+                    <div className="mt-4 flex items-center justify-between gap-2">
+                      <button onClick={() => setReviewPage(p => Math.max(1, p - 1))} disabled={page === 1} className="rounded-full border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-xs font-semibold disabled:opacity-40">← Prev</button>
+                      <span className="text-xs text-[var(--muted-foreground)]">Page {page} of {totalPages}</span>
+                      <button onClick={() => setReviewPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="rounded-full border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-xs font-semibold disabled:opacity-40">Next →</button>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+
+            {/* Write / Edit review button */}
+            {session?.user && (!eligibility?.hasExistingReview || existingReview?.canEdit) && (
+              <button
+                type="button"
+                onClick={() => setReviewModalOpen(true)}
+                className="mt-6 w-full rounded-full bg-[var(--accent-dark)] py-3 text-sm font-bold text-white"
+              >
+                {existingReview?.canEdit ? "Edit your review" : "Want to add a review?"}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── REVIEW MODAL (mobile) ── */}
+      {reviewModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end bg-black/40 lg:hidden"
+          onClick={(e) => { if (e.target === e.currentTarget) setReviewModalOpen(false); }}
+        >
+          <div className="w-full rounded-t-[2rem] bg-[var(--card)] p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--muted-foreground)]">
+                {existingReview?.canEdit ? "Edit your review" : "Write a review"}
+              </p>
+              <button
+                type="button"
+                onClick={() => setReviewModalOpen(false)}
+                className="rounded-full p-1.5 text-[var(--muted-foreground)] hover:bg-[var(--mint-100)]"
+              >
+                ✕
+              </button>
+            </div>
+            <h2 className="text-xl font-bold text-[var(--foreground)]">Rate this shop</h2>
+            <form className="mt-4 space-y-4" onSubmit={handleReviewSubmit}>
+              <StarInput value={score} onChange={setScore} />
+              <textarea
+                value={reviewText}
+                onChange={(e) => setReviewText(e.target.value)}
+                rows={4}
+                className="w-full rounded-[1.5rem] border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--accent-dark)]"
+                placeholder="Tell others about your experience"
+              />
+              {existingReview?.canEdit && existingReview.editExpiresAt && (
+                <p className="rounded-2xl bg-[var(--mint-50)] px-4 py-3 text-xs text-[var(--muted-foreground)]">
+                  You can edit this review until {formatDate(existingReview.editExpiresAt)}.
+                </p>
+              )}
+              {message && <p className="text-xs text-[var(--accent-dark)]">{message}</p>}
+              <button
+                disabled={submittingReview}
+                className="w-full rounded-full bg-[var(--accent-dark)] py-3 text-sm font-bold text-white disabled:opacity-60"
+              >
+                {submittingReview ? "Saving..." : existingReview?.canEdit ? "Update review" : "Submit review"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <div className="hidden lg:grid mx-auto max-w-7xl gap-6 px-4 py-6 md:px-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <section className="min-w-0">
 
           <div className="rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm">
             <div className="mb-5">
@@ -730,11 +931,11 @@ export default function ShopDetailsPage({ params }: { params: Promise<{ slug: st
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 md:pl-4">
+                  <div className="flex items-center gap-3 w-full md:w-auto md:pl-4">
                     <button
                       type="button"
                       onClick={() => void handleAddService(item)}
-                      className="inline-flex h-11 items-center rounded-full bg-[var(--accent-dark)] px-5 text-sm font-semibold text-white"
+                      className="inline-flex h-11 w-full md:w-auto items-center justify-center rounded-full bg-[var(--accent-dark)] px-5 text-sm font-semibold text-white"
                     >
                       {addingService === item.name ? "Adding..." : "Add to cart"}
                     </button>
@@ -744,86 +945,140 @@ export default function ShopDetailsPage({ params }: { params: Promise<{ slug: st
             </div>
           </div>
 
-          <section className="mt-6 rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm">
-            <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--muted-foreground)]">
-                  Customer reviews
-                </p>
-                <h2 className="mt-2 text-3xl font-bold text-[var(--foreground)]">
-                  What customers are saying
-                </h2>
-              </div>
+          <div className="mt-6 grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)] items-start">
 
-              <div className="rounded-[1.5rem] bg-[var(--mint-50)] px-5 py-4 text-right">
-                <div className="text-4xl font-black text-[var(--foreground)]">
-                  {ratingSummary.average.toFixed(1)}
-                </div>
+            {/* LEFT CARD: heading + score + filter bars */}
+            <div className="rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm self-start">
+              <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--muted-foreground)]">Customer reviews</p>
+              <h2 className="mt-2 text-2xl font-bold text-[var(--foreground)]">What customers are saying</h2>
+
+              <div className="mt-4 rounded-[1.5rem] bg-[var(--mint-50)] px-5 py-4 text-center">
+                <div className="text-4xl font-black text-[var(--foreground)]">{ratingSummary.average.toFixed(1)}</div>
                 <StarDisplay value={Math.round(ratingSummary.average)} />
-                <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-                  {reviews.length} review{reviews.length === 1 ? "" : "s"}
-                </p>
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">{reviews.length} review{reviews.length === 1 ? "" : "s"}</p>
               </div>
-            </div>
 
-            <div className="mt-6 grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-              <div className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--mint-50)] p-4">
+              <div className="mt-4">
                 {[5, 4, 3, 2, 1].map((star) => {
                   const count = ratingSummary.counts[star - 1] || 0;
                   const percentage = reviews.length ? (count / reviews.length) * 100 : 0;
-
+                  const isActive = reviewStarFilter === star;
                   return (
-                    <div key={star} className="mb-3 flex items-center gap-3 last:mb-0">
-                      <span className="w-8 text-sm font-semibold text-[var(--foreground)]">{star} ★</span>
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => { setReviewStarFilter(isActive ? 0 : star); setReviewPage(1); }}
+                      className={`mb-3 flex w-full items-center gap-3 last:mb-0 rounded-xl px-1 py-0.5 transition-colors ${isActive ? "bg-[var(--mint-200)]" : "hover:bg-[var(--mint-100)]"}`}
+                    >
+                      <span className="w-8 text-left text-sm font-semibold text-[var(--foreground)]">{star} ★</span>
                       <div className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--mint-200)]">
                         <div className="h-full rounded-full bg-yellow-500" style={{ width: `${percentage}%` }} />
                       </div>
                       <span className="w-6 text-right text-xs text-[var(--muted-foreground)]">{count}</span>
-                    </div>
+                    </button>
                   );
                 })}
-              </div>
-
-              <div className="space-y-4">
-                {reviews.length === 0 && (
-                  <p className="rounded-2xl border border-dashed border-[var(--border)] p-5 text-[var(--muted-foreground)]">
-                    No reviews yet.
-                  </p>
+                {reviewStarFilter !== 0 && (
+                  <button
+                    type="button"
+                    onClick={() => { setReviewStarFilter(0); setReviewPage(1); }}
+                    className="mt-3 w-full rounded-full border border-[var(--border)] py-1.5 text-xs font-semibold text-[var(--muted-foreground)] hover:bg-[var(--mint-100)] transition-colors"
+                  >
+                    Clear filter
+                  </button>
                 )}
-
-                {reviews.map((item) => {
-                  const isMine = existingReview?.id === item.id;
-                  return (
-                    <article key={item.id} className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <p className="font-bold text-[var(--foreground)]">
-                              {item.user?.name || item.user?.username || "Customer"}
-                            </p>
-                            {isMine && (
-                              <span className="rounded-full bg-[var(--mint-100)] px-2 py-0.5 text-xs font-semibold text-[var(--accent-dark)]">
-                                Your review
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-                            {formatDate(item.createdAt)}
-                            {item.updatedAt && item.updatedAt !== item.createdAt ? " · edited" : ""}
-                          </p>
-                        </div>
-                        <StarDisplay value={item.score} />
-                      </div>
-
-                      {item.review ? (
-                        <p className="mt-4 leading-7 text-[var(--muted-foreground)]">{item.review}</p>
-                      ) : null}
-                    </article>
-                  );
-                })}
               </div>
             </div>
-          </section>
+
+            {/* RIGHT CARD: filter dropdown + paginated reviews */}
+            <div className="rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm text-[var(--muted-foreground)]">
+                  {reviewStarFilter === 0
+                    ? `${reviews.length} review${reviews.length !== 1 ? "s" : ""}`
+                    : `${reviews.filter(r => r.score === reviewStarFilter).length} ★${reviewStarFilter} review${reviews.filter(r => r.score === reviewStarFilter).length !== 1 ? "s" : ""}`}
+                </p>
+                {reviews.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={reviewSortOrder}
+                      onChange={(e) => { setReviewSortOrder(e.target.value as "newest" | "oldest"); setReviewPage(1); }}
+                      className="rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] outline-none cursor-pointer"
+                    >
+                      <option value="newest">Newest first</option>
+                      <option value="oldest">Oldest first</option>
+                    </select>
+                    <select
+                      value={reviewStarFilter}
+                      onChange={(e) => { setReviewStarFilter(Number(e.target.value)); setReviewPage(1); }}
+                      className="rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-1.5 text-xs font-medium text-[var(--foreground)] outline-none cursor-pointer"
+                    >
+                      <option value={0}>All ratings</option>
+                      {[5, 4, 3, 2, 1].map(s => (
+                        <option key={s} value={s}>{"★".repeat(s)} ({reviews.filter(r => r.score === s).length})</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {(() => {
+                const filtered = (reviewStarFilter === 0 ? reviews : reviews.filter(r => r.score === reviewStarFilter))
+                  .slice()
+                  .sort((a, b) => reviewSortOrder === "newest"
+                    ? new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+                    : new Date(a.createdAt ?? 0).getTime() - new Date(b.createdAt ?? 0).getTime()
+                  );
+                const totalPages = Math.ceil(filtered.length / 4);
+                const page = Math.min(reviewPage, totalPages || 1);
+                const visible = filtered.slice((page - 1) * 4, page * 4);
+
+                if (reviews.length === 0) return (
+                  <p className="rounded-2xl border border-dashed border-[var(--border)] p-5 text-[var(--muted-foreground)]">No reviews yet.</p>
+                );
+                if (filtered.length === 0) return (
+                  <p className="rounded-2xl border border-dashed border-[var(--border)] p-5 text-[var(--muted-foreground)]">No {reviewStarFilter}★ reviews yet.</p>
+                );
+
+                return (
+                  <>
+                    <div className="space-y-4">
+                      {visible.map((item) => {
+                        const isMine = existingReview?.id === item.id;
+                        return (
+                          <article key={item.id} className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-bold text-[var(--foreground)]">{item.user?.name || item.user?.username || "Customer"}</p>
+                                  {isMine && (
+                                    <span className="rounded-full bg-[var(--mint-100)] px-2 py-0.5 text-xs font-semibold text-[var(--accent-dark)]">Your review</span>
+                                  )}
+                                </div>
+                                <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                                  {formatDate(item.createdAt)}{item.updatedAt && item.updatedAt !== item.createdAt ? " · edited" : ""}
+                                </p>
+                              </div>
+                              <StarDisplay value={item.score} />
+                            </div>
+                            {item.review && <p className="mt-4 leading-7 text-[var(--muted-foreground)]">{item.review}</p>}
+                          </article>
+                        );
+                      })}
+                    </div>
+                    {totalPages > 1 && (
+                      <div className="mt-5 flex items-center justify-between gap-2">
+                        <button onClick={() => setReviewPage(p => Math.max(1, p - 1))} disabled={page === 1} className="rounded-full border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm font-semibold disabled:opacity-40 hover:bg-[var(--mint-50)] transition-colors">← Prev</button>
+                        <span className="text-xs text-[var(--muted-foreground)]">Page {page} of {totalPages}</span>
+                        <button onClick={() => setReviewPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="rounded-full border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm font-semibold disabled:opacity-40 hover:bg-[var(--mint-50)] transition-colors">Next →</button>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+
+          </div>
         </section>
 
         {locationModalOpen && (
