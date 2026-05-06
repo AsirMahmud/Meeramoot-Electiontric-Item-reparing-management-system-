@@ -19,7 +19,7 @@ export default function ThemeToggle() {
       onClick={toggleTheme}
       aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
       title={`Switch to ${isDark ? "light" : "dark"} mode`}
-      className="relative inline-flex h-11 w-20 items-center rounded-full border border-[var(--border)] bg-[var(--card)] px-1.5 shadow-sm transition hover:shadow-md"
+      className="relative inline-flex h-11 w-20 shrink-0 items-center rounded-full border border-[var(--border)] bg-[var(--card)] px-1.5 shadow-sm transition hover:shadow-md"
     >
       <span
         className={`absolute top-1/2 h-8 w-8 -translate-y-1/2 rounded-full bg-[var(--accent-dark)] shadow-sm transition-all duration-300 ${

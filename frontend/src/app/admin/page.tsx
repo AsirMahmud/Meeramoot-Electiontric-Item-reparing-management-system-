@@ -8,7 +8,6 @@ import { useAdminToken } from "@/hooks/useAdminToken";
 type DashboardStats = {
   totalUsers: number;
   totalVendors: number;
-  totalDeliveryUsers: number;
   pendingVendorApplications: number;
   openTickets: number;
   activeDisputes: number;
@@ -46,7 +45,6 @@ export default function AdminDashboardPage() {
     ? [
         { label: "Total Users", value: stats.totalUsers, href: "/admin/users" },
         { label: "Vendors", value: stats.totalVendors, href: "/admin/vendors" },
-        { label: "Delivery Riders", value: stats.totalDeliveryUsers, href: "/admin/delivery" },
         { label: "Pending Vendor Review", value: stats.pendingVendorApplications, href: "/admin/vendors" },
         { label: "Open Tickets", value: stats.openTickets, href: "/admin/tickets" },
         { label: "Active Disputes", value: stats.activeDisputes, href: "/admin/disputes" },

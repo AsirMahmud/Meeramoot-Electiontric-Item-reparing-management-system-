@@ -13,16 +13,14 @@ router.get("/dashboard", async (_req: Request, res: Response) => {
     const [
       totalUsers,
       totalVendors,
-      totalDeliveryUsers,
       pendingVendorApplications,
       openTickets,
       totalPayments,
       activeDisputes,
       pendingRefunds,
     ] = await Promise.all([
-      prisma.user.count(),
+      prisma.user.count({ where: { role: { not: "DELIVERY" } } }),
       prisma.vendorApplication.count({ where: { status: "APPROVED" } }),
-      prisma.riderProfile.count({ where: { registrationStatus: "APPROVED" } }),
       prisma.vendorApplication.count({ where: { status: "PENDING" } }),
       prisma.supportTicket.count({
         where: { status: { in: ["OPEN", "IN_PROGRESS"] } },
@@ -41,7 +39,6 @@ router.get("/dashboard", async (_req: Request, res: Response) => {
       data: {
         totalUsers,
         totalVendors,
-        totalDeliveryUsers,
         pendingVendorApplications,
         openTickets,
         totalPayments,
