@@ -109,7 +109,7 @@ export async function deliveryRegister(req: Request, res: Response) {
           nidDocumentUrl: cleanNidUrl,
           educationDocumentUrl: cleanEducationUrl,
           cvDocumentUrl: cleanCvUrl,
-          profilePictureUrl: cleanProfilePictureUrl,
+          // profilePictureUrl removed, it is stored in User.avatarUrl
           status: "OFFLINE",
           isActive: false,
           registrationStatus: "PENDING",
@@ -161,8 +161,8 @@ export async function deliveryRegister(req: Request, res: Response) {
           currentLng: riderProfile.currentLng,
           createdAt: riderProfile.createdAt,
           updatedAt: riderProfile.updatedAt,
-          user: riderProfile.user,
-          coverageZones: riderProfile.coverageZones.map((cz) => cz.coverageZone.name),
+          user: (riderProfile as any).user,
+          coverageZones: (riderProfile as any).coverageZones?.map((cz: any) => cz.coverageZone?.name) || [],
         },
       };
     });
