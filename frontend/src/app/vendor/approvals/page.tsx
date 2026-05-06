@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import Navbar from "@/components/vendor/Navbar";
+import Navbar from "@/components/home/Navbar";
 import {
   getVendorDashboard,
   type FinalQuoteItem,

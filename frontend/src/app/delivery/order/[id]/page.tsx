@@ -268,9 +268,17 @@ export default function OrderRequestDetails() {
                   <Package size={22} className="text-[var(--foreground)]" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-[var(--foreground)]">{delivery.repairJob.repairRequest.deviceType}</h4>
-                  <p className="text-xs text-[var(--foreground)]/70 mt-1">Shop: {delivery.repairJob.shop.name}</p>
-                  <p className="text-xs text-[var(--foreground)]/70">Contact: {delivery.repairJob.repairRequest.contactPhone ?? "-"}</p>
+                  <h4 className="font-bold text-[#163625]">{delivery.repairJob.repairRequest.deviceType}</h4>
+                  <p className="text-xs text-[#163625]/70 mt-1">Shop: {delivery.repairJob.shop.name}</p>
+                  <p className="text-xs text-[#163625]/70">
+                    Customer: {delivery.repairJob.repairRequest.user?.name?.trim() || "Not provided"}
+                  </p>
+                  <p className="text-xs text-[#163625]/70">
+                    Customer phone:{" "}
+                    {delivery.repairJob.repairRequest.user?.phone?.trim() ||
+                      delivery.repairJob.repairRequest.contactPhone ||
+                      "Not provided"}
+                  </p>
                 </div>
               </div>
             </div>

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import Navbar from "@/components/home/Navbar";
-import { getMyOrders, acceptBid, createSupportTicket, createDispute } from "@/lib/api";
+import { getMyOrders, acceptBid, createSupportTicket, createDispute, cancelRequest } from "@/lib/api";
 
 type OrderItem = {
   id: string;
@@ -104,6 +104,23 @@ export default function OrdersPage() {
     }
   };
 
+  const handleCancelRequest = async (requestId: string) => {
+    const token = (session?.user as { accessToken?: string } | undefined)?.accessToken;
+    if (!token) return;
+
+    if (!window.confirm("Are you sure you want to cancel? If you cancel more than 3 requests this month, an 80 TK penalty will be added to your next order.")) {
+      return;
+    }
+
+    try {
+      setMessage("Cancelling request...");
+      await cancelRequest(token, requestId);
+      await fetchOrders(token);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Failed to cancel request.");
+    }
+  };
+
   return (
     <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <Navbar
@@ -178,28 +195,36 @@ export default function OrdersPage() {
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-col xs:flex-row flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap items-center sm:justify-center gap-2 sm:gap-6 md:gap-15">
                 {(order.status === "BIDDING" || order.status === "PENDING") && (
                   <Link
                     href={`/requests/${order.id}/bid-status`}
-                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--accent-dark)] px-4 py-2.5 sm:px-5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 w-full xs:w-auto"
+                    className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[var(--accent-dark)] px-3 py-1.5 sm:px-6 sm:py-2.5 text-sm sm:text-base sm:font-bold font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-[14px] h-[14px] sm:w-[16px] sm:h-[16px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></svg>
                     Check Bidding Status
                   </Link>
                 )}
                 <button
                   onClick={() => handleCreateSupportTicket(order.id)}
-                  className="rounded-full border border-[var(--border)] bg-[var(--background)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors w-full xs:w-auto"
+                  className="rounded-full border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 sm:px-6 sm:py-2.5 text-sm sm:text-base sm:font-bold font-semibold text-[var(--foreground)] hover:bg-[var(--accent)] hover:text-white transition-colors"
                 >
                   Raise Support Ticket
                 </button>
-                {order.status !== "PENDING" && order.status !== "CANCELLED" && (
+                {order.status !== "PENDING" && order.status !== "BIDDING" && order.status !== "CANCELLED" && (
                   <button
                     onClick={() => handleCreateDispute(order.id)}
-                    className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-100 transition-colors w-full xs:w-auto"
+                    className="rounded-full border border-red-200 bg-red-50 px-3 py-1.5 sm:px-6 sm:py-2.5 text-sm sm:text-base sm:font-bold font-semibold text-red-600 hover:bg-red-100 transition-colors"
                   >
                     File Dispute
+                  </button>
+                )}
+                {order.status !== "COMPLETED" && order.status !== "CANCELLED" && (
+                  <button
+                    onClick={() => handleCancelRequest(order.id)}
+                    className="rounded-full border border-red-200 bg-white px-3 py-1.5 sm:px-6 sm:py-2.5 text-sm sm:text-base sm:font-bold font-semibold text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    Cancel Request
                   </button>
                 )}
               </div>
@@ -212,7 +237,7 @@ export default function OrdersPage() {
                       href={`/requests/${order.id}/bid-status`}
                       className="inline-flex items-center gap-1.5 rounded-full bg-[var(--accent-dark)] px-3 sm:px-4 py-1.5 sm:py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></svg>
                       Full Dashboard →
                     </Link>
                   </div>

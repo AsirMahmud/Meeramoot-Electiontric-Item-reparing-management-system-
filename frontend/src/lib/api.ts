@@ -952,7 +952,7 @@ export async function cancelRequest(token: string, requestId: string) {
     `/requests/${encodeURIComponent(requestId)}/cancel`,
     token,
     {
-      method: "PATCH",
+      method: "POST",
     }
   );
 }

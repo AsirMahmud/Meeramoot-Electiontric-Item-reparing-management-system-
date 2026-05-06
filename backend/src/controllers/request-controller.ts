@@ -756,3 +756,70 @@ export async function getRequestById(req: AuthedRequest, res: Response) {
     return res.status(500).json({ message: "Server error" });
   }
 }
+
+export async function cancelRequest(req: AuthedRequest, res: Response) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const requestId = req.params.requestId as string;
+
+    const existing = await prisma.repairRequest.findFirst({
+      where: {
+        id: requestId,
+        userId,
+      },
+    });
+
+    if (!existing) return res.status(404).json({ message: "Request not found" });
+
+    if (existing.status === RequestStatus.COMPLETED || existing.status === RequestStatus.CANCELLED) {
+      return res.status(400).json({ message: "Cannot cancel a completed or already cancelled request" });
+    }
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const request = await tx.repairRequest.update({
+        where: { id: requestId },
+        data: { status: RequestStatus.CANCELLED },
+      });
+
+      const cancelCount = await tx.repairRequest.count({
+        where: {
+          userId,
+          status: RequestStatus.CANCELLED,
+          updatedAt: {
+            gte: startOfMonth,
+          },
+        },
+      });
+
+      if (cancelCount > 3) {
+        await tx.user.update({
+          where: { id: userId },
+          data: { pendingPenalty: { increment: 80 } },
+        });
+      }
+
+      const job = await tx.repairJob.findUnique({ where: { repairRequestId: requestId } });
+      if (job) {
+        await tx.repairJob.update({
+          where: { id: job.id },
+          data: { status: RepairJobStatus.CANCELLED },
+        });
+      }
+
+      return request;
+    });
+
+    return res.json({
+      message: "Request cancelled successfully",
+      request: updated,
+    });
+  } catch (error) {
+    console.error("cancelRequest error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+}

@@ -374,14 +374,14 @@ export async function getVendorDashboard(req: AuthedRequest, res: Response) {
     const specialtyFilter =
       uniqueTokens.length > 0
         ? {
-          OR: uniqueTokens.flatMap((token: string) => [
-            { deviceType: { contains: token, mode: "insensitive" as const } },
-            { brand: { contains: token, mode: "insensitive" as const } },
-            { issueCategory: { contains: token, mode: "insensitive" as const } },
-            { title: { contains: token, mode: "insensitive" as const } },
-            { problem: { contains: token, mode: "insensitive" as const } },
-          ]),
-        }
+            OR: uniqueTokens.flatMap((token: string) => [
+              { deviceType: { contains: token, mode: "insensitive" as const } },
+              { brand: { contains: token, mode: "insensitive" as const } },
+              { issueCategory: { contains: token, mode: "insensitive" as const } },
+              { title: { contains: token, mode: "insensitive" as const } },
+              { problem: { contains: token, mode: "insensitive" as const } },
+            ]),
+          }
         : {};
 
     const relevantRequestCount = await prisma.repairRequest.count({
@@ -982,7 +982,7 @@ export async function updateVendorAssignedJobStatus(req: AuthedRequest, res: Res
       if (nextStatus === RepairJobStatus.CANCELLED && isPostPickup) {
         // Automatically create a return delivery back to the customer
         const originalDelivery = existing.deliveries[0];
-
+        
         await tx.delivery.create({
           data: {
             repairJobId: repairJob.id,
@@ -1024,17 +1024,6 @@ export async function updateVendorAssignedJobStatus(req: AuthedRequest, res: Res
             });
           }
         }
-
-        // Create an IN_APP notification for the user
-        await tx.notificationLog.create({
-          data: {
-            repairRequestId: existing.repairRequestId,
-            channel: "IN_APP",
-            recipient: existing.repairRequest.user.email || existing.repairRequestId,
-            subject: "Order Cancelled by Shop",
-            body: `Shop ${shop.name} has cancelled your order. Reason: ${reason?.trim() || "No reason provided"}`,
-          },
-        });
       }
 
       return { repairJob, request, refunds };
@@ -1554,14 +1543,14 @@ export async function getBiddingRequests(req: AuthedRequest, res: Response) {
 
       const specialtyFilter = uniqueTokens.length > 0
         ? {
-          OR: uniqueTokens.flatMap((token: string) => [
-            { deviceType: { contains: token, mode: "insensitive" as const } },
-            { brand: { contains: token, mode: "insensitive" as const } },
-            { issueCategory: { contains: token, mode: "insensitive" as const } },
-            { title: { contains: token, mode: "insensitive" as const } },
-            { problem: { contains: token, mode: "insensitive" as const } },
-          ]),
-        }
+            OR: uniqueTokens.flatMap((token: string) => [
+              { deviceType: { contains: token, mode: "insensitive" as const } },
+              { brand: { contains: token, mode: "insensitive" as const } },
+              { issueCategory: { contains: token, mode: "insensitive" as const } },
+              { title: { contains: token, mode: "insensitive" as const } },
+              { problem: { contains: token, mode: "insensitive" as const } },
+            ]),
+          }
         : {};
 
       whereClause = {
@@ -1616,7 +1605,7 @@ export async function getBiddingRequests(req: AuthedRequest, res: Response) {
 
     const data = requests.map((reqItem) => {
       const isExplicitlyRequested = reqItem.requestedShopId === shop.id;
-      const relevance = isExplicitlyRequested
+      const relevance = isExplicitlyRequested 
         ? { score: 100, reasons: ["Customer directly requested your shop"] }
         : buildRelevance(reqItem, shop.specialties);
 
