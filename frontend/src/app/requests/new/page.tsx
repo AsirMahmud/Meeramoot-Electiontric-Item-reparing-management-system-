@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Navbar from "@/components/home/Navbar";
@@ -35,7 +35,7 @@ const ISSUE_CATEGORIES = [
   "Other",
 ];
 
-export default function NewRequestPage() {
+function NewRequestPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
@@ -612,5 +612,13 @@ export default function NewRequestPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function NewRequestPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[var(--background)]" />}>
+      <NewRequestPageContent />
+    </Suspense>
   );
 }

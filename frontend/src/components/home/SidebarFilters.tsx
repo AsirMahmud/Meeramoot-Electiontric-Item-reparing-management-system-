@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 type SidebarFiltersProps = {
@@ -21,7 +21,7 @@ const offerOptions = [
   { label: "Deals", value: "deals" },
 ] as const;
 
-export default function SidebarFilters({
+function SidebarFiltersContent({
   compact = false,
   targetPath,
 }: SidebarFiltersProps) {
@@ -138,5 +138,13 @@ export default function SidebarFilters({
         </div>
       </div>
     </aside>
+  );
+}
+
+export default function SidebarFilters(props: SidebarFiltersProps) {
+  return (
+    <Suspense fallback={<div className="h-40 w-full animate-pulse rounded-[2rem] bg-[var(--mint-50)]" />}>
+      <SidebarFiltersContent {...props} />
+    </Suspense>
   );
 }

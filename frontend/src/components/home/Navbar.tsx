@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState, FormEvent } from "react";
+import { useMemo, useState, FormEvent, Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import ThemeToggle from "@/components/theme/ThemeToggle";
@@ -24,7 +24,7 @@ const categoryTabs = [
   { label: "Spare Parts", value: "SPARE_PARTS" },
 ] as const;
 
-export default function Navbar({
+function NavbarContent({
   isLoggedIn = false,
   firstName = "User",
   language = "en",
@@ -329,5 +329,13 @@ export default function Navbar({
         </div>
       )}
     </>
+  );
+}
+
+export default function Navbar(props: NavbarProps) {
+  return (
+    <Suspense fallback={<div className="h-20 w-full bg-[var(--mint-100)]" />}>
+      <NavbarContent {...props} />
+    </Suspense>
   );
 }
