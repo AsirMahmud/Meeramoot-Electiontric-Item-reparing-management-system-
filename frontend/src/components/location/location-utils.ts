@@ -1,6 +1,7 @@
 import { LOCATION_STORAGE_KEY, type StoredLocation } from "./types";
 
 const REVERSE_GEOCODE_ENDPOINT = "https://nominatim.openstreetmap.org/reverse";
+const FORWARD_GEOCODE_ENDPOINT = "https://nominatim.openstreetmap.org/search";
 
 export function buildLocationLabel(location: StoredLocation | null) {
   if (!location) return "Choose your location";
@@ -92,5 +93,27 @@ export async function reverseGeocode(lat: number, lng: number): Promise<StoredLo
       lng,
       source: "map",
     };
+  }
+}
+
+export async function forwardGeocode(query: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const res = await fetch(
+      `${FORWARD_GEOCODE_ENDPOINT}?q=${encodeURIComponent(query)}&format=json&limit=1`,
+    );
+
+    if (!res.ok) throw new Error("Forward geocode failed");
+
+    const data = (await res.json()) as Array<{ lat: string; lon: string }>;
+
+    if (!data || data.length === 0) return null;
+
+    const firstResult = data[0];
+    return {
+      lat: parseFloat(firstResult.lat),
+      lng: parseFloat(firstResult.lon),
+    };
+  } catch {
+    return null;
   }
 }
