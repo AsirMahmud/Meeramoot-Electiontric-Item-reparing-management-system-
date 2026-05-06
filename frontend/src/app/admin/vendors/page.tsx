@@ -37,6 +37,8 @@ export default function AdminVendorsPage() {
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
   const [hasNewData, setHasNewData] = useState(false);
+  const [rejectModal, setRejectModal] = useState<{ id: string; shopName: string } | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
     if (token) fetchVendors(token);
@@ -88,29 +90,27 @@ export default function AdminVendorsPage() {
     }
   };
 
-  const handleApplicationAction = async (id: string, action: "approve" | "reject" | "request-info") => {
+  const handleApplicationAction = async (id: string, action: "approve" | "reject" | "request-info", reason?: string) => {
     try {
       setActionId(id);
       if (!token) return;
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/vendors/${id}/${action}`, {
+
+      const body: Record<string, string> = {};
+      if (action === "reject" && reason?.trim()) {
+        body.reason = reason.trim();
+      }
+
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/vendor/applications/admin/${id}/${action}`, {
         method: "PATCH",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
           ...getAuthHeaders(token),
         },
-        body: JSON.stringify({
-          reviewNotes:
-            action === "approve"
-              ? "Approved by admin"
-              : action === "reject"
-                ? "Rejected by admin"
-                : "Please provide additional business verification details",
-        }),
+        body: JSON.stringify(body),
       });
 
       if (res.ok) {
-        const updatedData = await res.json();
         setVendors((prev) =>
           prev.map((vendor) =>
             vendor.id === id
@@ -121,12 +121,13 @@ export default function AdminVendorsPage() {
                       ? "APPROVED"
                       : action === "reject"
                         ? "REJECTED"
-                        : "MORE_INFO_REQUIRED",
-                  shop: action === "approve" ? updatedData.data.shop : vendor.shop
+                        : vendor.status,
                 }
               : vendor,
           ),
         );
+        setRejectModal(null);
+        setRejectReason("");
       } else {
         const data = await res.json();
         alert(data.message || "Action failed");
@@ -329,7 +330,16 @@ export default function AdminVendorsPage() {
         </div>
       </div>
 
-      <PendingSection vendors={pendingVendors} actionId={actionId} onAction={handleApplicationAction} onDelete={handleDeleteApplication} />
+      <PendingSection
+        vendors={pendingVendors}
+        actionId={actionId}
+        onAction={handleApplicationAction}
+        onDelete={handleDeleteApplication}
+        onRejectClick={(id, shopName) => {
+          setRejectModal({ id, shopName });
+          setRejectReason("");
+        }}
+      />
       <AllVendorsSection
         vendors={allOtherVendors}
         actionId={actionId}
@@ -337,6 +347,45 @@ export default function AdminVendorsPage() {
         onFeaturedToggle={handleShopFeaturedToggle}
         onDelete={handleDeleteApplication}
       />
+
+      {/* Rejection Reason Modal */}
+      {rejectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl dark:bg-[#1C251F]">
+            <h3 className="text-lg font-bold text-[var(--accent-dark)]">Reject Application</h3>
+            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+              Rejecting <span className="font-semibold">{rejectModal.shopName}</span>
+            </p>
+            <div className="mt-4">
+              <label className="block text-xs font-semibold uppercase text-[var(--muted-foreground)] mb-1">
+                Rejection Reason <span className="normal-case font-normal">(optional)</span>
+              </label>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={4}
+                placeholder="E.g. Missing trade license, incomplete business details..."
+                className="w-full rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-sm text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:border-[var(--accent-dark)] focus:outline-none focus:ring-1 focus:ring-[#1F4D2E] resize-none"
+              />
+            </div>
+            <div className="mt-5 flex gap-3 justify-end">
+              <button
+                onClick={() => { setRejectModal(null); setRejectReason(""); }}
+                className="rounded-2xl border border-[var(--border)] px-5 py-2 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--card)]"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={actionId === rejectModal.id}
+                onClick={() => handleApplicationAction(rejectModal.id, "reject", rejectReason)}
+                className="rounded-2xl bg-rose-600 px-5 py-2 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-50"
+              >
+                {actionId === rejectModal.id ? "Rejecting..." : "Confirm Reject"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -348,11 +397,13 @@ function PendingSection({
   actionId,
   onAction,
   onDelete,
+  onRejectClick,
 }: {
   vendors: VendorApplication[];
   actionId: string | null;
-  onAction: (id: string, action: "approve" | "reject" | "request-info") => void;
+  onAction: (id: string, action: "approve" | "reject" | "request-info", reason?: string) => void;
   onDelete: (id: string) => void;
+  onRejectClick: (id: string, shopName: string) => void;
 }) {
   const table = useAdminTableState(vendors, ["shopName", "businessEmail", "phone", "user"] as any);
 
@@ -425,7 +476,7 @@ function PendingSection({
                         <button
                           type="button"
                           disabled={actionId === vendor.id}
-                          onClick={() => onAction(vendor.id, "reject")}
+                          onClick={() => onRejectClick(vendor.id, vendor.shopName)}
                           className="inline-flex w-full items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-[10px] font-bold text-red-700 transition hover:bg-red-100 disabled:opacity-50 dark:border-red-500 dark:bg-red-500/10 dark:text-red-400 md:w-auto md:rounded-xl md:px-3 md:py-2 md:text-xs"
                         >
                           Reject

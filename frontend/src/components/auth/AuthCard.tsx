@@ -141,7 +141,7 @@ export default function AuthCard({ mode }: { mode: Mode }) {
           application?.status === "PENDING" ||
           application?.status === "REJECTED"
         ) {
-          router.push("/vendor/status");
+          router.push("/vendor/onboarding");
           return;
         }
 

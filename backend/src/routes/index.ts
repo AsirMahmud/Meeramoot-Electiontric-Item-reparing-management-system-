@@ -18,6 +18,8 @@ import { vendorShopProfileRoutes } from "./vendor-shop-profile-routes.js";
 import uploadRoutes from "./upload-routes.js";
 import invoiceRoutes from "./invoice-routes.js";
 import customerSupportRoutes from "./customer-support-routes.js";
+import verificationRoutes from "./verification-routes.js";
+
 const router = Router();
 
 router.get("/health", async (_req, res) => {
@@ -58,6 +60,7 @@ router.use("/vendor/requests", vendorRequestRoutes);
 router.use("/vendor/shop-profile", vendorShopProfileRoutes);
 router.use("/uploads", uploadRoutes);
 router.use("/support", customerSupportRoutes);
+router.use("/verification", verificationRoutes);
 router.use(invoiceRoutes);
 
 export default router;

@@ -193,6 +193,12 @@ async function getVendorContext(userId: string) {
       courierPickup: true,
       inShopRepair: true,
       spareParts: true,
+      user: {
+        select: {
+          isEmailVerified: true,
+          isPhoneVerified: true,
+        },
+      },
     },
   });
 
@@ -202,6 +208,10 @@ async function getVendorContext(userId: string) {
 
   if (application.status !== "APPROVED") {
     throw new HttpError(403, "Your vendor application is not approved yet");
+  }
+
+  if (!application.user?.isEmailVerified || !application.user?.isPhoneVerified) {
+    throw new HttpError(403, "Your email and phone must be verified before accessing the dashboard");
   }
 
   // Look up by vendorApplicationId (direct FK) first, fall back to email

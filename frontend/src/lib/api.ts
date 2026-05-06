@@ -220,6 +220,10 @@ export type VendorApplicationStatusResponse = {
     isPublic?: boolean;
     createdAt?: string;
   };
+  user?: {
+    isEmailVerified?: boolean;
+    isPhoneVerified?: boolean;
+  };
   message?: string;
 };
 
@@ -447,6 +451,20 @@ export function checkUsername(username: string) {
   return request<{ available: boolean }>(
     `/auth/check-username?username=${encodeURIComponent(username)}`
   );
+}
+
+export function sendVerificationOtp(token: string, channel: "email" | "phone") {
+  return authedRequest<{ message: string }>("/verification/send-otp", token, {
+    method: "POST",
+    body: JSON.stringify({ channel }),
+  });
+}
+
+export function verifyOtp(token: string, channel: "email" | "phone", otp: string) {
+  return authedRequest<{ message: string }>("/verification/verify-otp", token, {
+    method: "POST",
+    body: JSON.stringify({ channel, otp }),
+  });
 }
 
 /* =========================================================

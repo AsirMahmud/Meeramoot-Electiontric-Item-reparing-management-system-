@@ -61,6 +61,8 @@ type AuthPayload = {
 type AuthenticatedVendorUser = {
   id: string;
   role: string;
+  isEmailVerified: boolean;
+  isPhoneVerified: boolean;
 };
 
 function extractBearerToken(header?: string) {
@@ -97,7 +99,7 @@ async function requireVendorUser(
 
   const user = await prisma.user.findUnique({
     where: { id: payload.sub },
-    select: { id: true, role: true },
+    select: { id: true, role: true, isEmailVerified: true, isPhoneVerified: true },
   });
 
   if (!user) {
@@ -186,6 +188,10 @@ export async function getVendorApplicationStatus(req: Request, res: Response) {
         baseLaborFee: shop?.baseLaborFee ?? null,
         pickupFee: shop?.pickupFee ?? null,
         expressFee: shop?.expressFee ?? null,
+      },
+      user: {
+        isEmailVerified: user.isEmailVerified,
+        isPhoneVerified: user.isPhoneVerified,
       },
     });
   } catch (error) {
@@ -402,6 +408,12 @@ export async function completeVendorShopSetup(req: Request, res: Response) {
 
     if (!user) {
       return;
+    }
+
+    if (!user.isEmailVerified || !user.isPhoneVerified) {
+      return res.status(403).json({
+        message: "Email and phone must be verified before completing shop setup",
+      });
     }
 
     const application = await prisma.vendorApplication.findUnique({

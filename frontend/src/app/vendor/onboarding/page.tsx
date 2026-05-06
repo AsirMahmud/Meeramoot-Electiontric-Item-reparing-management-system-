@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getVendorApplicationStatus } from "@/lib/api";
+import VerificationSection from "./VerificationSection";
 
 type VendorStatusPayload = {
   application?: {
@@ -13,12 +14,17 @@ type VendorStatusPayload = {
     status: "PENDING" | "APPROVED" | "REJECTED";
     ownerName?: string;
     businessEmail?: string;
+    phone?: string;
     shopName?: string;
     rejectionReason?: string | null;
     rejectionVisibleUntil?: string | null;
     setupComplete?: boolean;
     isPublic?: boolean;
     createdAt?: string;
+  };
+  user?: {
+    isEmailVerified?: boolean;
+    isPhoneVerified?: boolean;
   };
   message?: string;
 };
@@ -205,6 +211,34 @@ export default function VendorOnboardingPage() {
           </div>
 
           <div className="rounded-3xl bg-[#f6faf4] p-5">
+            <h2 className="text-lg font-semibold text-accent-dark">Verification</h2>
+            <div className="mt-4 flex flex-col gap-3">
+              {app?.businessEmail && (
+                <VerificationSection
+                  token={token!}
+                  channel="email"
+                  contactValue={app.businessEmail}
+                  isVerified={!!data?.user?.isEmailVerified}
+                  onVerified={() => {
+                    setData((prev) => prev ? { ...prev, user: { ...prev.user, isEmailVerified: true } } : prev);
+                  }}
+                />
+              )}
+              {app?.phone && (
+                <VerificationSection
+                  token={token!}
+                  channel="phone"
+                  contactValue={app.phone}
+                  isVerified={!!data?.user?.isPhoneVerified}
+                  onVerified={() => {
+                    setData((prev) => prev ? { ...prev, user: { ...prev.user, isPhoneVerified: true } } : prev);
+                  }}
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-3xl bg-[#f6faf4] p-5">
             <h2 className="text-lg font-semibold text-accent-dark">Next step</h2>
             <div className="mt-4 flex flex-col gap-3">
               <Link
@@ -215,19 +249,51 @@ export default function VendorOnboardingPage() {
               </Link>
 
               {app?.status === "APPROVED" && !app?.setupComplete ? (
-                <Link
-                  href="/vendor/setup-shop"
-                  className="rounded-2xl bg-accent-dark px-5 py-3 text-center text-sm font-semibold text-white"
-                >
-                  Complete shop setup
-                </Link>
+                <div className="relative group">
+                  <Link
+                    href={data?.user?.isEmailVerified && data?.user?.isPhoneVerified ? "/vendor/setup-shop" : "#"}
+                    onClick={(e) => {
+                      if (!(data?.user?.isEmailVerified && data?.user?.isPhoneVerified)) {
+                        e.preventDefault();
+                      }
+                    }}
+                    className={`block w-full rounded-2xl px-5 py-3 text-center text-sm font-semibold text-white transition ${
+                      data?.user?.isEmailVerified && data?.user?.isPhoneVerified
+                        ? "bg-accent-dark hover:bg-[#1a2e22]"
+                        : "bg-slate-300 cursor-not-allowed"
+                    }`}
+                  >
+                    Complete shop setup
+                  </Link>
+                  {!(data?.user?.isEmailVerified && data?.user?.isPhoneVerified) && (
+                    <p className="mt-2 text-[10px] text-center text-amber-600 font-medium">
+                      Please verify email and phone to continue
+                    </p>
+                  )}
+                </div>
               ) : app?.status === "APPROVED" && app?.setupComplete ? (
-                <Link
-                  href="/vendor/dashboard"
-                  className="rounded-2xl bg-accent-dark px-5 py-3 text-center text-sm font-semibold text-white"
-                >
-                  Open vendor dashboard
-                </Link>
+                <div className="relative group">
+                  <Link
+                    href={data?.user?.isEmailVerified && data?.user?.isPhoneVerified ? "/vendor/dashboard" : "#"}
+                    onClick={(e) => {
+                      if (!(data?.user?.isEmailVerified && data?.user?.isPhoneVerified)) {
+                        e.preventDefault();
+                      }
+                    }}
+                    className={`block w-full rounded-2xl px-5 py-3 text-center text-sm font-semibold text-white transition ${
+                      data?.user?.isEmailVerified && data?.user?.isPhoneVerified
+                        ? "bg-accent-dark hover:bg-[#1a2e22]"
+                        : "bg-slate-300 cursor-not-allowed"
+                    }`}
+                  >
+                    Open vendor dashboard
+                  </Link>
+                  {!(data?.user?.isEmailVerified && data?.user?.isPhoneVerified) && (
+                    <p className="mt-2 text-[10px] text-center text-amber-600 font-medium">
+                      Please verify email and phone to continue
+                    </p>
+                  )}
+                </div>
               ) : (
                 <Link
                   href="/"

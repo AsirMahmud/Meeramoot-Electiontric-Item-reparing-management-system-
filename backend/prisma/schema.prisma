@@ -261,6 +261,11 @@ model User {
   lat                        Float?
   lng                        Float?
   isEmailVerified            Boolean              @default(false)
+  isPhoneVerified            Boolean              @default(false)
+  emailOtpCode               String?
+  emailOtpExpiresAt          DateTime?
+  phoneOtpCode               String?
+  phoneOtpExpiresAt          DateTime?
   status                     UserStatus           @default(ACTIVE)
   pendingPenalty             Float                @default(0)
   createdAt                  DateTime             @default(now())
