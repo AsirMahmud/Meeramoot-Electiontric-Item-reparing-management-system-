@@ -702,29 +702,27 @@ export default function ShopDetailsPage({ params }: { params: Promise<{ slug: st
         </div>
       </div>
 
-      {/* ── MOBILE TAB LAYOUT (lg:hidden) ── */}
+      {/* ── MOBILE TAB LAYOUT */}
       <div className="lg:hidden">
         {/* Sticky tab bar */}
         <div className="sticky top-0 z-10 flex border-b border-[var(--border)] bg-[var(--card)]">
           <button
             type="button"
             onClick={() => setMobileTab("services")}
-            className={`flex-1 py-3 text-sm font-semibold transition-colors ${
-              mobileTab === "services"
+            className={`flex-1 py-3 text-sm font-semibold transition-colors ${mobileTab === "services"
                 ? "border-b-2 border-[var(--accent-dark)] text-[var(--accent-dark)]"
                 : "text-[var(--muted-foreground)]"
-            }`}
+              }`}
           >
             Services
           </button>
           <button
             type="button"
             onClick={() => setMobileTab("reviews")}
-            className={`flex-1 py-3 text-sm font-semibold transition-colors ${
-              mobileTab === "reviews"
+            className={`flex-1 py-3 text-sm font-semibold transition-colors ${mobileTab === "reviews"
                 ? "border-b-2 border-[var(--accent-dark)] text-[var(--accent-dark)]"
                 : "text-[var(--muted-foreground)]"
-            }`}
+              }`}
           >
             Reviews
           </button>
