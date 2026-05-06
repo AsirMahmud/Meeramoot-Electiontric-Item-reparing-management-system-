@@ -14,8 +14,6 @@ import NotificationBell from "@/components/notifications/NotificationBell";
 type NavbarProps = {
   isLoggedIn?: boolean;
   firstName?: string;
-  language?: "en" | "bn";
-  onLanguageChange?: (lang: "en" | "bn") => void;
 };
 
 const categoryTabs = [
@@ -27,11 +25,8 @@ const categoryTabs = [
 function NavbarContent({
   isLoggedIn = false,
   firstName = "User",
-  language = "en",
-  onLanguageChange,
 }: NavbarProps) {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [locationModalOpen, setLocationModalOpen] = useState(false);
@@ -79,7 +74,6 @@ function NavbarContent({
   function openLocationModal() {
     setLocationModalOpen(true);
     setIsUserMenuOpen(false);
-    setIsLangMenuOpen(false);
   }
 
   return (
@@ -117,7 +111,6 @@ function NavbarContent({
                   <button
                     onClick={() => {
                       setIsUserMenuOpen((prev) => !prev);
-                      setIsLangMenuOpen(false);
                     }}
                     className="rounded-full bg-[var(--accent-dark)] px-6 py-2.5 text-sm font-semibold text-white shadow-sm"
                   >
@@ -201,41 +194,6 @@ function NavbarContent({
                 />
               </Link>
 
-              <div className="relative">
-                <button
-                  onClick={() => {
-                    setIsLangMenuOpen((prev) => !prev);
-                    setIsUserMenuOpen(false);
-                  }}
-                  className="rounded-full bg-[var(--mint-200)] px-5 py-2.5 text-sm font-medium text-[var(--foreground)]"
-                >
-                  {language === "bn" ? "বাংলা" : "English"} ▼
-                </button>
-
-                {isLangMenuOpen && (
-                  <div className="absolute right-0 z-30 mt-2 w-40 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-2 shadow-lg">
-                    <button
-                      onClick={() => {
-                        onLanguageChange?.("en");
-                        setIsLangMenuOpen(false);
-                      }}
-                      className="block w-full rounded-xl px-4 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--mint-50)]"
-                    >
-                      English
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        onLanguageChange?.("bn");
-                        setIsLangMenuOpen(false);
-                      }}
-                      className="block w-full rounded-xl px-4 py-2 text-left text-sm text-[var(--foreground)] hover:bg-[var(--mint-50)]"
-                    >
-                      বাংলা
-                    </button>
-                  </div>
-                )}
-              </div>
 
               <NotificationBell />
 
