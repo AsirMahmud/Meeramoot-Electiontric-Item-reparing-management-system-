@@ -226,7 +226,7 @@ export async function updateCartItem(req: AuthedRequest, res: Response) {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    const { itemId } = req.params;
+    const itemId = req.params.itemId as string;
     const { quantity } = req.body as { quantity?: number };
 
     const item = await prisma.cartItem.findUnique({
@@ -240,7 +240,7 @@ export async function updateCartItem(req: AuthedRequest, res: Response) {
           },
         },
       },
-    });
+    }) as any;
 
     if (!item || item.cart.userId !== userId || item.cart.status !== CartStatus.ACTIVE) {
       return res.status(404).json({ message: "Cart item not found" });
@@ -265,7 +265,7 @@ export async function removeCartItem(req: AuthedRequest, res: Response) {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    const { itemId } = req.params;
+    const itemId = req.params.itemId as string;
 
     const item = await prisma.cartItem.findUnique({
       where: { id: itemId },
@@ -278,7 +278,7 @@ export async function removeCartItem(req: AuthedRequest, res: Response) {
           },
         },
       },
-    });
+    }) as any;
 
     if (!item || item.cart.userId !== userId || item.cart.status !== CartStatus.ACTIVE) {
       return res.status(404).json({ message: "Cart item not found" });
@@ -309,7 +309,7 @@ export async function checkoutCart(req: AuthedRequest, res: Response) {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    const { cartId } = req.params;
+    const cartId = req.params.cartId as string;
     const {
       scheduleType,
       scheduledAt,
@@ -347,7 +347,7 @@ export async function checkoutCart(req: AuthedRequest, res: Response) {
         items: true,
         user: true,
       },
-    });
+    }) as any;
 
     if (!cart) {
       return res.status(404).json({ message: "Active cart not found" });
@@ -372,7 +372,7 @@ export async function checkoutCart(req: AuthedRequest, res: Response) {
     }
 
     const subtotal = cart.items.reduce(
-      (sum, item) => sum + Number(item.price) * item.quantity,
+      (sum: number, item: any) => sum + Number(item.price) * item.quantity,
       0
     );
     const selectedDeliveryType = deliveryType === "EXPRESS" ? DeliveryType.EXPRESS : DeliveryType.REGULAR;
@@ -382,7 +382,7 @@ export async function checkoutCart(req: AuthedRequest, res: Response) {
 
     const serviceLines = cart.items
       .map(
-        (item, index) =>
+        (item: any, index: number) =>
           `${index + 1}. ${item.serviceName} × ${item.quantity} — ৳${Number(item.price).toFixed(2)}`
       )
       .join("\n");
