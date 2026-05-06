@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_COORDS, type StoredLocation } from "./types";
 import { reverseGeocode } from "./location-utils";
+import "leaflet/dist/leaflet.css";
 
 type MapPickerProps = {
   selectedLocation: StoredLocation | null;
