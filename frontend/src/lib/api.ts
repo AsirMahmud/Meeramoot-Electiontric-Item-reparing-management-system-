@@ -40,7 +40,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
-async function authedRequest<T>(path: string, token?: string, init?: RequestInit): Promise<T> {
+export async function authedRequest<T>(path: string, token?: string, init?: RequestInit): Promise<T> {
   return request<T>(path, {
     ...init,
     headers: {

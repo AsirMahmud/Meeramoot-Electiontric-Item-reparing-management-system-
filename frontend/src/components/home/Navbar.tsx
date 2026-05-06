@@ -166,6 +166,14 @@ function NavbarContent({
                         AI help chat
                       </Link>
 
+                      <Link
+                        href="/support"
+                        className="block rounded-2xl px-4 py-3 text-sm text-[var(--foreground)] transition hover:bg-[var(--mint-50)]"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        Customer Support
+                      </Link>
+
                       <button
                         onClick={() => {
                           setIsUserMenuOpen(false);
@@ -242,8 +250,8 @@ function NavbarContent({
                     key={tab.value}
                     href={`/shops?category=${tab.value}`}
                     className={`inline-flex border-b-[3px] pb-1 transition ${active
-                        ? "border-[var(--accent-dark)] text-[var(--accent-dark)]"
-                        : "border-transparent text-[var(--foreground)] hover:border-[var(--accent-dark)]/40"
+                      ? "border-[var(--accent-dark)] text-[var(--accent-dark)]"
+                      : "border-transparent text-[var(--foreground)] hover:border-[var(--accent-dark)]/40"
                       }`}
                   >
                     {tab.label}
