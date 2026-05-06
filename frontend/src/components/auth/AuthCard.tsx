@@ -286,14 +286,16 @@ export default function AuthCard({ mode }: { mode: Mode }) {
       <div className="rounded-[2rem] border border-white/60 bg-white/90 px-8 py-6 shadow-2xl backdrop-blur">
         <div className="mb-4 text-center">
           <div className="mb-3 flex justify-center">
-            <Image
-              src="/images/meramot.svg"
-              alt="Meramot"
-              width={160}
-              height={48}
-              className="h-10 w-auto object-contain"
-              priority
-            />
+            <Link href="/" className="inline-block transition-opacity hover:opacity-80">
+              <Image
+                src="/images/meramot.svg"
+                alt="Meramot"
+                width={160}
+                height={48}
+                className="h-10 w-auto object-contain"
+                priority
+              />
+            </Link>
           </div>
 
           <h1 className="text-3xl font-bold leading-tight text-accent-dark">
