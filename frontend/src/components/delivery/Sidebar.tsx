@@ -1,11 +1,10 @@
-﻿"use client";
+"use client";
 
 import { Home, Map, Wallet, User, Menu, X, LogOut } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import ThemeToggle from "@/components/theme/ThemeToggle";
 import { useState } from "react";
 import { useDeliveryAuth } from "@/lib/delivery-auth-context";
 
@@ -105,7 +104,6 @@ export function Sidebar() {
               <LogOut size={18} />
               Sign Out
             </button>
-            <ThemeToggle />
           </div>
         </div>
       </aside>

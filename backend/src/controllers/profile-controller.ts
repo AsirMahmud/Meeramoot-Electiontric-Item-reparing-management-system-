@@ -36,7 +36,7 @@ export async function updateProfile(req: AuthedRequest, res: Response) {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 
-    const { name, phone, address, city, area } = req.body as Record<string, string | undefined>;
+    const { name, phone, address, city, area, avatarUrl } = req.body as Record<string, string | undefined>;
 
     const user = await prisma.user.update({
       where: { id: userId },
@@ -46,6 +46,7 @@ export async function updateProfile(req: AuthedRequest, res: Response) {
         address: address?.trim() || null,
         city: city?.trim() || null,
         area: area?.trim() || null,
+        avatarUrl: avatarUrl?.trim() || null,
       },
       select: {
         id: true,

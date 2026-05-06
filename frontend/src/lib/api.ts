@@ -57,7 +57,6 @@ async function authedRequest<T>(path: string, token?: string, init?: RequestInit
 export type ShopCategory = "COURIER_PICKUP" | "IN_SHOP_REPAIR" | "SPARE_PARTS";
 export type ShopServicePricingType = "FIXED" | "STARTING_FROM" | "INSPECTION_REQUIRED";
 
-/** 🔥 Unified shop type (merged both versions) */
 export type Shop = {
   id: string;
   name: string;
@@ -67,9 +66,9 @@ export type Shop = {
   city?: string | null;
   area?: string | null;
 
-  ratingAvg?: number;
-  reviewCount?: number;
-  priceLevel?: number;
+  ratingAvg: number;
+  reviewCount: number;
+  priceLevel: number;
 
   logoUrl?: string | null;
   bannerUrl?: string | null;
@@ -106,6 +105,30 @@ export type Shop = {
   baseLaborFee?: number | null;
   inspectionFee?: number | null;
 };
+
+export type ShopService = {
+  id: string;
+  slug: string;
+  name: string;
+  shortDescription?: string | null;
+  description?: string | null;
+  deviceType?: string | null;
+  issueCategory?: string | null;
+  pricingType?: string | null;
+  basePrice?: number | null;
+  priceMax?: number | null;
+  estimatedDaysMin?: number | null;
+  estimatedDaysMax?: number | null;
+  includesPickup?: boolean;
+  includesDelivery?: boolean;
+  isFeatured?: boolean;
+};
+
+export type ShopDetail = Shop & {
+  services?: ShopService[];
+  openingHoursText?: string | null;
+};
+
 export type VendorApplicationPayload = {
   ownerName: string;
   businessEmail: string;
@@ -414,18 +437,7 @@ export function signup(data: {
 }
 
 export function login(data: { identifier: string; password: string }) {
-  return request<{
-    message: string;
-    token: string;
-    user: {
-      id: string;
-      username: string;
-      email: string;
-      name?: string | null;
-      phone?: string | null;
-      role?: string | null;
-    };
-  }>("/auth/login", {
+  return request<AuthPayload>("/auth/login", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -481,22 +493,24 @@ export function getFeaturedShops() {
   return request<Shop[]>("/shops/featured");
 }
 
-export async function getShopBySlug(slug: string) {
-  try {
-    return await request<Shop>(`/shops/${encodeURIComponent(slug)}`);
-  } catch (error) {
-    const { fallbackShops } = await import("./mock-data");
-    const mock = fallbackShops.find((s) => s.slug === slug);
-    if (mock) {
-      return mock as unknown as Shop;
-    }
-    throw error;
-  }
+export function getShopBySlug(slug: string) {
+  return request<Shop>(`/shops/${encodeURIComponent(slug)}`);
 }
 
 /* =========================================================
    SERVICES / REQUESTS
 ========================================================= */
+
+export async function createRepairRequest(payload: any, token?: string) {
+  return authedRequest("/requests", token, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function getMyOrders(token: string) {
+  return authedRequest<any[]>("/requests/mine", token);
+}
 
 export type FinalQuoteItem = {
   label: string;
@@ -791,17 +805,10 @@ export type VendorAnalyticsData = {
   };
 };
 
-export async function createRepairRequest(payload: CreateRepairRequestPayload, token?: string) {
-  return authedRequest("/requests", token, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
 export async function uploadImages(files: File[], token?: string) {
   const formData = new FormData();
   files.forEach(f => formData.append("images", f));
-  
+
   let response: Response;
   try {
     response = await fetch(`${API}/api/uploads`, {
@@ -814,18 +821,15 @@ export async function uploadImages(files: File[], token?: string) {
   } catch {
     throw new Error("Network error while uploading images.");
   }
-  
+
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(data.message || `Upload failed with status ${response.status}`);
   }
-  
+
   return data as { imageUrls: string[] };
 }
 
-export async function getMyOrders(token: string) {
-  return authedRequest<OrderItem[]>("/requests/mine", token);
-}
 
 export async function acceptBid(token: string, requestId: string, bidId: string) {
   return authedRequest(
@@ -834,6 +838,80 @@ export async function acceptBid(token: string, requestId: string, bidId: string)
     {
       method: "PATCH",
     }
+  );
+}
+
+export type RequestBidDetail = {
+  id: string;
+  partsCost: number;
+  laborCost: number;
+  totalCost: number;
+  estimatedDays?: number | null;
+  notes?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  shop: {
+    id: string;
+    name: string;
+    slug: string;
+    ratingAvg: number;
+    reviewCount: number;
+    priceLevel: number;
+    address: string;
+    specialties: string[];
+  };
+};
+
+export type RequestDetail = {
+  id: string;
+  title: string;
+  description?: string | null;
+  deviceType: string;
+  brand?: string | null;
+  model?: string | null;
+  issueCategory?: string | null;
+  problem: string;
+  aiSummary?: string | null;
+  mode: string;
+  status: string;
+  preferredPickup: boolean;
+  deliveryType?: string | null;
+  pickupAddress?: string | null;
+  dropoffAddress?: string | null;
+  quotedFinalAmount?: number | null;
+  createdAt: string;
+  updatedAt: string;
+  requestedShop?: {
+    id: string;
+    name: string;
+    slug: string;
+    address: string;
+    ratingAvg: number;
+    reviewCount: number;
+  } | null;
+  bids: RequestBidDetail[];
+  repairJob?: {
+    id: string;
+    status: string;
+    diagnosisNotes?: string | null;
+    finalQuotedAmount?: number | null;
+    customerApproved?: boolean | null;
+    createdAt: string;
+    updatedAt: string;
+    shop: {
+      id: string;
+      name: string;
+      slug: string;
+      ratingAvg: number;
+    };
+  } | null;
+};
+
+export async function getRequestById(token: string, requestId: string): Promise<RequestDetail> {
+  return authedRequest<RequestDetail>(
+    `/requests/${encodeURIComponent(requestId)}`,
+    token
   );
 }
 
@@ -847,12 +925,34 @@ export async function declineBid(token: string, requestId: string, bidId: string
   );
 }
 
+export async function createSupportTicket(token: string, requestId: string, subject: string, message: string) {
+  return authedRequest(
+    `/requests/${encodeURIComponent(requestId)}/support-ticket`,
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify({ subject, message }),
+    }
+  );
+}
+
+export async function createDispute(token: string, requestId: string, reason: string) {
+  return authedRequest(
+    `/requests/${encodeURIComponent(requestId)}/dispute`,
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }
+  );
+}
+
 export async function cancelRequest(token: string, requestId: string) {
   return authedRequest(
     `/requests/${encodeURIComponent(requestId)}/cancel`,
     token,
     {
-      method: "PATCH",
+      method: "POST",
     }
   );
 }
@@ -1009,7 +1109,7 @@ export async function updateVendorNotificationPreferences(
   payload: { liveNotificationsEnabled?: boolean; liveNotificationsPrompted?: boolean }
 ) {
   return authedRequest<{ message: string; liveNotificationsEnabled: boolean; liveNotificationsPrompted: boolean }>(
-    "/vendor-status/notifications",
+    "/vendor/application-status/notifications",
     token,
     {
       method: "PATCH",
@@ -1023,13 +1123,8 @@ export async function updateVendorNotificationPreferences(
 ========================================================= */
 
 export async function getShopReviews(slug: string) {
-  const data = await request<unknown>(`/shops/${slug}/reviews`);
-  if (Array.isArray(data)) return data;
-  if (typeof data === "object" && data && "reviews" in data) {
-    const reviews = (data as { reviews?: unknown }).reviews;
-    return Array.isArray(reviews) ? reviews : [];
-  }
-  return [];
+  const data = await request<any>(`/shops/${slug}/reviews`);
+  return Array.isArray(data) ? data : data.reviews || [];
 }
 
 export async function getReviewEligibility(
@@ -1040,22 +1135,12 @@ export async function getReviewEligibility(
     eligible: boolean;
     hasCompletedJob: boolean;
     hasExistingReview: boolean;
-    existingReview?: {
-      id: string;
-      score: number;
-      review?: string | null;
-      createdAt?: string;
-      updatedAt?: string;
-      canEdit?: boolean;
-      editExpiresAt?: string;
-    } | null;
   }>(`/shops/${shopSlug}/review-eligibility`, {
     headers: {
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     },
   });
 }
-
 
 export async function createReview(
   slug: string,
@@ -1093,13 +1178,19 @@ export type Profile = {
 };
 
 export function getProfile(token?: string) {
-  return authedRequest<Profile>("/profile/me", token);
+  return authedRequest("/profile/me", token);
 }
 
-export function updateProfile(token: string, payload: Partial<Profile> & Record<string, unknown>) {
-  return authedRequest<{ message: string; user: Profile }>("/profile/me", token, {
+export function updateProfile(token: string, payload: any) {
+  return authedRequest("/profile/me", token, {
     method: "PATCH",
     body: JSON.stringify(payload),
+  });
+}
+
+export function deleteProfile(token: string) {
+  return authedRequest("/profile/me", token, {
+    method: "DELETE",
   });
 }
 
@@ -1291,7 +1382,7 @@ export interface DeliveryAdminMeResponse {
 
 
 
-export async function loginDelivery(credentials: unknown): Promise<{success: boolean, data?: DeliveryAuthPayload}> {
+export async function loginDelivery(credentials: unknown): Promise<{ success: boolean, data?: DeliveryAuthPayload }> {
   const res = await fetch(`${API}/api/delivery/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1300,7 +1391,7 @@ export async function loginDelivery(credentials: unknown): Promise<{success: boo
   return res.json();
 }
 
-export async function loginDeliveryAdmin(credentials: unknown): Promise<{success: boolean, data?: DeliveryAdminAuthPayload}> {
+export async function loginDeliveryAdmin(credentials: unknown): Promise<{ success: boolean, data?: DeliveryAdminAuthPayload }> {
   const res = await fetch(`${API}/api/delivery-admin/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1373,31 +1464,6 @@ export async function deleteAdminDeliveryRider(token: string, userId: string, pa
   });
 }
 
-
-export type ShopService = {
-  id: string;
-  slug: string;
-  name: string;
-  shortDescription?: string | null;
-  description?: string | null;
-  deviceType?: string | null;
-  issueCategory?: string | null;
-  pricingType?: string | null;
-  basePrice?: number | null;
-  priceMax?: number | null;
-  estimatedDaysMin?: number | null;
-  estimatedDaysMax?: number | null;
-  includesPickup?: boolean;
-  includesDelivery?: boolean;
-  isFeatured?: boolean;
-};
-
-
-export type ShopDetail = Shop & {
-  services?: ShopService[];
-  openingHoursText?: string | null;
-};
-
 export type SslCommerzInitPayload = {
   amount: number;
   currency?: string;
@@ -1464,16 +1530,6 @@ export function getAdminPayments(params: { status?: string } = {}, token?: strin
   return authedRequest<AdminPaymentsResponse>(`/payments/admin/list${q}`, token);
 }
 
-/* =========================================================
-   SHOPS
-========================================================= */
-
-
-export function deleteProfile(token: string) {
-  return authedRequest("/profile/me", token, {
-    method: "DELETE",
-  });
-}
 
 /* =========================================================
    DELIVERY (RIDER)
@@ -1732,7 +1788,6 @@ export type DeliveryAdminOrder = {
   };
 };
 
-
 export function blockDeliveryPartnerAdmin(token: string, id: string) {
   return authedRequest(`/delivery-admin/partners/${id}/block`, token, {
     method: "PATCH",
@@ -1948,6 +2003,21 @@ export function setGuestCart(cart: Cart[]) {
    Ai Chat
 ========================================================= */
 
+export type AiChatMessage = {
+  role: "user" | "assistant";
+  text: string;
+};
+
+export type AiChatSession = {
+  id: string;
+  title: string;
+  messages: AiChatMessage[];
+};
+
+export type CreatedAiChatSession = {
+  id: string;
+  title: string;
+};
 
 export async function chatWithAi(payload: {
   message: string;
@@ -1962,19 +2032,16 @@ export async function chatWithAi(payload: {
   });
 }
 
-
 export async function getAiChatSessions(token?: string) {
-  return authedRequest("/ai-chat/sessions", token);
+  return authedRequest<AiChatSession[]>("/ai-chat/sessions", token);
 }
 
-
 export async function createAiChatSession(title = "New Chat", token?: string) {
-  return authedRequest<{ id: string; title: string }>("/ai-chat/sessions", token, {
+  return authedRequest<CreatedAiChatSession>("/ai-chat/sessions", token, {
     method: "POST",
     body: JSON.stringify({ title }),
   });
 }
-
 
 export async function saveAiChatMessage(
   sessionId: string,
@@ -1982,10 +2049,14 @@ export async function saveAiChatMessage(
   text: string,
   token?: string
 ) {
-  return authedRequest(`/ai-chat/sessions/${sessionId}/messages`, token, {
-    method: "POST",
-    body: JSON.stringify({ role, text }),
-  });
+  return authedRequest<{ message: AiChatMessage }>(
+    `/ai-chat/sessions/${sessionId}/messages`,
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify({ role, text }),
+    }
+  );
 }
 
 export async function deleteAiChatSession(sessionId: string, token?: string) {

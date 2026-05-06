@@ -37,15 +37,12 @@ export default function AdminSidebarNav({ onNavClick }: { onNavClick?: () => voi
     setLoggingOut(true);
 
     try {
-      const result = await signOut({
-        redirect: false,
+      await signOut({
         callbackUrl: "/",
       });
-      router.replace(result?.url || "/");
     } catch {
-      router.replace("/");
+      window.location.href = "/";
     } finally {
-      router.refresh();
       setLoggingOut(false);
     }
   }
