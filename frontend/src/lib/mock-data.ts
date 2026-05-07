@@ -1,4 +1,4 @@
-import type { ApiShop } from "./api";
+import type { Shop as ApiShop } from "./api";
 
 export const fallbackShops: ApiShop[] = [
   {

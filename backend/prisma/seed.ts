@@ -302,6 +302,8 @@ async function main() {
       address: "12 Lake Road",
       city: "Dhaka",
       area: "Dhanmondi",
+      isEmailVerified: true,
+      isPhoneVerified: true,
     },
   });
 
@@ -372,6 +374,8 @@ async function main() {
         name: `${name} Owner`,
         phone: `+88018000000${i.toString().padStart(2, '0')}`,
         role: "VENDOR",
+        isEmailVerified: true,
+        isPhoneVerified: true,
       },
     });
 
@@ -483,6 +487,8 @@ async function main() {
         phone: applicant.phone,
         role: "VENDOR_APPLICANT",
         status: "SUSPENDED",
+        isEmailVerified: true,
+        isPhoneVerified: false,
       },
     });
 
@@ -567,6 +573,8 @@ async function main() {
         city: "Dhaka",
         lat: riderLat,
         lng: riderLng,
+        isEmailVerified: true,
+        isPhoneVerified: true,
       },
     });
 

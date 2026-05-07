@@ -293,6 +293,7 @@ model User {
   approvedRefunds            Refund[]             @relation("RefundApprovedBy")
   escrowLedgersAsCustomer    EscrowLedger[]       @relation("EscrowCustomer")
   escrowLedgersAsVendor      EscrowLedger[]       @relation("EscrowVendor")
+  earningFeedbacks           MonthlyEarningFeedback[]
 }
 
 model VendorApplication {
@@ -411,6 +412,7 @@ model Shop {
 
   aiServiceSuggestions AiServiceSuggestion[]
   spareParts           SparePart[]
+  earningFeedbacks     MonthlyEarningFeedback[]
 
   @@index([isActive, isFeatured])
   @@index([city, area])
@@ -1176,4 +1178,26 @@ model SupportMessage {
 
   @@index([ticketId])
   @@index([authorId])
+}
+
+enum EarningFeedbackRating {
+  ADEQUATE
+  INADEQUATE
+}
+
+model MonthlyEarningFeedback {
+  id        String                @id @default(cuid())
+  shopId    String
+  userId    String
+  monthKey  String                // e.g. "2026-05"
+  rating    EarningFeedbackRating
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  shop Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, monthKey])
+  @@index([userId])
+  @@index([rating])
 }

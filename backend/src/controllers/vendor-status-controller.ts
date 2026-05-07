@@ -61,6 +61,7 @@ type AuthPayload = {
 type AuthenticatedVendorUser = {
   id: string;
   role: string;
+  status: string;
   isEmailVerified: boolean;
   isPhoneVerified: boolean;
 };
@@ -99,7 +100,7 @@ async function requireVendorUser(
 
   const user = await prisma.user.findUnique({
     where: { id: payload.sub },
-    select: { id: true, role: true, isEmailVerified: true, isPhoneVerified: true },
+    select: { id: true, role: true, status: true, isEmailVerified: true, isPhoneVerified: true },
   });
 
   if (!user) {
@@ -107,7 +108,8 @@ async function requireVendorUser(
     return null;
   }
 
-  if (user.role !== "VENDOR") {
+  // Allow both VENDOR and VENDOR_APPLICANT to access their application status
+  if (user.role !== "VENDOR" && user.role !== "VENDOR_APPLICANT") {
     res.status(403).json({ message: "Only vendors can access this resource" });
     return null;
   }

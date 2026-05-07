@@ -88,6 +88,8 @@ async function main() {
         name: v.name,
         phone: v.phone,
         role: "VENDOR",
+        isEmailVerified: true,
+        isPhoneVerified: true,
       },
     });
 
@@ -202,6 +204,8 @@ async function main() {
         address: "45 Mirpur Road",
         city: "Dhaka",
         area: "Mirpur",
+        isEmailVerified: true,
+        isPhoneVerified: true,
       },
     }),
     prisma.user.upsert({
@@ -216,6 +220,8 @@ async function main() {
         address: "12 Gulshan Avenue",
         city: "Dhaka",
         area: "Gulshan",
+        isEmailVerified: true,
+        isPhoneVerified: true,
       },
     }),
     prisma.user.upsert({
@@ -230,6 +236,8 @@ async function main() {
         address: "78 Dhanmondi R/A",
         city: "Dhaka",
         area: "Dhanmondi",
+        isEmailVerified: true,
+        isPhoneVerified: true,
       },
     }),
   ]);

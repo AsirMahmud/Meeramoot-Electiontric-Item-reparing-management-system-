@@ -7,11 +7,16 @@ import { useSession } from "next-auth/react";
 import Navbar from "@/components/vendor/Navbar";
 import {
   getVendorAnalytics,
+  getEarningFeedbackCounts,
+  getMyEarningFeedback,
+  submitEarningFeedback,
   type VendorAnalyticsData,
+  type EarningFeedbackCounts,
+  type MyEarningFeedback,
 } from "@/lib/api";
 
 type FlashState = {
-  type: "error";
+  type: "error" | "success";
   text: string;
 } | null;
 
@@ -47,6 +52,11 @@ export default function VendorAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState<FlashState>(null);
 
+  // Earning feedback state
+  const [feedbackCounts, setFeedbackCounts] = useState<EarningFeedbackCounts | null>(null);
+  const [myFeedback, setMyFeedback] = useState<MyEarningFeedback | null>(null);
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+
   useEffect(() => {
     if (status === "loading") return;
 
@@ -71,9 +81,15 @@ export default function VendorAnalyticsPage() {
     async function loadAnalytics() {
       try {
         setLoading(true);
-        const result = await getVendorAnalytics(token!);
+        const [result, counts, myFb] = await Promise.all([
+          getVendorAnalytics(token!),
+          getEarningFeedbackCounts(),
+          getMyEarningFeedback(token!),
+        ]);
         if (cancelled) return;
         setAnalytics(result);
+        setFeedbackCounts(counts);
+        setMyFeedback(myFb);
         setFlash(null);
       } catch (error) {
         if (cancelled) return;
@@ -103,6 +119,31 @@ export default function VendorAnalyticsPage() {
   const maxBidsWon = useMemo(() => {
     return Math.max(1, ...(analytics?.trends.map((item) => item.bidsWon) ?? [0]));
   }, [analytics]);
+
+  async function handleFeedback(rating: "ADEQUATE" | "INADEQUATE") {
+    if (!token || feedbackSubmitting) return;
+
+    setFeedbackSubmitting(true);
+    try {
+      await submitEarningFeedback(token, { rating });
+
+      // Refresh both counts and my feedback
+      const [counts, myFb] = await Promise.all([
+        getEarningFeedbackCounts(),
+        getMyEarningFeedback(token),
+      ]);
+      setFeedbackCounts(counts);
+      setMyFeedback(myFb);
+      setFlash({ type: "success", text: `Marked this month's earnings as ${rating.toLowerCase()}.` });
+    } catch (error) {
+      setFlash({
+        type: "error",
+        text: error instanceof Error ? error.message : "Could not submit feedback.",
+      });
+    } finally {
+      setFeedbackSubmitting(false);
+    }
+  }
 
   if (!session?.user || role !== "VENDOR") {
     return null;
@@ -139,7 +180,13 @@ export default function VendorAnalyticsPage() {
         </div>
 
         {flash ? (
-          <div className="mt-6 rounded-3xl border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+          <div
+            className={`mt-6 rounded-3xl border px-5 py-4 text-sm ${
+              flash.type === "error"
+                ? "border-red-200 bg-red-50 text-red-700"
+                : "border-emerald-200 bg-emerald-50 text-emerald-700"
+            }`}
+          >
             {flash.text}
           </div>
         ) : null}
@@ -183,6 +230,165 @@ export default function VendorAnalyticsPage() {
                   {formatMoney(analytics.insights.bestMonthEarnings)}
                 </p>
                 <p className="mt-2 text-sm text-[#5b7262]">Peak month: {analytics.insights.bestMonthLabel}</p>
+              </article>
+            </section>
+
+            {/* ====== EARNING FEEDBACK SECTION ====== */}
+            <section className="mt-6 grid gap-4 xl:grid-cols-2">
+              {/* Rate this month's earnings */}
+              <article className="rounded-[2rem] bg-white p-6 shadow-sm">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#58725f]">
+                  Monthly earning feedback
+                </p>
+                <h2 className="mt-2 text-2xl font-bold text-[#173726]">
+                  Rate your earnings
+                </h2>
+                <p className="mt-2 text-sm text-[#5b7262]">
+                  How do you feel about your earnings for{" "}
+                  <span className="font-semibold text-[#173726]">{analytics.summary.monthLabel}</span>?
+                </p>
+
+                {myFeedback?.feedback ? (
+                  <div className="mt-5 rounded-2xl bg-[#f6faf4] p-5">
+                    <p className="text-sm text-[#355541]">
+                      You marked this month&apos;s earnings as{" "}
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
+                          myFeedback.feedback.rating === "ADEQUATE"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-amber-100 text-amber-700"
+                        }`}
+                      >
+                        {myFeedback.feedback.rating === "ADEQUATE" ? "✓" : "✕"}{" "}
+                        {myFeedback.feedback.rating}
+                      </span>
+                    </p>
+                    <p className="mt-3 text-xs text-[#6b8270]">
+                      You can change your selection below.
+                    </p>
+                  </div>
+                ) : null}
+
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                  <button
+                    id="btn-adequate"
+                    type="button"
+                    disabled={feedbackSubmitting}
+                    onClick={() => handleFeedback("ADEQUATE")}
+                    className={`group relative flex-1 overflow-hidden rounded-2xl px-6 py-4 text-sm font-bold transition-all duration-300 ${
+                      myFeedback?.feedback?.rating === "ADEQUATE"
+                        ? "bg-emerald-600 text-white shadow-lg shadow-emerald-200 ring-2 ring-emerald-400"
+                        : "border-2 border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-400 hover:bg-emerald-100 hover:shadow-md"
+                    } disabled:cursor-not-allowed disabled:opacity-60`}
+                  >
+                    <span className="relative z-10 flex items-center justify-center gap-2">
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                      </svg>
+                      Adequate
+                    </span>
+                  </button>
+
+                  <button
+                    id="btn-inadequate"
+                    type="button"
+                    disabled={feedbackSubmitting}
+                    onClick={() => handleFeedback("INADEQUATE")}
+                    className={`group relative flex-1 overflow-hidden rounded-2xl px-6 py-4 text-sm font-bold transition-all duration-300 ${
+                      myFeedback?.feedback?.rating === "INADEQUATE"
+                        ? "bg-amber-600 text-white shadow-lg shadow-amber-200 ring-2 ring-amber-400"
+                        : "border-2 border-amber-200 bg-amber-50 text-amber-700 hover:border-amber-400 hover:bg-amber-100 hover:shadow-md"
+                    } disabled:cursor-not-allowed disabled:opacity-60`}
+                  >
+                    <span className="relative z-10 flex items-center justify-center gap-2">
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
+                      </svg>
+                      Inadequate
+                    </span>
+                  </button>
+                </div>
+              </article>
+
+              {/* Global feedback counts */}
+              <article className="rounded-[2rem] bg-white p-6 shadow-sm">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#58725f]">
+                  Community sentiment
+                </p>
+                <h2 className="mt-2 text-2xl font-bold text-[#173726]">
+                  All vendor feedback
+                </h2>
+                <p className="mt-2 text-sm text-[#5b7262]">
+                  Total count of Adequate and Inadequate selections from all vendors.
+                </p>
+
+                {feedbackCounts ? (
+                  <div className="mt-5 space-y-4">
+                    {/* Adequate bar */}
+                    <div className="rounded-2xl bg-[#f6faf4] p-5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                            </svg>
+                          </span>
+                          <p className="font-semibold text-[#173726]">Adequate</p>
+                        </div>
+                        <p className="text-2xl font-bold text-emerald-600">
+                          {feedbackCounts.adequate}
+                        </p>
+                      </div>
+                      <div className="mt-3 h-3 rounded-full bg-white">
+                        <div
+                          className="h-3 rounded-full bg-emerald-400 transition-all duration-500"
+                          style={{
+                            width: feedbackCounts.total > 0
+                              ? `${Math.round((feedbackCounts.adequate / feedbackCounts.total) * 100)}%`
+                              : "0%",
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Inadequate bar */}
+                    <div className="rounded-2xl bg-[#fdf8f4] p-5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
+                            </svg>
+                          </span>
+                          <p className="font-semibold text-[#173726]">Inadequate</p>
+                        </div>
+                        <p className="text-2xl font-bold text-amber-600">
+                          {feedbackCounts.inadequate}
+                        </p>
+                      </div>
+                      <div className="mt-3 h-3 rounded-full bg-white">
+                        <div
+                          className="h-3 rounded-full bg-amber-400 transition-all duration-500"
+                          style={{
+                            width: feedbackCounts.total > 0
+                              ? `${Math.round((feedbackCounts.inadequate / feedbackCounts.total) * 100)}%`
+                              : "0%",
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Total */}
+                    <div className="rounded-2xl border border-[#d9e5d5] p-4 text-center">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#6b8270]">Total responses</p>
+                      <p className="mt-2 text-3xl font-bold text-[#173726]">{feedbackCounts.total}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-5 rounded-2xl bg-[#f6faf4] p-5 text-sm text-[#355541]">
+                    Loading feedback data...
+                  </div>
+                )}
               </article>
             </section>
 

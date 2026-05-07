@@ -1137,6 +1137,48 @@ export async function updateVendorNotificationPreferences(
 }
 
 /* =========================================================
+   EARNING FEEDBACK
+========================================================= */
+
+export type EarningFeedbackCounts = {
+  adequate: number;
+  inadequate: number;
+  total: number;
+};
+
+export type MyEarningFeedback = {
+  feedback: {
+    id: string;
+    rating: "ADEQUATE" | "INADEQUATE";
+    monthKey: string;
+    updatedAt: string;
+  } | null;
+  currentMonthKey: string;
+};
+
+export function getEarningFeedbackCounts() {
+  return request<EarningFeedbackCounts>("/vendor/requests/earning-feedback/counts");
+}
+
+export function getMyEarningFeedback(token: string) {
+  return authedRequest<MyEarningFeedback>("/vendor/requests/earning-feedback/mine", token);
+}
+
+export function submitEarningFeedback(
+  token: string,
+  payload: { rating: "ADEQUATE" | "INADEQUATE"; monthKey?: string }
+) {
+  return authedRequest<{ message: string; feedback: { id: string; rating: string; monthKey: string } }>(
+    "/vendor/requests/earning-feedback",
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+/* =========================================================
    REVIEWS
 ========================================================= */
 

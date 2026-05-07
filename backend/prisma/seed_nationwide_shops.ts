@@ -245,6 +245,8 @@ async function main() {
           name: `${shopName} Owner`,
           phone: `+8801${(9000000 + i).toString()}`,
           role: "VENDOR",
+          isEmailVerified: true,
+          isPhoneVerified: true,
         },
       });
 

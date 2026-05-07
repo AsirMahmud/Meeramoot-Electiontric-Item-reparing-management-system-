@@ -38,6 +38,8 @@ async function upsertUser(params: {
         phone: params.phone,
         role: params.role,
         passwordHash: params.passwordHash,
+        isEmailVerified: true,
+        isPhoneVerified: true,
       },
     });
   }
@@ -50,6 +52,8 @@ async function upsertUser(params: {
       phone: params.phone,
       role: params.role,
       passwordHash: params.passwordHash,
+      isEmailVerified: true,
+      isPhoneVerified: true,
     },
   });
 }

@@ -718,6 +718,155 @@ export async function getVendorAnalytics(req: AuthedRequest, res: Response) {
 }
 
 
+export async function submitEarningFeedback(req: AuthedRequest, res: Response) {
+  try {
+    const userId = req.user?.id;
+    const role = req.user?.role;
+
+    if (!userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    if (role !== "VENDOR") {
+      return res.status(403).json({ message: "Vendor access only" });
+    }
+
+    const { shop } = await getVendorContext(userId);
+
+    const { rating, monthKey } = req.body as {
+      rating?: string;
+      monthKey?: string;
+    };
+
+    if (!rating || !["ADEQUATE", "INADEQUATE"].includes(rating)) {
+      return res.status(400).json({ message: "rating must be ADEQUATE or INADEQUATE" });
+    }
+
+    // Default to current month if not specified
+    const now = new Date();
+    const resolvedMonthKey =
+      monthKey?.trim() ||
+      `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+    // Validate monthKey format (YYYY-MM)
+    if (!/^\d{4}-\d{2}$/.test(resolvedMonthKey)) {
+      return res.status(400).json({ message: "monthKey must be in YYYY-MM format" });
+    }
+
+    const feedback = await prisma.monthlyEarningFeedback.upsert({
+      where: {
+        shopId_monthKey: {
+          shopId: shop.id,
+          monthKey: resolvedMonthKey,
+        },
+      },
+      update: {
+        rating: rating as "ADEQUATE" | "INADEQUATE",
+        userId,
+      },
+      create: {
+        shopId: shop.id,
+        userId,
+        monthKey: resolvedMonthKey,
+        rating: rating as "ADEQUATE" | "INADEQUATE",
+      },
+      select: {
+        id: true,
+        rating: true,
+        monthKey: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return res.json({
+      message: "Earning feedback submitted",
+      feedback,
+    });
+  } catch (error) {
+    console.error("submitEarningFeedback error:", error);
+
+    if (isHttpError(error)) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
+
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+
+export async function getEarningFeedbackCounts(_req: AuthedRequest, res: Response) {
+  try {
+    const [adequateCount, inadequateCount] = await Promise.all([
+      prisma.monthlyEarningFeedback.count({
+        where: { rating: "ADEQUATE" },
+      }),
+      prisma.monthlyEarningFeedback.count({
+        where: { rating: "INADEQUATE" },
+      }),
+    ]);
+
+    return res.json({
+      adequate: adequateCount,
+      inadequate: inadequateCount,
+      total: adequateCount + inadequateCount,
+    });
+  } catch (error) {
+    console.error("getEarningFeedbackCounts error:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
+
+export async function getMyEarningFeedback(req: AuthedRequest, res: Response) {
+  try {
+    const userId = req.user?.id;
+    const role = req.user?.role;
+
+    if (!userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    if (role !== "VENDOR") {
+      return res.status(403).json({ message: "Vendor access only" });
+    }
+
+    const { shop } = await getVendorContext(userId);
+
+    // Get current month key
+    const now = new Date();
+    const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+    const feedback = await prisma.monthlyEarningFeedback.findUnique({
+      where: {
+        shopId_monthKey: {
+          shopId: shop.id,
+          monthKey: currentMonthKey,
+        },
+      },
+      select: {
+        id: true,
+        rating: true,
+        monthKey: true,
+        updatedAt: true,
+      },
+    });
+
+    return res.json({
+      feedback: feedback || null,
+      currentMonthKey,
+    });
+  } catch (error) {
+    console.error("getMyEarningFeedback error:", error);
+
+    if (isHttpError(error)) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
+
+    return res.status(500).json({ message: "Server error" });
+  }
+}
+
 export async function upsertVendorBid(req: AuthedRequest, res: Response) {
   try {
     const userId = req.user?.id;

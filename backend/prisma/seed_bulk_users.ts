@@ -46,6 +46,8 @@ async function main() {
         phone: `+88018${1000000 + i}`,
         role: "CUSTOMER",
         status: "ACTIVE",
+        isEmailVerified: true,
+        isPhoneVerified: true,
       },
     });
 
