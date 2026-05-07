@@ -9,15 +9,6 @@ export async function getSupportTicketDetails(token: string, id: string) {
   return authedRequest<any>(`/support/tickets/${id}`, token);
 }
 
-export async function createSupportTicketNew(
-  token: string,
-  data: { subject: string; message: string; priority?: string; repairRequestId?: string }
-) {
-  return authedRequest<any>("/support/tickets", token, {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-}
 
 export async function replyToSupportTicket(
   token: string,
