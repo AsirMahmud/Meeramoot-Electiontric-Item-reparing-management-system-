@@ -20,8 +20,23 @@ type DeliveryEmailInput = {
   html: string;
 };
 
+const directSmtpConfig = {
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
+  user: "asirmahmuhddd@gmail.com",
+  pass: "uckq encg hsxz laqt",
+  from: "Meeramoot <asirmahmuhddd@gmail.com>",
+};
+
 function hasSmtpConfig() {
-  return Boolean(env.smtpHost && env.smtpPort && env.smtpUser && env.smtpPass && env.smtpFrom);
+  return Boolean(
+    directSmtpConfig.host &&
+      directSmtpConfig.port &&
+      directSmtpConfig.user &&
+      directSmtpConfig.pass &&
+      directSmtpConfig.from,
+  );
 }
 
 async function sendDeliveryModuleEmail(input: DeliveryEmailInput) {
@@ -34,17 +49,17 @@ async function sendDeliveryModuleEmail(input: DeliveryEmailInput) {
   }
 
   const transporter = nodemailer.createTransport({
-    host: env.smtpHost,
-    port: env.smtpPort,
-    secure: env.smtpSecure,
+    host: directSmtpConfig.host,
+    port: directSmtpConfig.port,
+    secure: directSmtpConfig.secure,
     auth: {
-      user: env.smtpUser,
-      pass: env.smtpPass,
+      user: directSmtpConfig.user,
+      pass: directSmtpConfig.pass,
     },
   });
 
   await transporter.sendMail({
-    from: env.smtpFrom,
+    from: directSmtpConfig.from,
     to: input.toEmail,
     subject: input.subject,
     html: input.html,
