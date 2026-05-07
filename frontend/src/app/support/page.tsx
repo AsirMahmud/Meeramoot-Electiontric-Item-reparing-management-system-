@@ -5,11 +5,7 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { useSession } from "next-auth/react";
 import Navbar from "@/components/home/Navbar";
-import {
-  getSupportTickets,
-  createSupportTicketNew,
-  getCustomerDisputes,
-} from "@/lib/support-api";
+import { getSupportTickets, getCustomerDisputes } from "@/lib/support-api";
 
 export default function SupportDashboard() {
   const { data: session } = useSession();
@@ -18,11 +14,6 @@ export default function SupportDashboard() {
   const [disputes, setDisputes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
-
-  // Modal states for new ticket
-  const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
-  const [newTicket, setNewTicket] = useState({ subject: "", message: "", priority: "NORMAL", repairRequestId: "" });
-  const [creating, setCreating] = useState(false);
 
   const token = (session?.user as { accessToken?: string } | undefined)?.accessToken;
 
@@ -49,28 +40,6 @@ export default function SupportDashboard() {
       setMessage(error instanceof Error ? error.message : "Failed to load support data.");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleCreateTicket = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token) return;
-    if (!newTicket.subject.trim() || !newTicket.message.trim()) {
-      setMessage("Subject and message are required.");
-      return;
-    }
-    setCreating(true);
-    setMessage("");
-    try {
-      await createSupportTicketNew(token, newTicket);
-      setIsTicketModalOpen(false);
-      setNewTicket({ subject: "", message: "", priority: "NORMAL", repairRequestId: "" });
-      setMessage("Ticket created successfully.");
-      loadData(token);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Failed to create ticket.");
-    } finally {
-      setCreating(false);
     }
   };
 
@@ -103,12 +72,16 @@ export default function SupportDashboard() {
             <p className="text-xs sm:text-sm uppercase tracking-[0.2em] text-[var(--muted-foreground)]">Help</p>
             <h1 className="text-2xl sm:text-3xl font-bold text-[var(--foreground)]">Customer Support</h1>
           </div>
-          <button
-            onClick={() => { setIsTicketModalOpen(true); setMessage(""); }}
-            className="shrink-0 rounded-full bg-[var(--accent-dark)] px-5 py-2.5 sm:px-6 sm:py-3 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
+          <Link
+            href="/orders"
+            className="shrink-0 rounded-full border border-[var(--border)] bg-[var(--card)] px-5 py-2.5 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--mint-50)] transition-colors"
           >
-            + Raise New Ticket
-          </button>
+            ← Go to Orders
+          </Link>
+        </div>
+
+        <div className="mb-6 rounded-2xl border border-[var(--border)] bg-[var(--mint-50)] px-5 py-4 text-sm text-[var(--muted-foreground)]">
+          To raise a new support ticket, go to <Link href="/orders" className="text-[var(--accent-dark)] font-medium hover:underline">your orders</Link> and use the <strong>"Raise Support Ticket"</strong> button on any active request.
         </div>
 
         {message && (
@@ -145,7 +118,7 @@ export default function SupportDashboard() {
           <div className="space-y-4">
             {tickets.length === 0 ? (
               <div className="rounded-[2rem] border border-[var(--border)] bg-[var(--card)] p-8 text-center text-[var(--muted-foreground)] shadow-sm">
-                No support tickets found. Raise one using the button above.
+                No support tickets yet. Raise one from an active order.
               </div>
             ) : (
               tickets.map((ticket) => (
@@ -208,87 +181,6 @@ export default function SupportDashboard() {
           </div>
         )}
       </div>
-
-      {/* New Ticket Modal */}
-      {isTicketModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-[var(--card)] w-full max-w-lg rounded-[2rem] p-6 shadow-xl border border-[var(--border)] relative">
-            <button
-              onClick={() => setIsTicketModalOpen(false)}
-              className="absolute top-6 right-6 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <h2 className="text-2xl font-bold mb-6 text-[var(--foreground)]">Raise a Ticket</h2>
-
-            <form onSubmit={handleCreateTicket} className="flex flex-col gap-4">
-              <div>
-                <label className="block text-sm font-medium text-[var(--foreground)] mb-1">Subject</label>
-                <input
-                  type="text"
-                  value={newTicket.subject}
-                  onChange={(e) => setNewTicket({ ...newTicket, subject: e.target.value })}
-                  className="w-full rounded-xl border border-[var(--border)] px-4 py-2 bg-[var(--background)] text-[var(--foreground)] focus:border-[var(--accent-dark)] outline-none"
-                  placeholder="Brief description of the issue"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[var(--foreground)] mb-1">Message</label>
-                <textarea
-                  value={newTicket.message}
-                  onChange={(e) => setNewTicket({ ...newTicket, message: e.target.value })}
-                  className="w-full rounded-xl border border-[var(--border)] px-4 py-2 bg-[var(--background)] text-[var(--foreground)] focus:border-[var(--accent-dark)] outline-none min-h-[100px]"
-                  placeholder="Provide details about your issue..."
-                  required
-                />
-              </div>
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-[var(--foreground)] mb-1">Priority</label>
-                  <select
-                    value={newTicket.priority}
-                    onChange={(e) => setNewTicket({ ...newTicket, priority: e.target.value })}
-                    className="w-full rounded-xl border border-[var(--border)] px-4 py-2 bg-[var(--background)] text-[var(--foreground)] outline-none"
-                  >
-                    <option value="LOW">Low</option>
-                    <option value="NORMAL">Normal</option>
-                    <option value="HIGH">High</option>
-                  </select>
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-[var(--foreground)] mb-1">Related Request ID (Optional)</label>
-                  <input
-                    type="text"
-                    value={newTicket.repairRequestId}
-                    onChange={(e) => setNewTicket({ ...newTicket, repairRequestId: e.target.value })}
-                    className="w-full rounded-xl border border-[var(--border)] px-4 py-2 bg-[var(--background)] text-[var(--foreground)] outline-none"
-                    placeholder="Request ID"
-                  />
-                </div>
-              </div>
-              <div className="mt-4 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsTicketModalOpen(false)}
-                  className="px-5 py-2.5 rounded-full font-medium border border-[var(--border)] hover:bg-[var(--mint-50)] transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creating}
-                  className="rounded-full bg-[var(--accent-dark)] px-6 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-50"
-                >
-                  {creating ? "Submitting..." : "Submit Ticket"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </main>
   );
 }
