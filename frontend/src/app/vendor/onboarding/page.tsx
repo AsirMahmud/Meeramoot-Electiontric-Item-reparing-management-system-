@@ -294,14 +294,23 @@ export default function VendorOnboardingPage() {
                     </p>
                   )}
                 </div>
-              ) : (
+              ) : null}
+              {app?.status === "REJECTED" ? (
+                <Link
+                  href="/vendor/apply"
+                  className="rounded-2xl bg-amber-600 px-5 py-3 text-center text-sm font-semibold text-white transition hover:bg-amber-700"
+                >
+                  Edit application
+                </Link>
+              ) : null}
+              {app?.status !== "APPROVED" ? (
                 <Link
                   href="/"
                   className="rounded-2xl bg-accent-dark px-5 py-3 text-center text-sm font-semibold text-white"
                 >
                   Go to home
                 </Link>
-              )}
+              ) : null}
             </div>
           </div>
         </div>

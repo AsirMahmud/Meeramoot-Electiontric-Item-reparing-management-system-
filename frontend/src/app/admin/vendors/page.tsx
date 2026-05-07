@@ -273,8 +273,8 @@ export default function AdminVendorsPage() {
     );
   }
 
-  const pendingVendors = vendors.filter((v) => v.status === "PENDING");
-  const allOtherVendors = vendors.filter((v) => v.status !== "PENDING");
+  const pendingVendors = vendors.filter((v) => v.status === "PENDING" || v.status === "REJECTED");
+  const allOtherVendors = vendors.filter((v) => v.status !== "PENDING" && v.status !== "REJECTED");
 
   const totalVendors = vendors.length;
   const approvedVendors = vendors.filter(v => v.status === "APPROVED").length;
@@ -446,7 +446,12 @@ function PendingSection({
                 {table.paged.map((vendor) => (
                   <tr key={vendor.id} className="transition-colors hover:bg-[var(--card)] dark:hover:bg-white/5">
                     <td className="px-4 py-3 md:px-6 md:py-4">
-                      <p className="font-bold text-[var(--accent-dark)] line-clamp-2 md:line-clamp-none">{vendor.shopName}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-[var(--accent-dark)] line-clamp-2 md:line-clamp-none">{vendor.shopName}</p>
+                        {vendor.status === "REJECTED" && (
+                          <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">REJECTED</span>
+                        )}
+                      </div>
                       <p className="text-[9px] text-[var(--muted-foreground)] md:text-xs">Applicant: {vendor.user?.name || vendor.user?.username}</p>
                     </td>
                     <td className="px-4 py-3 md:px-6 md:py-4">

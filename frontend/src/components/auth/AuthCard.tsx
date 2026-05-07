@@ -132,7 +132,7 @@ export default function AuthCard({ mode }: { mode: Mode }) {
       return;
     }
 
-    if (user.accessToken && user.role !== "VENDOR") {
+    if (user.accessToken && (user.role === "VENDOR_APPLICANT" || user.role === "VENDOR")) {
       try {
         const vendorStatus = await getVendorApplicationStatus(user.accessToken);
         const application = vendorStatus?.application;
@@ -146,7 +146,11 @@ export default function AuthCard({ mode }: { mode: Mode }) {
         }
 
         if (application?.status === "APPROVED") {
-          router.push("/vendor/onboarding");
+          if (!application.setupComplete) {
+            router.push("/vendor/setup-shop");
+          } else {
+            router.push("/vendor/dashboard");
+          }
           return;
         }
       } catch {
