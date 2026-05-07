@@ -18,7 +18,6 @@ type SessionUser = {
 
 export default function HomePage() {
   const { data: session, status } = useSession();
-  const [language, setLanguage] = useState<"en" | "bn">("en");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const router = useRouter();
@@ -54,8 +53,6 @@ export default function HomePage() {
       <Navbar
         isLoggedIn={isLoggedIn}
         firstName={firstName}
-        language={language}
-        onLanguageChange={setLanguage}
       />
 
       <div className="mx-auto grid max-w-7xl gap-6 px-4 py-6 md:px-6 lg:grid-cols-[280px_minmax(0,1fr)]">
