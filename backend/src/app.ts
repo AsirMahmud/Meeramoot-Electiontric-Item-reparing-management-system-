@@ -13,11 +13,6 @@ import deliveryRoutes from "./routes/delivery-routes.js";
 import deliveryAuthRoutes from "./routes/delivery-auth-routes.js";
 import deliveryAdminRoutes from "./routes/delivery-admin-routes.js";
 import deliveryAdminAuthRoutes from "./routes/delivery-admin-auth-routes.js";
-import {
-  apiRateLimiter,
-  deliveryAuthRateLimiter,
-  deliveryOpsRateLimiter,
-} from "./middleware/rate-limit.js";
 
 export function createApp() {
   const app = express();
@@ -36,8 +31,6 @@ export function createApp() {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
-  app.use("/api", apiRateLimiter);
-
   app.use("/api", routes);
   app.use("/api/admin", adminRoutes);
   app.use("/api/admin", vendorReviewRoutes);
@@ -48,10 +41,10 @@ export function createApp() {
   app.use("/api/admin", adminDeliveryRoutes);
 
   // Delivery system routes — kept separate as in main
-  app.use("/api/delivery/auth", deliveryAuthRateLimiter, deliveryAuthRoutes);
-  app.use("/api/delivery", deliveryOpsRateLimiter, deliveryRoutes);
-  app.use("/api/delivery-admin/auth", deliveryAuthRateLimiter, deliveryAdminAuthRoutes);
-  app.use("/api/delivery-admin", deliveryOpsRateLimiter, deliveryAdminRoutes);
+  app.use("/api/delivery/auth", deliveryAuthRoutes);
+  app.use("/api/delivery", deliveryRoutes);
+  app.use("/api/delivery-admin/auth", deliveryAdminAuthRoutes);
+  app.use("/api/delivery-admin", deliveryAdminRoutes);
 
   // Health check for UptimeRobot / monitoring
   app.get("/health", (_req, res) => {

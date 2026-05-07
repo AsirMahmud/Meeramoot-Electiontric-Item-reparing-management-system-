@@ -27,6 +27,9 @@ export const env = {
   smtpUser: process.env.SMTP_USER,
   smtpPass: process.env.SMTP_PASS,
   smtpFrom: process.env.SMTP_FROM,
+  deliverySmtpUser: process.env.DELIVERY_SMTP_USER || process.env.SMTP_USER,
+  deliverySmtpPass: process.env.DELIVERY_SMTP_PASS || process.env.SMTP_PASS,
+  deliverySmtpFrom: process.env.DELIVERY_SMTP_FROM || process.env.SMTP_FROM,
 
   adminSmtpUser: process.env.ADMIN_SMTP_USER || process.env.SMTP_USER,
   adminSmtpPass: process.env.ADMIN_SMTP_PASS || process.env.SMTP_PASS,
