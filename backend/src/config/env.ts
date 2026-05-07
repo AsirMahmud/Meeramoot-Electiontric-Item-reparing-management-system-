@@ -37,6 +37,9 @@ export const env = {
   gmailClientSecret: process.env.GMAIL_CLIENT_SECRET || "",
   gmailRefreshToken: process.env.GMAIL_REFRESH_TOKEN || "",
   gmailUser: process.env.GMAIL_USER || "",
+  deliverySmtpUser: process.env.DELIVERY_SMTP_USER || process.env.SMTP_USER,
+  deliverySmtpPass: process.env.DELIVERY_SMTP_PASS || process.env.SMTP_PASS,
+  deliverySmtpFrom: process.env.DELIVERY_SMTP_FROM || process.env.SMTP_FROM,
 
   enableAiChat: process.env.ENABLE_AI_CHAT === "true",
   groqApiKey: process.env.GROQ_API_KEY || "",
