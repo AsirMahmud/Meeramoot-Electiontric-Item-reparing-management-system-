@@ -1,5 +1,4 @@
 import { env } from "../config/env.js";
-import nodemailer from "nodemailer";
 import { sendGmailApiEmail } from "./gmail-api-service.js";
 
 type CredentialEmailInput = {
@@ -14,64 +13,11 @@ type RegistrationAcknowledgementEmailInput = {
   recipientName: string;
 };
 
-type DeliveryEmailInput = {
-  toEmail: string;
-  subject: string;
-  html: string;
-};
-
-const directSmtpConfig = {
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
-  user: "asirmahmuhddd@gmail.com",
-  pass: "uckq encg hsxz laqt",
-  from: "Meeramoot <asirmahmuhddd@gmail.com>",
-};
-
-function hasSmtpConfig() {
-  return Boolean(
-    directSmtpConfig.host &&
-      directSmtpConfig.port &&
-      directSmtpConfig.user &&
-      directSmtpConfig.pass &&
-      directSmtpConfig.from,
-  );
-}
-
-async function sendDeliveryModuleEmail(input: DeliveryEmailInput) {
-  if (!env.enableEmailNotifications) {
-    return { ok: false, skipped: true, reason: "email notifications disabled" };
-  }
-
-  if (!hasSmtpConfig()) {
-    return { ok: false, skipped: true, reason: "missing smtp config" };
-  }
-
-  const transporter = nodemailer.createTransport({
-    host: directSmtpConfig.host,
-    port: directSmtpConfig.port,
-    secure: directSmtpConfig.secure,
-    auth: {
-      user: directSmtpConfig.user,
-      pass: directSmtpConfig.pass,
-    },
-  });
-
-  await transporter.sendMail({
-    from: directSmtpConfig.from,
-    to: input.toEmail,
-    subject: input.subject,
-    html: input.html,
-  });
-
-  return { sent: true, provider: "nodemailer" };
-}
 
 export async function sendDeliveryCredentialsEmail(input: CredentialEmailInput) {
-  if (!hasSmtpConfig()) {
-    console.warn("[delivery-email] SMTP config missing. Credentials:", input.username, input.password);
-    return { ok: false, skipped: true, reason: "missing smtp config" };
+  if (!env.enableEmailNotifications) {
+    console.warn("[delivery-email] Notifications disabled. Credentials:", input.username, input.password);
+    return { ok: false, skipped: true, reason: "email notifications disabled" };
   }
 
   const subject = "Delivery Partner Approval - Login Credentials";
@@ -87,11 +33,6 @@ export async function sendDeliveryCredentialsEmail(input: CredentialEmailInput) 
     </div>
   `;
 
-  return sendDeliveryModuleEmail({
-    toEmail: input.toEmail,
-    subject,
-    html,
-  });
   // 1. Send via Gmail API over HTTPS (Added because Render blocks SMTP ports and Resend free tier is restricted to verified emails only)
   try {
     await sendGmailApiEmail({
@@ -155,11 +96,7 @@ export async function sendDeliveryRegistrationAcknowledgementEmail(
     </div>
   `;
 
-  return sendDeliveryModuleEmail({
-    toEmail: input.toEmail,
-    subject,
-    html,
-  });
+
   // 1. Send via Gmail API over HTTPS (Added because Render blocks SMTP ports and Resend free tier is restricted to verified emails only)
   try {
     await sendGmailApiEmail({
