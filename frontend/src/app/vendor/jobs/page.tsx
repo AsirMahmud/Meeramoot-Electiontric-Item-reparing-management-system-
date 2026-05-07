@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import Navbar from "@/components/home/Navbar";
+import Navbar from "@/components/vendor/Navbar";
 import AiSummary from "@/components/shared/AiSummary";
 import {
   getVendorDashboard,
@@ -196,7 +196,7 @@ export default function VendorJobsPage() {
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <Link href="/vendor/dashboard" className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#cfe0c6] bg-white px-4 py-2 text-sm font-semibold text-[#355541] transition-all hover:bg-[#f6faf4] hover:shadow-sm">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
               Back to dashboard
             </Link>
             <h1 className="mt-2 text-2xl font-bold text-[#173726] md:text-3xl">Assigned Jobs</h1>
@@ -274,8 +274,8 @@ export default function VendorJobsPage() {
                         <p className="font-semibold text-[#173726]">Device & Issue</p>
                         <p className="mt-2">{job.repairRequest.deviceType} · {job.repairRequest.brand} · {job.repairRequest.model}</p>
                         <p className="mt-1 text-[#5b7262]">{job.repairRequest.problem}</p>
-                        
-                        <AiSummary 
+
+                        <AiSummary
                           orderId={job.repairRequest.id}
                           deviceType={job.repairRequest.deviceType}
                           brand={job.repairRequest.brand}

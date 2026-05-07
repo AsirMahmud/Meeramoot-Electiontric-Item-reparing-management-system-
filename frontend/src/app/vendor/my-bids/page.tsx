@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import Navbar from "@/components/home/Navbar";
+import Navbar from "@/components/vendor/Navbar";
 import { submitVendorBid } from "@/lib/api";
 
 /* ─── types ─────────────────────────────────────────────────────────── */
@@ -96,7 +96,7 @@ export default function VendorMyBidsPage() {
   const [requests, setRequests] = useState<BidRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  
+
   const [flash, setFlash] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
@@ -148,10 +148,10 @@ export default function VendorMyBidsPage() {
 
   async function submitEdit() {
     if (!editingRequestId || !editDraft || !token) return;
-    
+
     const partsCost = editDraft.parts.reduce((sum, p) => sum + (Number(p.cost) || 0), 0);
     const laborCost = Number(editDraft.laborCost);
-    
+
     if (partsCost < 0 || editDraft.parts.some((p) => Number(p.cost) < 0)) {
       setFlash({ type: "error", text: "Part costs cannot be negative." });
       return;
@@ -163,7 +163,7 @@ export default function VendorMyBidsPage() {
     }
 
     const estimatedDays = editDraft.estimatedDays.trim() ? Number(editDraft.estimatedDays) : undefined;
-    
+
     if (editDraft.estimatedDays.trim() && (!Number.isInteger(estimatedDays) || Number(estimatedDays) < 0)) {
       setFlash({ type: "error", text: "Estimated days must be a non-negative whole number." });
       return;
@@ -215,7 +215,7 @@ export default function VendorMyBidsPage() {
               href="/vendor/dashboard"
               className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#cfe0c6] bg-white px-4 py-2 text-sm font-semibold text-[#355541] transition-all hover:bg-[#f6faf4] hover:shadow-sm"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
               Back to dashboard
             </Link>
             <h1 className="mt-2 text-2xl font-bold text-[#173726] md:text-3xl">My Offers</h1>
@@ -329,11 +329,10 @@ export default function VendorMyBidsPage() {
                       {req.bids.map((bid) => (
                         <div
                           key={bid.id}
-                          className={`flex flex-col gap-3 rounded-2xl border p-4 transition-colors sm:flex-row sm:items-center sm:gap-4 ${
-                            bid.isOwn
+                          className={`flex flex-col gap-3 rounded-2xl border p-4 transition-colors sm:flex-row sm:items-center sm:gap-4 ${bid.isOwn
                               ? "border-[#214c34] bg-[#f0f7ee] ring-1 ring-[#214c34]/20"
                               : "border-[#e8f0e5] bg-white"
-                          }`}
+                            }`}
                         >
                           {/* Rank */}
                           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#dff0dc] text-sm font-bold text-[#214c34]">
@@ -351,8 +350,8 @@ export default function VendorMyBidsPage() {
                                       You
                                     </span>
                                     {req.status === "BIDDING" && (
-                                      <button 
-                                        type="button" 
+                                      <button
+                                        type="button"
                                         onClick={() => openEditModal(req.id, bid)}
                                         className="ml-3 inline-flex items-center rounded-full border border-[#cfe0c6] bg-white px-3 py-1 text-xs font-semibold text-[#214c34] hover:bg-[#f6faf4] transition-colors shadow-sm"
                                       >
@@ -383,13 +382,12 @@ export default function VendorMyBidsPage() {
 
                     {/* Quick insight */}
                     {req.myRank !== null && req.totalBids > 1 ? (
-                      <div className={`mt-4 rounded-2xl p-4 text-sm ${
-                        req.myRank === 1
+                      <div className={`mt-4 rounded-2xl p-4 text-sm ${req.myRank === 1
                           ? "border border-green-200 bg-green-50 text-green-800"
                           : req.myRank <= Math.ceil(req.totalBids / 2)
                             ? "border border-blue-200 bg-blue-50 text-blue-800"
                             : "border border-amber-200 bg-amber-50 text-amber-800"
-                      }`}>
+                        }`}>
                         {req.myRank === 1
                           ? "🏆 You have the best price! You're most likely to win this bid."
                           : `Your offer ranks #${req.myRank} out of ${req.totalBids}. Consider lowering your price to improve your chances.`}

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import Navbar from "@/components/home/Navbar";
+import Navbar from "@/components/vendor/Navbar";
 import {
   getVendorShopProfile,
   getShopReviews,
@@ -318,7 +318,7 @@ export default function VendorShopProfilePage() {
                           {s.deviceType} • {s.issueCategory} • {s.pricingType} • {formatMoney(s.basePrice)}
                         </div>
                       </div>
-                      <button 
+                      <button
                         onClick={() => handleRemoveService(s.id)}
                         disabled={actionLoading === `remove-service-${s.id}`}
                         className="p-2 rounded-full bg-red-50 text-red-600 hover:bg-red-100"
@@ -359,7 +359,7 @@ export default function VendorShopProfilePage() {
                           {p.deviceType} • {formatMoney(p.basePrice)} • {p.inStock ? "In Stock" : "Out of Stock"}
                         </div>
                       </div>
-                      <button 
+                      <button
                         onClick={() => handleRemovePart(p.id)}
                         disabled={actionLoading === `remove-part-${p.id}`}
                         className="p-2 rounded-full bg-red-50 text-red-600 hover:bg-red-100"
@@ -427,7 +427,7 @@ export default function VendorShopProfilePage() {
                 </label>
               </div>
               <p className="text-sm text-[#355541] mb-6">Let AI suggest new services you could offer based on your specialties and inventory.</p>
-              
+
               <button onClick={handleGenerateAi} disabled={!profile.shop.aiSuggestionsEnabled || actionLoading === "ai-generate"} className="w-full py-3 bg-[#214c34] text-white rounded-xl font-semibold disabled:opacity-50">
                 {actionLoading === "ai-generate" ? "Thinking..." : "Get AI Suggestions"}
               </button>

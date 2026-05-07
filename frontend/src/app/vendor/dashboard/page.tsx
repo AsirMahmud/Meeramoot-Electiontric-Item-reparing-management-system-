@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import Navbar from "@/components/home/Navbar";
+import Navbar from "@/components/vendor/Navbar";
 import AiSummary from "@/components/shared/AiSummary";
 import {
   getVendorDashboard,
@@ -187,7 +187,7 @@ export default function VendorDashboardPage() {
   const [jobStatusDrafts, setJobStatusDrafts] = useState<Record<string, string>>({});
   const [finalQuoteDrafts, setFinalQuoteDrafts] = useState<Record<string, FinalQuoteDraft>>({});
   const [bidConfirm, setBidConfirm] = useState<BidConfirmation | null>(null);
-  
+
   const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
   const [isUpdatingNotifications, setIsUpdatingNotifications] = useState(false);
 
@@ -236,7 +236,7 @@ export default function VendorDashboardPage() {
       setLoadingBidding(true);
       const data = await getBiddingRequests(token, page, 5, filter, sort);
       setBiddingData(data);
-      
+
       const nextBidDrafts: Record<string, BidDraft> = {};
       for (const requestItem of data.data) {
         nextBidDrafts[requestItem.id] = buildBidDraft(currentDashboard, requestItem);
@@ -285,7 +285,7 @@ export default function VendorDashboardPage() {
         liveNotificationsEnabled: enabled,
         ...(fromPrompt ? { liveNotificationsPrompted: true } : {})
       });
-      
+
       if (fromPrompt) {
         setShowNotificationPrompt(false);
         setFlash({ type: "success", text: "Notification preferences saved." });
@@ -576,7 +576,7 @@ export default function VendorDashboardPage() {
     }
     const reason = window.prompt("Reason for declining this order (optional):");
     if (reason === null) return; // cancelled
-    
+
     try {
       setPendingKey(`reject-order:${orderId}`);
       await rejectPendingOrder(token, orderId, reason);
@@ -672,11 +672,10 @@ export default function VendorDashboardPage() {
 
         {flash ? (
           <div
-            className={`mt-6 rounded-3xl px-5 py-4 text-sm ${
-              flash.type === "success"
+            className={`mt-6 rounded-3xl px-5 py-4 text-sm ${flash.type === "success"
                 ? "border border-green-200 bg-green-50 text-green-800"
                 : "border border-red-200 bg-red-50 text-red-700"
-            }`}
+              }`}
           >
             {flash.text}
           </div>
@@ -693,11 +692,10 @@ export default function VendorDashboardPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`relative rounded-t-2xl px-5 py-3 text-sm font-semibold transition-colors ${
-                activeTab === tab.id
+              className={`relative rounded-t-2xl px-5 py-3 text-sm font-semibold transition-colors ${activeTab === tab.id
                   ? "bg-white text-[#173726] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] border-t border-x border-[#cfe0c6]"
                   : "bg-transparent text-[#5b7262] hover:bg-[#dff0dc]/50"
-              }`}
+                }`}
             >
               {tab.label}
               {tab.count ? (
@@ -710,112 +708,112 @@ export default function VendorDashboardPage() {
         </div>
 
         {activeTab === 'overview' && (
-        <section className="mt-4 grid gap-3 grid-cols-2 md:mt-6 md:gap-4 xl:grid-cols-4">
-          {summaryCards.map((card) => {
-            const inner = (
-              <>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6b8270] md:text-xs">{card.label}</p>
-                <p className="mt-2 text-2xl font-bold text-[#173726] md:mt-3 md:text-4xl">{card.value}</p>
-                <p className="mt-1 text-[10px] text-[#5b7262] md:mt-2 md:text-sm">{card.description}</p>
-                <p className="mt-3 text-xs font-semibold text-[#214c34]">
-                  {card.scrollTo ? "Scroll to section ↓" : "View details →"}
-                </p>
-              </>
-            );
-
-            const cardStyle =
-              "block rounded-[1.25rem] bg-white p-4 shadow-sm cursor-pointer md:rounded-[2rem] md:p-6 " +
-              "transition-all duration-300 ease-out " +
-              "hover:shadow-lg hover:shadow-[#214c34]/10 hover:-translate-y-1 " +
-              "hover:ring-2 hover:ring-[#cfe0c6] " +
-              "active:translate-y-0 active:shadow-md";
-
-            if (card.href) {
-              return (
-                <Link key={card.label} href={card.href} className={cardStyle}>
-                  {inner}
-                </Link>
+          <section className="mt-4 grid gap-3 grid-cols-2 md:mt-6 md:gap-4 xl:grid-cols-4">
+            {summaryCards.map((card) => {
+              const inner = (
+                <>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6b8270] md:text-xs">{card.label}</p>
+                  <p className="mt-2 text-2xl font-bold text-[#173726] md:mt-3 md:text-4xl">{card.value}</p>
+                  <p className="mt-1 text-[10px] text-[#5b7262] md:mt-2 md:text-sm">{card.description}</p>
+                  <p className="mt-3 text-xs font-semibold text-[#214c34]">
+                    {card.scrollTo ? "Scroll to section ↓" : "View details →"}
+                  </p>
+                </>
               );
-            }
 
-            return (
-              <button
-                key={card.label}
-                type="button"
-                onClick={() => {
-                  if (card.scrollTo) {
-                    document.getElementById(card.scrollTo)?.scrollIntoView({ behavior: "smooth" });
-                  }
-                }}
-                className={cardStyle + " text-left w-full"}
-              >
-                {inner}
-              </button>
-            );
-          })}
-        </section>
-      )}
+              const cardStyle =
+                "block rounded-[1.25rem] bg-white p-4 shadow-sm cursor-pointer md:rounded-[2rem] md:p-6 " +
+                "transition-all duration-300 ease-out " +
+                "hover:shadow-lg hover:shadow-[#214c34]/10 hover:-translate-y-1 " +
+                "hover:ring-2 hover:ring-[#cfe0c6] " +
+                "active:translate-y-0 active:shadow-md";
+
+              if (card.href) {
+                return (
+                  <Link key={card.label} href={card.href} className={cardStyle}>
+                    {inner}
+                  </Link>
+                );
+              }
+
+              return (
+                <button
+                  key={card.label}
+                  type="button"
+                  onClick={() => {
+                    if (card.scrollTo) {
+                      document.getElementById(card.scrollTo)?.scrollIntoView({ behavior: "smooth" });
+                    }
+                  }}
+                  className={cardStyle + " text-left w-full"}
+                >
+                  {inner}
+                </button>
+              );
+            })}
+          </section>
+        )}
 
         {activeTab === 'overview' && (
-        <section className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-          <article className="rounded-[1.5rem] bg-white p-4 shadow-sm md:rounded-[2rem] md:p-6">
-            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-4">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#58725f]">Shop setup</p>
-                <h2 className="mt-2 text-2xl font-bold text-[#173726]">Your vendor profile</h2>
+          <section className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+            <article className="rounded-[1.5rem] bg-white p-4 shadow-sm md:rounded-[2rem] md:p-6">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-4">
+                <div>
+                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#58725f]">Shop setup</p>
+                  <h2 className="mt-2 text-2xl font-bold text-[#173726]">Your vendor profile</h2>
+                </div>
+                <span className="rounded-full bg-[#dff0dc] px-4 py-2 text-xs font-semibold uppercase tracking-[0.15em] text-[#214c34]">
+                  {dashboard.shop.setupComplete ? "Setup complete" : "Setup incomplete"}
+                </span>
               </div>
-              <span className="rounded-full bg-[#dff0dc] px-4 py-2 text-xs font-semibold uppercase tracking-[0.15em] text-[#214c34]">
-                {dashboard.shop.setupComplete ? "Setup complete" : "Setup incomplete"}
-              </span>
-            </div>
 
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <div className="rounded-3xl bg-[#f6faf4] p-5 text-sm text-[#355541]">
-                <p className="font-semibold text-[#173726]">Services</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {dashboard.shop.categories.length ? (
-                    dashboard.shop.categories.map((value) => (
-                      <span
-                        key={value}
-                        className="rounded-full border border-[#cfe0c6] bg-white px-3 py-1 text-xs font-semibold capitalize text-[#214c34]"
-                      >
-                        {formatStatus(value).toLowerCase()}
-                      </span>
-                    ))
-                  ) : (
-                    <p className="mt-2 text-[#5b7262]">No services configured</p>
-                  )}
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <div className="rounded-3xl bg-[#f6faf4] p-5 text-sm text-[#355541]">
+                  <p className="font-semibold text-[#173726]">Services</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {dashboard.shop.categories.length ? (
+                      dashboard.shop.categories.map((value) => (
+                        <span
+                          key={value}
+                          className="rounded-full border border-[#cfe0c6] bg-white px-3 py-1 text-xs font-semibold capitalize text-[#214c34]"
+                        >
+                          {formatStatus(value).toLowerCase()}
+                        </span>
+                      ))
+                    ) : (
+                      <p className="mt-2 text-[#5b7262]">No services configured</p>
+                    )}
+                  </div>
+                </div>
+                <div className="rounded-3xl bg-[#f6faf4] p-5 text-sm text-[#355541]">
+                  <p className="font-semibold text-[#173726]">Base pricing</p>
+                  <p className="mt-2">Inspection: {formatMoney(dashboard.shop.inspectionFee)}</p>
+                  <p>Labor: {formatMoney(dashboard.shop.baseLaborFee)}</p>
+                  <p>Pickup: {formatMoney(dashboard.shop.pickupFee)}</p>
                 </div>
               </div>
-              <div className="rounded-3xl bg-[#f6faf4] p-5 text-sm text-[#355541]">
-                <p className="font-semibold text-[#173726]">Base pricing</p>
-                <p className="mt-2">Inspection: {formatMoney(dashboard.shop.inspectionFee)}</p>
-                <p>Labor: {formatMoney(dashboard.shop.baseLaborFee)}</p>
-                <p>Pickup: {formatMoney(dashboard.shop.pickupFee)}</p>
-              </div>
-            </div>
-          </article>
+            </article>
 
-          <article className="rounded-[1.5rem] bg-white p-4 shadow-sm md:rounded-[2rem] md:p-6">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#58725f]">Skill tags</p>
-            <h2 className="mt-2 text-2xl font-bold text-[#173726]">Request matching</h2>
-            <div className="mt-5 flex flex-wrap gap-2">
-              {dashboard.shop.specialties.length ? (
-                dashboard.shop.specialties.map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-full bg-[#eef5ea] px-4 py-2 text-sm font-medium text-[#214c34]"
-                  >
-                    {tag}
-                  </span>
-                ))
-              ) : (
-                <p className="text-sm text-[#5b7262]">No specialties configured yet.</p>
-              )}
-            </div>
-          </article>
-        </section>
-      )}
+            <article className="rounded-[1.5rem] bg-white p-4 shadow-sm md:rounded-[2rem] md:p-6">
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#58725f]">Skill tags</p>
+              <h2 className="mt-2 text-2xl font-bold text-[#173726]">Request matching</h2>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {dashboard.shop.specialties.length ? (
+                  dashboard.shop.specialties.map((tag) => (
+                    <span
+                      key={tag}
+                      className="rounded-full bg-[#eef5ea] px-4 py-2 text-sm font-medium text-[#214c34]"
+                    >
+                      {tag}
+                    </span>
+                  ))
+                ) : (
+                  <p className="text-sm text-[#5b7262]">No specialties configured yet.</p>
+                )}
+              </div>
+            </article>
+          </section>
+        )}
 
         {activeTab === 'direct_orders' && dashboard.pendingOrders?.length > 0 && (
           <section id="pending-orders" className="mt-6 scroll-mt-6 md:mt-8">
@@ -827,7 +825,7 @@ export default function VendorDashboardPage() {
               {dashboard.pendingOrders.map(order => {
                 const isAccepting = pendingKey === `accept-order:${order.id}`;
                 const isRejecting = pendingKey === `reject-order:${order.id}`;
-                
+
                 return (
                   <article key={order.id} className="rounded-[1.5rem] bg-white p-4 shadow-sm border border-purple-100 md:rounded-[2rem] md:p-6">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -842,8 +840,8 @@ export default function VendorDashboardPage() {
                           {order.deviceType} {order.brand ? `• ${order.brand}` : ""} {order.model ? `• ${order.model}` : ""}
                         </p>
                         <p className="mt-2 text-sm text-[#5b7262]">{order.problem}</p>
-                        
-                        <AiSummary 
+
+                        <AiSummary
                           orderId={order.id}
                           deviceType={order.deviceType}
                           brand={order.brand}
@@ -852,7 +850,7 @@ export default function VendorDashboardPage() {
                           problem={order.problem}
                           initialSummary={order.aiSummary}
                         />
-                        
+
                         <div className="mt-4 flex flex-wrap gap-3">
                           <button
                             type="button"
@@ -872,7 +870,7 @@ export default function VendorDashboardPage() {
                           </button>
                         </div>
                       </div>
-                      
+
                       <div className="grid gap-3 rounded-2xl bg-purple-50 p-4 text-sm text-[#355541] lg:min-w-[280px]">
                         <div>
                           <p className="font-semibold text-[#173726]">Customer details</p>
@@ -895,670 +893,670 @@ export default function VendorDashboardPage() {
         )}
 
         {activeTab === 'marketplace' && (
-        <section id="relevant-requests" className="mt-6 scroll-mt-6 md:mt-8">
-          <div className="mb-3 flex flex-col gap-2 md:mb-4 md:flex-row md:items-center md:justify-between md:gap-3">
-            <div>
-              <h2 className="text-xl font-bold text-[#173726] md:text-2xl">Repair requests</h2>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <select
-                  value={biddingFilter}
-                  onChange={(e) => {
-                    setBiddingPage(1);
-                    setBiddingFilter(e.target.value);
-                  }}
-                  className="rounded-full border border-[#cfe0c6] bg-white px-3 py-1 text-sm outline-none font-medium text-[#214c34]"
-                >
-                  <option value="all">All Requests</option>
-                  <option value="relevant">Relevant to My Skills</option>
-                </select>
-                <select
-                  value={biddingSort}
-                  onChange={(e) => {
-                    setBiddingPage(1);
-                    setBiddingSort(e.target.value);
-                  }}
-                  className="rounded-full border border-[#cfe0c6] bg-white px-3 py-1 text-sm outline-none font-medium text-[#214c34]"
-                >
-                  <option value="desc">Newest First</option>
-                  <option value="asc">Oldest First</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-              <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-full border border-[#cfe0c6]">
-                <div className="relative inline-block w-10 h-6 align-middle select-none transition duration-200 ease-in">
-                  <input 
-                    type="checkbox" 
-                    className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"
-                    style={{
-                      top: "2px",
-                      left: dashboard.shop.liveNotificationsEnabled ? "18px" : "2px",
-                      transition: "all 0.3s",
-                      borderColor: dashboard.shop.liveNotificationsEnabled ? "#214c34" : "#cbd5e1"
+          <section id="relevant-requests" className="mt-6 scroll-mt-6 md:mt-8">
+            <div className="mb-3 flex flex-col gap-2 md:mb-4 md:flex-row md:items-center md:justify-between md:gap-3">
+              <div>
+                <h2 className="text-xl font-bold text-[#173726] md:text-2xl">Repair requests</h2>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <select
+                    value={biddingFilter}
+                    onChange={(e) => {
+                      setBiddingPage(1);
+                      setBiddingFilter(e.target.value);
                     }}
-                    checked={!!dashboard.shop.liveNotificationsEnabled}
-                    onChange={(e) => handleNotificationPreference(e.target.checked)}
-                    disabled={isUpdatingNotifications}
-                  />
-                  <div 
-                    className="toggle-label block overflow-hidden h-6 rounded-full cursor-pointer"
-                    style={{
-                      backgroundColor: dashboard.shop.liveNotificationsEnabled ? "#dff0dc" : "#e2e8f0",
-                      transition: "all 0.3s"
+                    className="rounded-full border border-[#cfe0c6] bg-white px-3 py-1 text-sm outline-none font-medium text-[#214c34]"
+                  >
+                    <option value="all">All Requests</option>
+                    <option value="relevant">Relevant to My Skills</option>
+                  </select>
+                  <select
+                    value={biddingSort}
+                    onChange={(e) => {
+                      setBiddingPage(1);
+                      setBiddingSort(e.target.value);
                     }}
-                  />
+                    className="rounded-full border border-[#cfe0c6] bg-white px-3 py-1 text-sm outline-none font-medium text-[#214c34]"
+                  >
+                    <option value="desc">Newest First</option>
+                    <option value="asc">Oldest First</option>
+                  </select>
                 </div>
-                <span className="text-sm font-semibold text-[#173726] whitespace-nowrap">
-                  Live Notifications
-                </span>
-              </label>
-              <button
-                type="button"
-                onClick={() => void loadBiddingRequests(biddingPage, biddingFilter, biddingSort, dashboard)}
-                disabled={loadingBidding}
-                className="w-full rounded-full border border-[#214c34] bg-white px-5 py-2.5 text-sm font-semibold text-[#214c34] sm:w-auto md:py-3 disabled:opacity-50"
-              >
-                {loadingBidding ? "Loading..." : "Refresh"}
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-5 relative">
-            {loadingBidding && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50 backdrop-blur-sm rounded-[2rem]">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#214c34] border-t-transparent" />
               </div>
-            )}
-            {biddingData?.data.map((requestItem) => {
-              const draft = bidDrafts[requestItem.id] || buildBidDraft(dashboard, requestItem);
-              const isSubmitting = pendingKey === `bid:${requestItem.id}`;
-              const partsTotal = draft.parts.reduce((sum, p) => sum + (Number(p.cost) || 0), 0);
-              const totalPreview = partsTotal + (Number(draft.laborCost) || 0);
-
-              return (
-                <article key={requestItem.id} className="rounded-[1.5rem] bg-white p-4 shadow-sm md:rounded-[2rem] md:p-6">
-                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                    <div className="max-w-3xl">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <h3 className="text-base font-bold text-[#173726] md:text-2xl">{requestItem.title}</h3>
-                        <span className="rounded-full bg-[#dff0dc] px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-[#214c34]">
-                          {formatStatus(requestItem.status)}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-sm text-[#355541]">
-                        {requestItem.deviceType}
-                        {requestItem.brand ? ` • ${requestItem.brand}` : ""}
-                        {requestItem.model ? ` • ${requestItem.model}` : ""}
-                        {requestItem.issueCategory ? ` • ${requestItem.issueCategory}` : ""}
-                      </p>
-                      <p className="mt-3 text-sm text-[#5b7262]">{requestItem.problem}</p>
-                      
-                      <AiSummary 
-                        orderId={requestItem.id}
-                        deviceType={requestItem.deviceType}
-                        brand={requestItem.brand}
-                        model={requestItem.model}
-                        issueCategory={requestItem.issueCategory}
-                        problem={requestItem.problem}
-                        initialSummary={requestItem.aiSummary}
-                      />
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {requestItem.matchReasons.map((reason) => (
-                          <span
-                            key={reason}
-                            className="rounded-full border border-[#cfe0c6] bg-[#f6faf4] px-3 py-1 text-xs font-medium text-[#355541]"
-                          >
-                            {reason}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="grid gap-3 rounded-3xl bg-[#f6faf4] p-5 text-sm text-[#355541] xl:min-w-[260px]">
-                      <div>
-                        <p className="font-semibold text-[#173726]">Request details</p>
-                        <p className="mt-2">Flow: {formatStatus(requestItem.mode)}</p>
-                        <p>Pickup preferred: {requestItem.preferredPickup ? "Yes" : "No"}</p>
-                        <p>Delivery: {requestItem.deliveryType ? formatStatus(requestItem.deliveryType) : "—"}</p>
-                        <p>Existing bids: {requestItem.bidCount}</p>
-                        <p>Created: {formatDate(requestItem.createdAt)}</p>
-                      </div>
-                      <div>
-                        <p className="font-semibold text-[#173726]">Your match score</p>
-                        <p className="mt-2">{requestItem.relevanceScore}</p>
-                      </div>
-                    </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+                <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-full border border-[#cfe0c6]">
+                  <div className="relative inline-block w-10 h-6 align-middle select-none transition duration-200 ease-in">
+                    <input
+                      type="checkbox"
+                      className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                      style={{
+                        top: "2px",
+                        left: dashboard.shop.liveNotificationsEnabled ? "18px" : "2px",
+                        transition: "all 0.3s",
+                        borderColor: dashboard.shop.liveNotificationsEnabled ? "#214c34" : "#cbd5e1"
+                      }}
+                      checked={!!dashboard.shop.liveNotificationsEnabled}
+                      onChange={(e) => handleNotificationPreference(e.target.checked)}
+                      disabled={isUpdatingNotifications}
+                    />
+                    <div
+                      className="toggle-label block overflow-hidden h-6 rounded-full cursor-pointer"
+                      style={{
+                        backgroundColor: dashboard.shop.liveNotificationsEnabled ? "#dff0dc" : "#e2e8f0",
+                        transition: "all 0.3s"
+                      }}
+                    />
                   </div>
+                  <span className="text-sm font-semibold text-[#173726] whitespace-nowrap">
+                    Live Notifications
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => void loadBiddingRequests(biddingPage, biddingFilter, biddingSort, dashboard)}
+                  disabled={loadingBidding}
+                  className="w-full rounded-full border border-[#214c34] bg-white px-5 py-2.5 text-sm font-semibold text-[#214c34] sm:w-auto md:py-3 disabled:opacity-50"
+                >
+                  {loadingBidding ? "Loading..." : "Refresh"}
+                </button>
+              </div>
+            </div>
 
-                  <div className="mt-6 rounded-3xl bg-[#f6faf4] p-5">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#58725f]">Bid workspace</p>
-                        <h4 className="mt-1 text-xl font-bold text-[#173726]">
-                          {requestItem.myBid ? "Update your offer" : "Make your offer"}
-                        </h4>
-                      </div>
-                      {requestItem.myBid ? (
-                        <span className="rounded-full bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.15em] text-[#214c34]">
-                          Current bid {formatStatus(requestItem.myBid.status)}
-                        </span>
-                      ) : null}
-                    </div>
+            <div className="space-y-5 relative">
+              {loadingBidding && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50 backdrop-blur-sm rounded-[2rem]">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#214c34] border-t-transparent" />
+                </div>
+              )}
+              {biddingData?.data.map((requestItem) => {
+                const draft = bidDrafts[requestItem.id] || buildBidDraft(dashboard, requestItem);
+                const isSubmitting = pendingKey === `bid:${requestItem.id}`;
+                const partsTotal = draft.parts.reduce((sum, p) => sum + (Number(p.cost) || 0), 0);
+                const totalPreview = partsTotal + (Number(draft.laborCost) || 0);
 
-                    <div className="mt-4 space-y-3">
-                      {/* Parts list */}
-                      <div>
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="text-sm font-medium text-[#355541]">Parts / Components</span>
-                          <span className="text-sm font-semibold text-[#214c34]">
-                            Subtotal: {formatMoney(partsTotal)}
+                return (
+                  <article key={requestItem.id} className="rounded-[1.5rem] bg-white p-4 shadow-sm md:rounded-[2rem] md:p-6">
+                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                      <div className="max-w-3xl">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <h3 className="text-base font-bold text-[#173726] md:text-2xl">{requestItem.title}</h3>
+                          <span className="rounded-full bg-[#dff0dc] px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-[#214c34]">
+                            {formatStatus(requestItem.status)}
                           </span>
                         </div>
+                        <p className="mt-2 text-sm text-[#355541]">
+                          {requestItem.deviceType}
+                          {requestItem.brand ? ` • ${requestItem.brand}` : ""}
+                          {requestItem.model ? ` • ${requestItem.model}` : ""}
+                          {requestItem.issueCategory ? ` • ${requestItem.issueCategory}` : ""}
+                        </p>
+                        <p className="mt-3 text-sm text-[#5b7262]">{requestItem.problem}</p>
 
-                        <div className="space-y-2">
-                          {draft.parts.map((part, partIndex) => (
-                            <div key={partIndex} className="flex flex-wrap items-center gap-2">
-                              {/* + button to insert row below */}
-                              <button
-                                type="button"
-                                title="Add part below"
-                                onClick={() => {
-                                  const newParts = [...draft.parts];
-                                  newParts.splice(partIndex + 1, 0, { name: "", cost: "" });
-                                  setBidDrafts((prev) => ({
-                                    ...prev,
-                                    [requestItem.id]: { ...draft, parts: newParts },
-                                  }));
-                                }}
-                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#214c34] text-white text-lg leading-none hover:bg-[#173726] transition-colors"
-                              >
-                                +
-                              </button>
+                        <AiSummary
+                          orderId={requestItem.id}
+                          deviceType={requestItem.deviceType}
+                          brand={requestItem.brand}
+                          model={requestItem.model}
+                          issueCategory={requestItem.issueCategory}
+                          problem={requestItem.problem}
+                          initialSummary={requestItem.aiSummary}
+                        />
 
-                              {/* Part name */}
-                              <input
-                                type="text"
-                                value={part.name}
-                                onChange={(e) => {
-                                  const newParts = [...draft.parts];
-                                  newParts[partIndex] = { ...part, name: e.target.value };
-                                  setBidDrafts((prev) => ({
-                                    ...prev,
-                                    [requestItem.id]: { ...draft, parts: newParts },
-                                  }));
-                                }}
-                                className="flex-1 rounded-2xl border border-[#cfe0c6] bg-white px-4 py-2.5 text-sm outline-none"
-                                placeholder={`Part ${partIndex + 1} name`}
-                              />
-
-                              {/* Part cost */}
-                              <div className="relative w-32">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#5b7262]">৳</span>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="1"
-                                  value={part.cost}
-                                  onChange={(e) => {
-                                    const newParts = [...draft.parts];
-                                    newParts[partIndex] = { ...part, cost: e.target.value };
-                                    setBidDrafts((prev) => ({
-                                      ...prev,
-                                      [requestItem.id]: { ...draft, parts: newParts },
-                                    }));
-                                  }}
-                                  className="w-full rounded-2xl border border-[#cfe0c6] bg-white py-2.5 pl-7 pr-3 text-sm outline-none"
-                                  placeholder="Cost"
-                                />
-                              </div>
-
-                              {/* × remove button (only if more than 1 row) */}
-                              {draft.parts.length > 1 ? (
-                                <button
-                                  type="button"
-                                  title="Remove part"
-                                  onClick={() => {
-                                    const newParts = draft.parts.filter((_, i) => i !== partIndex);
-                                    setBidDrafts((prev) => ({
-                                      ...prev,
-                                      [requestItem.id]: { ...draft, parts: newParts },
-                                    }));
-                                  }}
-                                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#5b7262] hover:bg-red-50 hover:text-red-500 transition-colors"
-                                >
-                                  ×
-                                </button>
-                              ) : (
-                                <div className="w-7 shrink-0" />
-                              )}
-                            </div>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {requestItem.matchReasons.map((reason) => (
+                            <span
+                              key={reason}
+                              className="rounded-full border border-[#cfe0c6] bg-[#f6faf4] px-3 py-1 text-xs font-medium text-[#355541]"
+                            >
+                              {reason}
+                            </span>
                           ))}
                         </div>
                       </div>
 
-                      {/* Labor + Estimated days + Total row */}
-                      <div className="grid gap-3 md:gap-4 lg:grid-cols-3">
-                        <label className="block">
-                          <span className="mb-2 block text-sm font-medium text-[#355541]">Labor cost</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={draft.laborCost}
-                            onChange={(event) =>
-                              setBidDrafts((prev) => ({
-                                ...prev,
-                                [requestItem.id]: {
-                                  ...draft,
-                                  laborCost: event.target.value,
-                                },
-                              }))
-                            }
-                            className="w-full rounded-2xl border border-[#cfe0c6] bg-white px-4 py-3 text-sm outline-none"
-                            placeholder="0"
-                          />
-                        </label>
-
-                        <label className="block">
-                          <span className="mb-2 block text-sm font-medium text-[#355541]">Estimated days</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={draft.estimatedDays}
-                            onChange={(event) =>
-                              setBidDrafts((prev) => ({
-                                ...prev,
-                                [requestItem.id]: {
-                                  ...draft,
-                                  estimatedDays: event.target.value,
-                                },
-                              }))
-                            }
-                            className="w-full rounded-2xl border border-[#cfe0c6] bg-white px-4 py-3 text-sm outline-none"
-                            placeholder="Optional"
-                          />
-                        </label>
-
-                        <div className="rounded-2xl border border-dashed border-[#cfe0c6] bg-white px-4 py-3 text-sm text-[#355541]">
-                          <p className="font-semibold text-[#173726]">Your offer</p>
-                          <p className="mt-2 text-2xl font-bold text-[#214c34]">{formatMoney(totalPreview)}</p>
+                      <div className="grid gap-3 rounded-3xl bg-[#f6faf4] p-5 text-sm text-[#355541] xl:min-w-[260px]">
+                        <div>
+                          <p className="font-semibold text-[#173726]">Request details</p>
+                          <p className="mt-2">Flow: {formatStatus(requestItem.mode)}</p>
+                          <p>Pickup preferred: {requestItem.preferredPickup ? "Yes" : "No"}</p>
+                          <p>Delivery: {requestItem.deliveryType ? formatStatus(requestItem.deliveryType) : "—"}</p>
+                          <p>Existing bids: {requestItem.bidCount}</p>
+                          <p>Created: {formatDate(requestItem.createdAt)}</p>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-[#173726]">Your match score</p>
+                          <p className="mt-2">{requestItem.relevanceScore}</p>
                         </div>
                       </div>
                     </div>
 
-                    <label className="mt-4 block">
-                      <span className="mb-2 block text-sm font-medium text-[#355541]">Bid notes</span>
-                      <textarea
-                        rows={3}
-                        value={draft.notes}
-                        onChange={(event) =>
-                          setBidDrafts((prev) => ({
-                            ...prev,
-                            [requestItem.id]: {
-                              ...draft,
-                              notes: event.target.value,
-                            },
-                          }))
-                        }
-                        className="w-full rounded-2xl border border-[#cfe0c6] bg-white px-4 py-3 text-sm outline-none"
-                        placeholder="Mention warranty, likely turnaround, or key conditions."
-                      />
-                    </label>
-
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-sm text-[#5b7262]">
-                        {requestItem.myBid
-                          ? `Last updated ${formatDate(requestItem.myBid.updatedAt)}`
-                          : "You can revise your bid anytime while the request stays in bidding."}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-3">
-                        {requestItem.isExplicitlyRequested && !requestItem.myBid && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeclineExplicitRequest(requestItem.id)}
-                            disabled={isSubmitting || pendingKey === `decline-explicit:${requestItem.id}`}
-                            className="rounded-full border border-red-200 bg-white px-6 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {pendingKey === `decline-explicit:${requestItem.id}` ? "Declining..." : "Decline request"}
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleBidClick(requestItem.id)}
-                          disabled={isSubmitting}
-                          className="rounded-full bg-[#214c34] px-6 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {isSubmitting
-                            ? "Saving..."
-                            : requestItem.myBid
-                              ? "Update offer"
-                              : "Make offer"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
-
-            {(!biddingData?.data || !biddingData.data.length) ? (
-              <div className="rounded-[1.5rem] bg-white p-5 text-sm text-[#355541] shadow-sm md:rounded-[2rem] md:p-8">
-                No repair requests currently match your filters.
-              </div>
-            ) : null}
-
-            {biddingData && biddingData.totalPages > 1 && (
-              <div className="mt-6 flex items-center justify-center gap-3">
-                <button
-                  type="button"
-                  disabled={biddingPage === 1 || loadingBidding}
-                  onClick={() => setBiddingPage(biddingPage - 1)}
-                  className="rounded-full border border-[#cfe0c6] bg-white px-4 py-2 text-sm font-semibold text-[#214c34] disabled:opacity-50"
-                >
-                  Previous
-                </button>
-                <span className="text-sm font-medium text-[#355541]">
-                  Page {biddingPage} of {biddingData.totalPages}
-                </span>
-                <button
-                  type="button"
-                  disabled={biddingPage === biddingData.totalPages || loadingBidding}
-                  onClick={() => setBiddingPage(biddingPage + 1)}
-                  className="rounded-full border border-[#cfe0c6] bg-white px-4 py-2 text-sm font-semibold text-[#214c34] disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </div>
-            )}
-          </div>
-        </section>
-        )}
-
-        {activeTab === 'assigned_jobs' && (
-        <section className="mt-8">
-          <div className="mb-4">
-            <h2 className="text-xl font-bold text-[#173726] md:text-2xl">Assigned jobs and final quote</h2>
-          </div>
-
-          <div className="space-y-5">
-            {dashboard.assignedJobs.map((job) => {
-              const statusDraft = jobStatusDrafts[job.id] || job.status;
-              const quoteDraft = finalQuoteDrafts[job.id] || buildFinalQuoteDraft(dashboard, job);
-              const quoteTotal = quoteDraft.items.reduce((sum, item) => {
-                const amount = Number(item.amount);
-                return sum + (Number.isFinite(amount) ? amount : 0);
-              }, 0);
-              const isStatusSaving = pendingKey === `job:${job.id}`;
-              const isQuoteSaving = pendingKey === `quote:${job.id}`;
-              const waitingForApproval = job.status === "WAITING_APPROVAL";
-
-              return (
-                <article key={job.id} className="rounded-[1.5rem] bg-white p-4 shadow-sm md:rounded-[2rem] md:p-6">
-                  <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                    <div className="max-w-3xl">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <h3 className="text-base font-bold text-[#173726] md:text-2xl">{job.repairRequest.title}</h3>
-                        <span className="rounded-full bg-[#dff0dc] px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-[#214c34]">
-                          {formatStatus(job.status)}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-[#355541]">
-                        {job.repairRequest.deviceType}
-                        {job.repairRequest.brand ? ` • ${job.repairRequest.brand}` : ""}
-                        {job.repairRequest.model ? ` • ${job.repairRequest.model}` : ""}
-                        {job.repairRequest.issueCategory ? ` • ${job.repairRequest.issueCategory}` : ""}
-                      </p>
-                      <p className="mt-3 text-sm text-[#5b7262]">{job.repairRequest.problem}</p>
-                      
-                      <AiSummary 
-                        orderId={job.repairRequest.id}
-                        deviceType={job.repairRequest.deviceType}
-                        brand={job.repairRequest.brand}
-                        model={job.repairRequest.model}
-                        issueCategory={job.repairRequest.issueCategory}
-                        problem={job.repairRequest.problem}
-                        initialSummary={job.repairRequest.aiSummary}
-                      />
-                    </div>
-
-                    <div className="grid gap-3 rounded-3xl bg-[#f6faf4] p-5 text-sm text-[#355541] xl:min-w-[280px]">
-                      <div>
-                        <p className="font-semibold text-[#173726]">Accepted bid</p>
-                        <p className="mt-2">Parts: {formatMoney(job.acceptedBid?.partsCost)}</p>
-                        <p>Labor: {formatMoney(job.acceptedBid?.laborCost)}</p>
-                        <p>Total: {formatMoney(job.acceptedBid?.totalCost)}</p>
-                        <p>
-                          ETA: {typeof job.acceptedBid?.estimatedDays === "number" ? `${job.acceptedBid.estimatedDays} day(s)` : "—"}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="font-semibold text-[#173726]">Current final quote</p>
-                        <p className="mt-2">{formatMoney(job.finalQuotedAmount)}</p>
-                        <p>
-                          Customer approval: {job.customerApproved === null ? "Pending" : job.customerApproved ? "Approved" : "Declined"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-                    <section className="rounded-3xl bg-[#f6faf4] p-5">
+                    <div className="mt-6 rounded-3xl bg-[#f6faf4] p-5">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#58725f]">Job progress</p>
-                          <h4 className="mt-1 text-xl font-bold text-[#173726]">Manage assigned job</h4>
+                          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#58725f]">Bid workspace</p>
+                          <h4 className="mt-1 text-xl font-bold text-[#173726]">
+                            {requestItem.myBid ? "Update your offer" : "Make your offer"}
+                          </h4>
                         </div>
-                        {waitingForApproval ? (
+                        {requestItem.myBid ? (
                           <span className="rounded-full bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.15em] text-[#214c34]">
-                            Waiting for customer decision
+                            Current bid {formatStatus(requestItem.myBid.status)}
                           </span>
                         ) : null}
                       </div>
 
-                      <div className="mt-4 space-y-3 text-sm text-[#355541]">
-                        <p>Request status: {formatStatus(job.repairRequest.status)}</p>
-                        <p>Created: {formatDate(job.createdAt)}</p>
-                        <p>Updated: {formatDate(job.updatedAt)}</p>
-                      </div>
-
-                      <div className="mt-5 flex flex-col gap-3 md:flex-row">
-                        <select
-                          value={statusDraft}
-                          onChange={(event) =>
-                            setJobStatusDrafts((prev) => ({
-                              ...prev,
-                              [job.id]: event.target.value,
-                            }))
-                          }
-                          className="w-full rounded-2xl border border-[#cfe0c6] bg-white px-4 py-3 text-sm outline-none"
-                        >
-                          {VENDOR_JOB_STATUSES.map((statusOption) => (
-                            <option
-                              key={statusOption}
-                              value={statusOption}
-                              disabled={
-                                statusOption === "REPAIRING" &&
-                                job.finalQuotedAmount != null &&
-                                job.customerApproved !== true
-                              }
-                            >
-                              {formatStatus(statusOption)}
-                            </option>
-                          ))}
-                        </select>
-
-                        <button
-                          type="button"
-                          onClick={() => void handleJobStatusSubmit(job.id)}
-                          disabled={isStatusSaving}
-                          className="rounded-full bg-[#214c34] px-6 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {isStatusSaving ? "Saving..." : "Update job status"}
-                        </button>
-                      </div>
-                    </section>
-
-                    <section className="rounded-3xl bg-[#f6faf4] p-5">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="mt-4 space-y-3">
+                        {/* Parts list */}
                         <div>
-                          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#58725f]">Final diagnosis</p>
-                          <h4 className="mt-1 text-xl font-bold text-[#173726]">Send itemized final quote</h4>
+                          <div className="mb-2 flex items-center justify-between">
+                            <span className="text-sm font-medium text-[#355541]">Parts / Components</span>
+                            <span className="text-sm font-semibold text-[#214c34]">
+                              Subtotal: {formatMoney(partsTotal)}
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            {draft.parts.map((part, partIndex) => (
+                              <div key={partIndex} className="flex flex-wrap items-center gap-2">
+                                {/* + button to insert row below */}
+                                <button
+                                  type="button"
+                                  title="Add part below"
+                                  onClick={() => {
+                                    const newParts = [...draft.parts];
+                                    newParts.splice(partIndex + 1, 0, { name: "", cost: "" });
+                                    setBidDrafts((prev) => ({
+                                      ...prev,
+                                      [requestItem.id]: { ...draft, parts: newParts },
+                                    }));
+                                  }}
+                                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#214c34] text-white text-lg leading-none hover:bg-[#173726] transition-colors"
+                                >
+                                  +
+                                </button>
+
+                                {/* Part name */}
+                                <input
+                                  type="text"
+                                  value={part.name}
+                                  onChange={(e) => {
+                                    const newParts = [...draft.parts];
+                                    newParts[partIndex] = { ...part, name: e.target.value };
+                                    setBidDrafts((prev) => ({
+                                      ...prev,
+                                      [requestItem.id]: { ...draft, parts: newParts },
+                                    }));
+                                  }}
+                                  className="flex-1 rounded-2xl border border-[#cfe0c6] bg-white px-4 py-2.5 text-sm outline-none"
+                                  placeholder={`Part ${partIndex + 1} name`}
+                                />
+
+                                {/* Part cost */}
+                                <div className="relative w-32">
+                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#5b7262]">৳</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={part.cost}
+                                    onChange={(e) => {
+                                      const newParts = [...draft.parts];
+                                      newParts[partIndex] = { ...part, cost: e.target.value };
+                                      setBidDrafts((prev) => ({
+                                        ...prev,
+                                        [requestItem.id]: { ...draft, parts: newParts },
+                                      }));
+                                    }}
+                                    className="w-full rounded-2xl border border-[#cfe0c6] bg-white py-2.5 pl-7 pr-3 text-sm outline-none"
+                                    placeholder="Cost"
+                                  />
+                                </div>
+
+                                {/* × remove button (only if more than 1 row) */}
+                                {draft.parts.length > 1 ? (
+                                  <button
+                                    type="button"
+                                    title="Remove part"
+                                    onClick={() => {
+                                      const newParts = draft.parts.filter((_, i) => i !== partIndex);
+                                      setBidDrafts((prev) => ({
+                                        ...prev,
+                                        [requestItem.id]: { ...draft, parts: newParts },
+                                      }));
+                                    }}
+                                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#5b7262] hover:bg-red-50 hover:text-red-500 transition-colors"
+                                  >
+                                    ×
+                                  </button>
+                                ) : (
+                                  <div className="w-7 shrink-0" />
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        <div className="rounded-2xl border border-dashed border-[#cfe0c6] bg-white px-4 py-3 text-sm text-[#355541]">
-                          <p className="font-semibold text-[#173726]">Quote total</p>
-                          <p className="mt-1 text-2xl font-bold text-[#214c34]">{formatMoney(quoteTotal)}</p>
+
+                        {/* Labor + Estimated days + Total row */}
+                        <div className="grid gap-3 md:gap-4 lg:grid-cols-3">
+                          <label className="block">
+                            <span className="mb-2 block text-sm font-medium text-[#355541]">Labor cost</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={draft.laborCost}
+                              onChange={(event) =>
+                                setBidDrafts((prev) => ({
+                                  ...prev,
+                                  [requestItem.id]: {
+                                    ...draft,
+                                    laborCost: event.target.value,
+                                  },
+                                }))
+                              }
+                              className="w-full rounded-2xl border border-[#cfe0c6] bg-white px-4 py-3 text-sm outline-none"
+                              placeholder="0"
+                            />
+                          </label>
+
+                          <label className="block">
+                            <span className="mb-2 block text-sm font-medium text-[#355541]">Estimated days</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={draft.estimatedDays}
+                              onChange={(event) =>
+                                setBidDrafts((prev) => ({
+                                  ...prev,
+                                  [requestItem.id]: {
+                                    ...draft,
+                                    estimatedDays: event.target.value,
+                                  },
+                                }))
+                              }
+                              className="w-full rounded-2xl border border-[#cfe0c6] bg-white px-4 py-3 text-sm outline-none"
+                              placeholder="Optional"
+                            />
+                          </label>
+
+                          <div className="rounded-2xl border border-dashed border-[#cfe0c6] bg-white px-4 py-3 text-sm text-[#355541]">
+                            <p className="font-semibold text-[#173726]">Your offer</p>
+                            <p className="mt-2 text-2xl font-bold text-[#214c34]">{formatMoney(totalPreview)}</p>
+                          </div>
                         </div>
                       </div>
 
                       <label className="mt-4 block">
-                        <span className="mb-2 block text-sm font-medium text-[#355541]">Diagnosis notes</span>
+                        <span className="mb-2 block text-sm font-medium text-[#355541]">Bid notes</span>
                         <textarea
-                          rows={4}
-                          value={quoteDraft.diagnosisNotes}
+                          rows={3}
+                          value={draft.notes}
                           onChange={(event) =>
-                            setFinalQuoteDrafts((prev) => ({
+                            setBidDrafts((prev) => ({
                               ...prev,
-                              [job.id]: {
-                                ...quoteDraft,
-                                diagnosisNotes: event.target.value,
+                              [requestItem.id]: {
+                                ...draft,
+                                notes: event.target.value,
                               },
                             }))
                           }
                           className="w-full rounded-2xl border border-[#cfe0c6] bg-white px-4 py-3 text-sm outline-none"
-                          placeholder="Write your inspection findings, root cause, and recommended work."
+                          placeholder="Mention warranty, likely turnaround, or key conditions."
                         />
                       </label>
 
-                      <div className="mt-4 space-y-3">
-                        {quoteDraft.items.map((item, index) => (
-                          <div key={`${job.id}-${index}`} className="rounded-2xl border border-[#d9e5d5] bg-white p-4">
-                            <div className="grid gap-3 md:grid-cols-[1fr_1.3fr_0.7fr_auto] md:items-start">
-                              <input
-                                value={item.label}
-                                onChange={(event) =>
-                                  setFinalQuoteDrafts((prev) => ({
-                                    ...prev,
-                                    [job.id]: {
-                                      ...quoteDraft,
-                                      items: quoteDraft.items.map((row, rowIndex) =>
-                                        rowIndex === index
-                                          ? { ...row, label: event.target.value }
-                                          : row
-                                      ),
-                                    },
-                                  }))
-                                }
-                                className="rounded-2xl border border-[#cfe0c6] px-4 py-3 text-sm outline-none"
-                                placeholder="Item label"
-                              />
-                              <input
-                                value={item.description}
-                                onChange={(event) =>
-                                  setFinalQuoteDrafts((prev) => ({
-                                    ...prev,
-                                    [job.id]: {
-                                      ...quoteDraft,
-                                      items: quoteDraft.items.map((row, rowIndex) =>
-                                        rowIndex === index
-                                          ? { ...row, description: event.target.value }
-                                          : row
-                                      ),
-                                    },
-                                  }))
-                                }
-                                className="rounded-2xl border border-[#cfe0c6] px-4 py-3 text-sm outline-none"
-                                placeholder="Description"
-                              />
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={item.amount}
-                                onChange={(event) =>
-                                  setFinalQuoteDrafts((prev) => ({
-                                    ...prev,
-                                    [job.id]: {
-                                      ...quoteDraft,
-                                      items: quoteDraft.items.map((row, rowIndex) =>
-                                        rowIndex === index
-                                          ? { ...row, amount: event.target.value }
-                                          : row
-                                      ),
-                                    },
-                                  }))
-                                }
-                                className="rounded-2xl border border-[#cfe0c6] px-4 py-3 text-sm outline-none"
-                                placeholder="Amount"
-                              />
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setFinalQuoteDrafts((prev) => ({
-                                    ...prev,
-                                    [job.id]: {
-                                      ...quoteDraft,
-                                      items:
-                                        quoteDraft.items.length > 1
-                                          ? quoteDraft.items.filter((_, rowIndex) => rowIndex !== index)
-                                          : [{ label: "", description: "", amount: "" }],
-                                    },
-                                  }))
-                                }
-                                className="rounded-full border border-[#214c34] px-4 py-3 text-sm font-semibold text-[#214c34]"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
                       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setFinalQuoteDrafts((prev) => ({
-                              ...prev,
-                              [job.id]: {
-                                ...quoteDraft,
-                                items: [
-                                  ...quoteDraft.items,
-                                  { label: "", description: "", amount: "" },
-                                ],
-                              },
-                            }))
-                          }
-                          className="rounded-full border border-[#214c34] bg-white px-5 py-3 text-sm font-semibold text-[#214c34]"
-                        >
-                          Add line item
-                        </button>
-
-                        {canShowFinalQuoteForm(job) ? (
+                        <p className="text-sm text-[#5b7262]">
+                          {requestItem.myBid
+                            ? `Last updated ${formatDate(requestItem.myBid.updatedAt)}`
+                            : "You can revise your bid anytime while the request stays in bidding."}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-3">
+                          {requestItem.isExplicitlyRequested && !requestItem.myBid && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeclineExplicitRequest(requestItem.id)}
+                              disabled={isSubmitting || pendingKey === `decline-explicit:${requestItem.id}`}
+                              className="rounded-full border border-red-200 bg-white px-6 py-3 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {pendingKey === `decline-explicit:${requestItem.id}` ? "Declining..." : "Decline request"}
+                            </button>
+                          )}
                           <button
                             type="button"
-                            onClick={() => void handleFinalQuoteSubmit(job.id)}
-                            disabled={isQuoteSaving}
+                            onClick={() => handleBidClick(requestItem.id)}
+                            disabled={isSubmitting}
                             className="rounded-full bg-[#214c34] px-6 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            {isQuoteSaving ? "Sending..." : waitingForApproval ? "Update final quote" : "Submit final quote"}
+                            {isSubmitting
+                              ? "Saving..."
+                              : requestItem.myBid
+                                ? "Update offer"
+                                : "Make offer"}
                           </button>
-                        ) : null}
+                        </div>
                       </div>
-                    </section>
-                  </div>
-                </article>
-              );
-            })}
+                    </div>
+                  </article>
+                );
+              })}
 
-            {!dashboard.assignedJobs.length ? (
-              <div className="rounded-[1.5rem] bg-white p-5 text-sm text-[#355541] shadow-sm md:rounded-[2rem] md:p-8">
-                No assigned jobs yet. Once a customer accepts one of your bids, the job will appear here for inspection, diagnosis, and final quote handling.
-              </div>
-            ) : null}
-          </div>
-        </section>
+              {(!biddingData?.data || !biddingData.data.length) ? (
+                <div className="rounded-[1.5rem] bg-white p-5 text-sm text-[#355541] shadow-sm md:rounded-[2rem] md:p-8">
+                  No repair requests currently match your filters.
+                </div>
+              ) : null}
+
+              {biddingData && biddingData.totalPages > 1 && (
+                <div className="mt-6 flex items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    disabled={biddingPage === 1 || loadingBidding}
+                    onClick={() => setBiddingPage(biddingPage - 1)}
+                    className="rounded-full border border-[#cfe0c6] bg-white px-4 py-2 text-sm font-semibold text-[#214c34] disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-sm font-medium text-[#355541]">
+                    Page {biddingPage} of {biddingData.totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={biddingPage === biddingData.totalPages || loadingBidding}
+                    onClick={() => setBiddingPage(biddingPage + 1)}
+                    className="rounded-full border border-[#cfe0c6] bg-white px-4 py-2 text-sm font-semibold text-[#214c34] disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'assigned_jobs' && (
+          <section className="mt-8">
+            <div className="mb-4">
+              <h2 className="text-xl font-bold text-[#173726] md:text-2xl">Assigned jobs and final quote</h2>
+            </div>
+
+            <div className="space-y-5">
+              {dashboard.assignedJobs.map((job) => {
+                const statusDraft = jobStatusDrafts[job.id] || job.status;
+                const quoteDraft = finalQuoteDrafts[job.id] || buildFinalQuoteDraft(dashboard, job);
+                const quoteTotal = quoteDraft.items.reduce((sum, item) => {
+                  const amount = Number(item.amount);
+                  return sum + (Number.isFinite(amount) ? amount : 0);
+                }, 0);
+                const isStatusSaving = pendingKey === `job:${job.id}`;
+                const isQuoteSaving = pendingKey === `quote:${job.id}`;
+                const waitingForApproval = job.status === "WAITING_APPROVAL";
+
+                return (
+                  <article key={job.id} className="rounded-[1.5rem] bg-white p-4 shadow-sm md:rounded-[2rem] md:p-6">
+                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                      <div className="max-w-3xl">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <h3 className="text-base font-bold text-[#173726] md:text-2xl">{job.repairRequest.title}</h3>
+                          <span className="rounded-full bg-[#dff0dc] px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-[#214c34]">
+                            {formatStatus(job.status)}
+                          </span>
+                        </div>
+                        <p className="mt-2 text-[#355541]">
+                          {job.repairRequest.deviceType}
+                          {job.repairRequest.brand ? ` • ${job.repairRequest.brand}` : ""}
+                          {job.repairRequest.model ? ` • ${job.repairRequest.model}` : ""}
+                          {job.repairRequest.issueCategory ? ` • ${job.repairRequest.issueCategory}` : ""}
+                        </p>
+                        <p className="mt-3 text-sm text-[#5b7262]">{job.repairRequest.problem}</p>
+
+                        <AiSummary
+                          orderId={job.repairRequest.id}
+                          deviceType={job.repairRequest.deviceType}
+                          brand={job.repairRequest.brand}
+                          model={job.repairRequest.model}
+                          issueCategory={job.repairRequest.issueCategory}
+                          problem={job.repairRequest.problem}
+                          initialSummary={job.repairRequest.aiSummary}
+                        />
+                      </div>
+
+                      <div className="grid gap-3 rounded-3xl bg-[#f6faf4] p-5 text-sm text-[#355541] xl:min-w-[280px]">
+                        <div>
+                          <p className="font-semibold text-[#173726]">Accepted bid</p>
+                          <p className="mt-2">Parts: {formatMoney(job.acceptedBid?.partsCost)}</p>
+                          <p>Labor: {formatMoney(job.acceptedBid?.laborCost)}</p>
+                          <p>Total: {formatMoney(job.acceptedBid?.totalCost)}</p>
+                          <p>
+                            ETA: {typeof job.acceptedBid?.estimatedDays === "number" ? `${job.acceptedBid.estimatedDays} day(s)` : "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-[#173726]">Current final quote</p>
+                          <p className="mt-2">{formatMoney(job.finalQuotedAmount)}</p>
+                          <p>
+                            Customer approval: {job.customerApproved === null ? "Pending" : job.customerApproved ? "Approved" : "Declined"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+                      <section className="rounded-3xl bg-[#f6faf4] p-5">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#58725f]">Job progress</p>
+                            <h4 className="mt-1 text-xl font-bold text-[#173726]">Manage assigned job</h4>
+                          </div>
+                          {waitingForApproval ? (
+                            <span className="rounded-full bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.15em] text-[#214c34]">
+                              Waiting for customer decision
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="mt-4 space-y-3 text-sm text-[#355541]">
+                          <p>Request status: {formatStatus(job.repairRequest.status)}</p>
+                          <p>Created: {formatDate(job.createdAt)}</p>
+                          <p>Updated: {formatDate(job.updatedAt)}</p>
+                        </div>
+
+                        <div className="mt-5 flex flex-col gap-3 md:flex-row">
+                          <select
+                            value={statusDraft}
+                            onChange={(event) =>
+                              setJobStatusDrafts((prev) => ({
+                                ...prev,
+                                [job.id]: event.target.value,
+                              }))
+                            }
+                            className="w-full rounded-2xl border border-[#cfe0c6] bg-white px-4 py-3 text-sm outline-none"
+                          >
+                            {VENDOR_JOB_STATUSES.map((statusOption) => (
+                              <option
+                                key={statusOption}
+                                value={statusOption}
+                                disabled={
+                                  statusOption === "REPAIRING" &&
+                                  job.finalQuotedAmount != null &&
+                                  job.customerApproved !== true
+                                }
+                              >
+                                {formatStatus(statusOption)}
+                              </option>
+                            ))}
+                          </select>
+
+                          <button
+                            type="button"
+                            onClick={() => void handleJobStatusSubmit(job.id)}
+                            disabled={isStatusSaving}
+                            className="rounded-full bg-[#214c34] px-6 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {isStatusSaving ? "Saving..." : "Update job status"}
+                          </button>
+                        </div>
+                      </section>
+
+                      <section className="rounded-3xl bg-[#f6faf4] p-5">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-[#58725f]">Final diagnosis</p>
+                            <h4 className="mt-1 text-xl font-bold text-[#173726]">Send itemized final quote</h4>
+                          </div>
+                          <div className="rounded-2xl border border-dashed border-[#cfe0c6] bg-white px-4 py-3 text-sm text-[#355541]">
+                            <p className="font-semibold text-[#173726]">Quote total</p>
+                            <p className="mt-1 text-2xl font-bold text-[#214c34]">{formatMoney(quoteTotal)}</p>
+                          </div>
+                        </div>
+
+                        <label className="mt-4 block">
+                          <span className="mb-2 block text-sm font-medium text-[#355541]">Diagnosis notes</span>
+                          <textarea
+                            rows={4}
+                            value={quoteDraft.diagnosisNotes}
+                            onChange={(event) =>
+                              setFinalQuoteDrafts((prev) => ({
+                                ...prev,
+                                [job.id]: {
+                                  ...quoteDraft,
+                                  diagnosisNotes: event.target.value,
+                                },
+                              }))
+                            }
+                            className="w-full rounded-2xl border border-[#cfe0c6] bg-white px-4 py-3 text-sm outline-none"
+                            placeholder="Write your inspection findings, root cause, and recommended work."
+                          />
+                        </label>
+
+                        <div className="mt-4 space-y-3">
+                          {quoteDraft.items.map((item, index) => (
+                            <div key={`${job.id}-${index}`} className="rounded-2xl border border-[#d9e5d5] bg-white p-4">
+                              <div className="grid gap-3 md:grid-cols-[1fr_1.3fr_0.7fr_auto] md:items-start">
+                                <input
+                                  value={item.label}
+                                  onChange={(event) =>
+                                    setFinalQuoteDrafts((prev) => ({
+                                      ...prev,
+                                      [job.id]: {
+                                        ...quoteDraft,
+                                        items: quoteDraft.items.map((row, rowIndex) =>
+                                          rowIndex === index
+                                            ? { ...row, label: event.target.value }
+                                            : row
+                                        ),
+                                      },
+                                    }))
+                                  }
+                                  className="rounded-2xl border border-[#cfe0c6] px-4 py-3 text-sm outline-none"
+                                  placeholder="Item label"
+                                />
+                                <input
+                                  value={item.description}
+                                  onChange={(event) =>
+                                    setFinalQuoteDrafts((prev) => ({
+                                      ...prev,
+                                      [job.id]: {
+                                        ...quoteDraft,
+                                        items: quoteDraft.items.map((row, rowIndex) =>
+                                          rowIndex === index
+                                            ? { ...row, description: event.target.value }
+                                            : row
+                                        ),
+                                      },
+                                    }))
+                                  }
+                                  className="rounded-2xl border border-[#cfe0c6] px-4 py-3 text-sm outline-none"
+                                  placeholder="Description"
+                                />
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={item.amount}
+                                  onChange={(event) =>
+                                    setFinalQuoteDrafts((prev) => ({
+                                      ...prev,
+                                      [job.id]: {
+                                        ...quoteDraft,
+                                        items: quoteDraft.items.map((row, rowIndex) =>
+                                          rowIndex === index
+                                            ? { ...row, amount: event.target.value }
+                                            : row
+                                        ),
+                                      },
+                                    }))
+                                  }
+                                  className="rounded-2xl border border-[#cfe0c6] px-4 py-3 text-sm outline-none"
+                                  placeholder="Amount"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setFinalQuoteDrafts((prev) => ({
+                                      ...prev,
+                                      [job.id]: {
+                                        ...quoteDraft,
+                                        items:
+                                          quoteDraft.items.length > 1
+                                            ? quoteDraft.items.filter((_, rowIndex) => rowIndex !== index)
+                                            : [{ label: "", description: "", amount: "" }],
+                                      },
+                                    }))
+                                  }
+                                  className="rounded-full border border-[#214c34] px-4 py-3 text-sm font-semibold text-[#214c34]"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setFinalQuoteDrafts((prev) => ({
+                                ...prev,
+                                [job.id]: {
+                                  ...quoteDraft,
+                                  items: [
+                                    ...quoteDraft.items,
+                                    { label: "", description: "", amount: "" },
+                                  ],
+                                },
+                              }))
+                            }
+                            className="rounded-full border border-[#214c34] bg-white px-5 py-3 text-sm font-semibold text-[#214c34]"
+                          >
+                            Add line item
+                          </button>
+
+                          {canShowFinalQuoteForm(job) ? (
+                            <button
+                              type="button"
+                              onClick={() => void handleFinalQuoteSubmit(job.id)}
+                              disabled={isQuoteSaving}
+                              className="rounded-full bg-[#214c34] px-6 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {isQuoteSaving ? "Sending..." : waitingForApproval ? "Update final quote" : "Submit final quote"}
+                            </button>
+                          ) : null}
+                        </div>
+                      </section>
+                    </div>
+                  </article>
+                );
+              })}
+
+              {!dashboard.assignedJobs.length ? (
+                <div className="rounded-[1.5rem] bg-white p-5 text-sm text-[#355541] shadow-sm md:rounded-[2rem] md:p-8">
+                  No assigned jobs yet. Once a customer accepts one of your bids, the job will appear here for inspection, diagnosis, and final quote handling.
+                </div>
+              ) : null}
+            </div>
+          </section>
         )}
       </div>
       {/* ── Bid Confirmation Modal ─────────────────────────────── */}
@@ -1574,13 +1572,12 @@ export default function VendorDashboardPage() {
             <h3 className="text-lg font-bold text-[#173726]">Confirm your offer</h3>
 
             <div
-              className={`mt-4 rounded-2xl p-4 text-sm leading-relaxed ${
-                bidConfirm.variant === "warning"
+              className={`mt-4 rounded-2xl p-4 text-sm leading-relaxed ${bidConfirm.variant === "warning"
                   ? "border border-amber-200 bg-amber-50 text-amber-800"
                   : bidConfirm.variant === "success"
                     ? "border border-green-200 bg-green-50 text-green-800"
                     : "border border-blue-200 bg-blue-50 text-blue-800"
-              }`}
+                }`}
             >
               {bidConfirm.message}
             </div>
