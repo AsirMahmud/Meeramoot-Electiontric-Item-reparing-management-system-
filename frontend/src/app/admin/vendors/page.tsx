@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getAuthHeaders } from "@/lib/api";
+import { getAuthHeaders, requestAdminPasskey } from "@/lib/api";
 import AdminTableControls from "@/components/admin/AdminTableControls";
 import { useAdminTableState } from "@/hooks/useAdminTableState";
 import { useAdminToken } from "@/hooks/useAdminToken";
@@ -233,7 +233,21 @@ export default function AdminVendorsPage() {
       return;
     }
 
-    const passkey = window.prompt("SECURITY CHECK:\nPlease enter your 1-hour Admin Passkey (sent to your email) to confirm this deletion:");
+    if (!token) return;
+
+    // Send the passkey ONLY to the currently signed-in admin's email
+    try {
+      const passkeyRes = await requestAdminPasskey(token);
+      if (!passkeyRes.success) {
+        alert("Could not send passkey: " + passkeyRes.message);
+        return;
+      }
+    } catch {
+      alert("Failed to request passkey. Please try again.");
+      return;
+    }
+
+    const passkey = window.prompt("SECURITY CHECK:\nA passkey has been sent to your admin email. Enter it below to confirm this deletion:");
     if (!passkey) {
       alert("Deletion cancelled. Passkey is required.");
       return;
@@ -241,7 +255,6 @@ export default function AdminVendorsPage() {
 
     try {
       setActionId(id);
-      if (!token) return;
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/vendors/${id}`, {
         method: "DELETE",
         credentials: "include",

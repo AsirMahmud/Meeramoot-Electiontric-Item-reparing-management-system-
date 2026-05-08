@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { getAuthHeaders } from "@/lib/api";
+import { getAuthHeaders, requestAdminPasskey } from "@/lib/api";
 import { useAdminToken } from "@/hooks/useAdminToken";
 
 type VendorApplication = {
@@ -133,7 +133,21 @@ export default function AdminVendorDetailPage() {
       return;
     }
 
-    const passkey = window.prompt("SECURITY CHECK:\nPlease enter your 1-hour Admin Passkey (sent to your email) to confirm this deletion:");
+    if (!token) return;
+
+    // Send passkey ONLY to this admin's email on-demand
+    try {
+      const passkeyRes = await requestAdminPasskey(token);
+      if (!passkeyRes.success) {
+        alert("Could not send passkey: " + passkeyRes.message);
+        return;
+      }
+    } catch {
+      alert("Failed to request passkey. Please try again.");
+      return;
+    }
+
+    const passkey = window.prompt("SECURITY CHECK:\nA passkey has been sent to your admin email. Enter it below to confirm this deletion:");
     if (!passkey) {
       alert("Deletion cancelled. Passkey is required.");
       return;

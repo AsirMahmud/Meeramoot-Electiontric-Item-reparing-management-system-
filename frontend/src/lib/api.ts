@@ -50,6 +50,19 @@ export async function authedRequest<T>(path: string, token?: string, init?: Requ
   });
 }
 
+/**
+ * Asks the backend to generate a fresh passkey and email it ONLY to the
+ * currently signed-in admin. Call this right before prompting the admin
+ * to enter the passkey for a destructive action.
+ */
+export async function requestAdminPasskey(token: string): Promise<{ success: boolean; message: string }> {
+  return authedRequest<{ success: boolean; message: string }>(
+    "/admin/request-passkey",
+    token,
+    { method: "POST" }
+  );
+}
+
 /* =========================================================
    TYPES
 ========================================================= */

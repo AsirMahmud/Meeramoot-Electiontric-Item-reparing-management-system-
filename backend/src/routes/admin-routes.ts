@@ -3,10 +3,33 @@ import { Router, Request, Response } from "express";
 import prisma from "../models/prisma.js";
 import { requireAuth } from "../middleware/require-auth.js";
 import { requireAdmin } from "../middleware/require-admin.js";
+import { generateAndSendPasskeyToAdmin } from "../services/admin-passkey-service.js";
 
 const router = Router();
 
 router.use(requireAuth, requireAdmin);
+
+// POST /api/admin/request-passkey
+// Generates a fresh passkey and emails it ONLY to the currently signed-in admin.
+router.post("/request-passkey", async (req: Request, res: Response) => {
+  try {
+    const adminId = (req as any).user?.id;
+    if (!adminId) {
+      return res.status(401).json({ success: false, message: "Not authenticated." });
+    }
+
+    const result = await generateAndSendPasskeyToAdmin(adminId);
+
+    if (!result.ok) {
+      return res.status(500).json({ success: false, message: result.message });
+    }
+
+    return res.json({ success: true, message: result.message });
+  } catch (error) {
+    console.error("POST /admin/request-passkey error:", error);
+    return res.status(500).json({ success: false, message: "Failed to generate passkey." });
+  }
+});
 
 router.get("/dashboard", async (_req: Request, res: Response) => {
   try {

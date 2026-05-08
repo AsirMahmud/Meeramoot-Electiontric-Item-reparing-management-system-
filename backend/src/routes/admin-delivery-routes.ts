@@ -3,7 +3,7 @@ import prisma from "../models/prisma.js";
 import { requireAuth } from "../middleware/require-auth.js";
 import { requireAdmin } from "../middleware/require-admin.js";
 import { AuthedRequest } from "../middleware/auth.js";
-import { currentAdminPasskey } from "../services/admin-passkey-service.js";
+import { validatePasskey } from "../services/admin-passkey-service.js";
 
 const router = Router();
 
@@ -116,8 +116,8 @@ router.post("/delivery/riders/:userId/reject", async (req: AuthedRequest, res: R
 // DELETE /api/admin/delivery/riders/:userId
 router.delete("/delivery/riders/:userId", async (req: AuthedRequest, res: Response) => {
   try {
-    const passkey = req.headers["x-admin-passkey"];
-    if (!passkey || passkey !== currentAdminPasskey) {
+    const passkey = req.headers["x-admin-passkey"] as string | undefined;
+    if (!validatePasskey(passkey)) {
       return res.status(403).json({ success: false, message: "Invalid or expired admin passkey." });
     }
 

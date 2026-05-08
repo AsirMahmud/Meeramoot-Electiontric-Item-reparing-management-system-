@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import prisma from "../models/prisma.js";
-import { currentAdminPasskey } from "../services/admin-passkey-service.js";
+import { validatePasskey } from "../services/admin-passkey-service.js";
 import { validateEmail } from "../utils/validate-email.js";
 import emailValidator from 'deep-email-validator';
 import { env } from "../config/env.js";
@@ -657,8 +657,8 @@ export async function updateMyVendorApplication(req: Request, res: Response) {
 
 export async function deleteVendorApplication(req: Request, res: Response) {
   try {
-    const passkey = req.headers["x-admin-passkey"];
-    if (!passkey || passkey !== currentAdminPasskey) {
+    const passkey = req.headers["x-admin-passkey"] as string | undefined;
+    if (!validatePasskey(passkey)) {
       return res.status(403).json({ message: "Invalid or expired admin passkey." });
     }
 
